@@ -79,6 +79,11 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
+  // Track whether we own a pushed history entry, so close() pops it exactly
+  // once. popstate (Android back / browser back) sets this to false before
+  // calling close — the entry is already gone, no need to history.back again.
+  const ownsHistoryEntryRef = React.useRef(false);
+
   const open = React.useCallback((id: number) => {
     setEntries((prev) => {
       const idx = prev.findIndex((e) => e.id === id);
@@ -86,10 +91,36 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       return prev;
     });
     setIsOpen(true);
+    // Push exactly one history entry for the whole lightbox session — slide
+    // changes inside the lightbox stay invisible to history. The Android
+    // back gesture / browser back will pop this entry and trigger popstate,
+    // which we handle by closing.
+    if (typeof window !== "undefined") {
+      try {
+        window.history.pushState({ lightbox: true }, "");
+        ownsHistoryEntryRef.current = true;
+      } catch {
+        ownsHistoryEntryRef.current = false;
+      }
+    }
   }, []);
 
   const close = React.useCallback(() => {
     setIsOpen(false);
+    // If we still own the pushed entry (close came from X / backdrop / ESC,
+    // not from popstate), pop it so the URL/history stays clean. popstate
+    // resets the flag before invoking close, so we don't double-pop.
+    if (ownsHistoryEntryRef.current && typeof window !== "undefined") {
+      ownsHistoryEntryRef.current = false;
+      const state = window.history.state as { lightbox?: boolean } | null;
+      if (state && state.lightbox) {
+        try {
+          window.history.back();
+        } catch {
+          /* no-op */
+        }
+      }
+    }
     // Return focus to the thumbnail that opened the lightbox.
     // yarl unmounts its overlay on close; restoring on the next tick avoids
     // the focus race with its internal cleanup.
@@ -101,6 +132,22 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const setTrigger = React.useCallback((el: HTMLElement | null) => {
     triggerRef.current = el;
   }, []);
+
+  // popstate listener — active only while the lightbox is open. Fires on
+  // Android back gesture, browser back button, or hardware back. The entry
+  // we pushed has already been popped by the time we run, so we only need
+  // to flip our own state (clear ownership flag, then close).
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (typeof window === "undefined") return;
+    const onPopState = () => {
+      // Browser already moved history; don't call history.back again in close.
+      ownsHistoryEntryRef.current = false;
+      close();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isOpen, close]);
 
   const value = React.useMemo<GalleryContextValue>(
     () => ({
