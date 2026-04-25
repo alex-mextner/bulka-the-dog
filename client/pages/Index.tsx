@@ -20,6 +20,7 @@ import {
   Bone,
   Worm,
   Ban,
+  ChevronDown,
 } from "lucide-react";
 
 // Tiny markdown helper: turns `**bold**` segments inside a translation
@@ -250,6 +251,7 @@ export default function Index() {
                     className="inline-flex items-center gap-2 bg-secondary/60 hover:bg-secondary text-foreground px-6 py-3 rounded-full text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-secondary/40"
                   >
                     {t("cta.learn_more")}
+                    <ChevronDown size={18} aria-hidden="true" />
                   </button>
                 </div>
               </div>
