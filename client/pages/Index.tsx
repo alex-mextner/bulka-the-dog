@@ -1,31 +1,103 @@
+import * as React from "react";
+import { cn } from "@/lib/utils";
 import { Header } from "@/components/Header";
+import { GalleryImage } from "@/components/Gallery";
+import BulkaDay from "@/components/BulkaDay";
+import DonationsPanel from "@/components/DonationsPanel";
+import FAQ from "@/components/FAQ";
+import PhotoStrip from "@/components/PhotoStrip";
 import { useLanguage } from "@/hooks/useLanguage";
-import { Heart, Home, Zap, Heart as HealthIcon, Users } from "lucide-react";
+import {
+  Heart,
+  Home,
+  Users,
+  MapPin,
+  Send,
+  MessageCircle,
+  Phone,
+  Instagram,
+  Crosshair,
+  Bone,
+  Worm,
+  Ban,
+} from "lucide-react";
+
+// Tiny markdown helper: turns `**bold**` segments inside a translation
+// string into <strong>. Keeps the rest of the text as plain nodes so
+// surrounding utility classes still apply unmodified.
+function richText(input: string): React.ReactNode[] {
+  const parts = input.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**")) {
+      return (
+        <strong key={i} className="font-semibold text-foreground">
+          {p.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <React.Fragment key={i}>{p}</React.Fragment>;
+  });
+}
+
+const SHOW_GAME =
+  import.meta.env.VITE_ENABLE_GAME === "1" ||
+  import.meta.env.VITE_ENABLE_GAME === "true";
+
+// Search by the actual destination — Super Vero Zira at Vukov Spomenik —
+// rather than just the metro stop, so the pin lands on the meeting place.
+const MAPS_URL =
+  "https://www.google.com/maps/search/?api=1&query=Super+Vero+Zira+Vukov+Spomenik+Belgrade";
+
+// Vite injects BASE_URL ('/' in dev, '/bulka-the-dog/' on GH Pages).
+// Public-folder assets must be prefixed with it so they resolve under both.
+const asset = (p: string) =>
+  `${import.meta.env.BASE_URL}${p.replace(/^\//, "")}`;
+
+const images = {
+  health1: asset("images/health1.webp"),
+  health2: asset("images/health2.webp"),
+  cardiology: asset("images/cardiology.webp"),
+  dogs_public: asset("images/dogs_public.webp"),
+  lena_dogs: asset("images/lena_dogs.webp"),
+  dog_car: asset("images/dog_car.webp"),
+  dog_home: asset("images/dog_home.webp"),
+  dog_vet: asset("images/dog_vet.webp"),
+  dog_apartment: asset("images/dog_apartment.webp"),
+  dog_vet2: asset("images/dog_vet2.webp"),
+  person_dog: asset("images/person_dog.webp"),
+  // New photos imported via scripts/import-new-photos.py.
+  bulka_face: asset("images/bulka_face.webp"),
+  bulka_friends: asset("images/bulka_friends.webp"),
+  bulka_tv: asset("images/bulka_tv.webp"),
+};
+
+function scrollToId(id: string) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: "smooth" });
+}
+
+// Common image classes — bounded by viewport on desktop so a tall portrait
+// doesn't dominate. The text column drives the natural flow; the image is
+// sized to feel companionable next to the text, not to dwarf it.
+const SECTION_IMG_CLS =
+  "rounded-2xl overflow-hidden shadow-lg w-full max-h-[80vh] md:max-h-[560px]";
+const SECTION_IMG_INNER_CLS =
+  "rounded-2xl object-cover w-full h-full max-h-[80vh] md:max-h-[560px] brightness-105 contrast-[1.03] saturate-[1.05]";
 
 export default function Index() {
   const { t } = useLanguage();
 
-  const images = {
-    health1:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2Febe081f5d802478d89617400572093e4?format=webp&width=800&height=1200",
-    health2:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2Fa244d2443be4415d9888eea1cd496cd7?format=webp&width=800&height=1200",
-    dogs_public:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2F94d2a5cd4a9343468b23dde87cfcd8a8?format=webp&width=800&height=1200",
-    lena_dogs:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2F7077bb27222143f29bc9c2dbd5149d58?format=webp&width=800&height=1200",
-    dog_car:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2Fc2c3eed2b76c40808c2af7de062fdc63?format=webp&width=800&height=1200",
-    dog_home:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2F925731d3575142aeaf9e8435f62050f1?format=webp&width=800&height=1200",
-    dog_vet:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2Fb222c688f26b4823bd38803cb3ced601?format=webp&width=800&height=1200",
-    dog_apartment:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2Fb3df19060f194e8b8ff85ecffe8febe3?format=webp&width=800&height=1200",
-    dog_vet2:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2F4e39f271bcb4455e8f51105960493e24?format=webp&width=800&height=1200",
-    person_dog:
-      "https://cdn.builder.io/api/v1/image/assets%2F349256541d1341939e72d696071cd0ab%2F0478849b4a5440ea8690fcb045a610bf?format=webp&width=800&height=1200",
+  type SectionProps = {
+    id: string;
+    title: string;
+    children: React.ReactNode;
+    image?: { src: string; alt: string; caption?: string };
+    imagePosition?: "left" | "right";
+    /**
+     * On desktop, glue the image so it stays in view while the text column
+     * scrolls past. On mobile this is ignored (the image stacks above text).
+     */
+    stickyImage?: boolean;
   };
 
   const Section = ({
@@ -34,311 +106,732 @@ export default function Index() {
     children,
     image,
     imagePosition = "right",
-  }: {
-    id: string;
-    title: string;
-    children: React.ReactNode;
-    image?: string;
-    imagePosition?: "left" | "right";
-  }) => (
-    <section
-      id={id}
-      className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30"
-    >
-      <div className="max-w-6xl mx-auto">
-        <h2 className="text-4xl md:text-5xl font-bold mb-8 text-foreground">
-          {title}
-        </h2>
+    stickyImage = false,
+  }: SectionProps) => {
+    const stickyCls = stickyImage ? " md:sticky md:top-24 md:self-start" : "";
+    const imgEl = image ? (
+      <GalleryImage
+        src={image.src}
+        alt={image.alt}
+        caption={image.caption}
+        className={SECTION_IMG_CLS + stickyCls}
+        imgClassName={SECTION_IMG_INNER_CLS}
+      />
+    ) : null;
 
-        {image ? (
-          <div
-            className={`grid md:grid-cols-2 gap-8 items-center ${
-              imagePosition === "left" ? "md:auto-rows-min" : ""
-            }`}
+    return (
+      <section
+        id={id}
+        aria-labelledby={`${id}-title`}
+        className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30"
+      >
+        <div className="max-w-6xl mx-auto">
+          <h2
+            id={`${id}-title`}
+            className="text-4xl md:text-5xl font-bold mb-8 text-foreground"
           >
-            {imagePosition === "left" && (
-              <img
-                src={image}
-                alt={title}
-                className="w-full h-auto rounded-2xl shadow-lg object-cover"
-              />
-            )}
+            {title}
+          </h2>
+
+          {image ? (
+            <div className="grid md:grid-cols-2 gap-8 items-start">
+              {imagePosition === "left" && imgEl}
+              <div className="space-y-4">{children}</div>
+              {imagePosition === "right" && imgEl}
+            </div>
+          ) : (
             <div className="space-y-4">{children}</div>
-            {imagePosition === "right" && (
-              <img
-                src={image}
-                alt={title}
-                className="w-full h-auto rounded-2xl shadow-lg object-cover"
-              />
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">{children}</div>
-        )}
-      </div>
-    </section>
-  );
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  const currentYear = new Date().getFullYear();
+
+  // Contact channels rendered as a list of links — used in #contact and
+  // available as quick reach-out actions.
+  // For Telegram/WhatsApp: keep `target` empty so iOS Universal Links hand
+  // the URL to the installed app instead of opening Safari first. Adjust
+  // research notes are in the chat history.
+  const contactLinks = [
+    {
+      href: t("contact_links.telegram_url"),
+      label: t("contact_links.telegram"),
+      kind: "Telegram",
+      Icon: Send,
+      newTab: false,
+    },
+    {
+      href: t("contact_links.whatsapp_url"),
+      label: t("contact_links.whatsapp"),
+      kind: "WhatsApp",
+      Icon: MessageCircle,
+      newTab: false,
+    },
+    {
+      href: t("contact_links.instagram_url"),
+      label: t("contact_links.instagram"),
+      kind: "Instagram",
+      Icon: Instagram,
+      newTab: true,
+    },
+    {
+      href: t("contact_links.phone_url"),
+      label: t("contact_links.phone"),
+      kind: "Phone",
+      Icon: Phone,
+      newTab: false,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
-      {/* Hero Section */}
-      <section
-        id="home"
-        className="scroll-mt-24 py-16 md:py-32 px-4 bg-gradient-to-b from-primary/10 to-background"
-      >
-        <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 text-primary">
-            {t("hero.title")}
-          </h1>
-          <p className="text-xl md:text-2xl text-foreground/90 mb-8 max-w-3xl mx-auto leading-relaxed">
-            {t("hero.intro")}
-          </p>
+      <main id="main">
+        {/* Hero Section */}
+        <section
+          aria-labelledby="hero-title"
+          className="scroll-mt-24 pt-12 pb-16 md:pt-20 md:pb-24 px-4 bg-gradient-to-b from-primary/10 to-background"
+        >
+          <div className="max-w-6xl mx-auto">
+            <h1
+              id="hero-title"
+              className="text-4xl md:text-6xl font-bold mb-6 text-primary text-center text-balance"
+            >
+              {t("hero.title")}
+            </h1>
 
-          <div className="grid md:grid-cols-2 gap-8 items-center mt-12">
-            <div className="space-y-6">
-              <p className="text-lg leading-relaxed text-foreground/80 mr-auto">
-                {t("hero.story")}
-              </p>
-              <p className="text-lg leading-relaxed text-foreground/80 mr-auto">
-                {t("hero.current")}
-              </p>
-              <p className="text-xl font-semibold text-primary italic">
-                {t("hero.question")}
-              </p>
-            </div>
-            <img
-              src={images.dogs_public}
-              alt="Bulka the dog"
-              className="w-full h-auto rounded-2xl shadow-xl object-cover"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Appearance Section */}
-      <Section
-        id="appearance"
-        title={t("appearance.title")}
-        image={images.dog_home}
-        imagePosition="right"
-      >
-        <p className="text-lg leading-relaxed text-foreground/80">
-          {t("appearance.description")}
-        </p>
-        <div className="bg-secondary/50 p-6 rounded-xl mt-6">
-          <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
-            <span>📏</span> {t("appearance.title")}
-          </h3>
-          <ul className="space-y-2 text-foreground/80">
-            <li>• 22 kg</li>
-            <li>• 50 cm at withers</li>
-            <li>• Soft ears like a Corgi</li>
-            <li>• Curly tail like a Husky</li>
-            <li>• Face like an Akita Inu</li>
-          </ul>
-        </div>
-      </Section>
-
-      {/* Habits Section */}
-      <Section
-        id="habits"
-        title={t("habits.title")}
-        image={images.dog_car}
-        imagePosition="left"
-      >
-        <div className="space-y-6">
-          <div>
-            <h3 className="font-bold text-lg mb-2">🚽 {t("habits.title")}</h3>
-            <p className="text-foreground/80">{t("habits.bathroom")}</p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-2">🚶 Walks</h3>
-            <p className="text-foreground/80">{t("habits.walks")}</p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-2">🐕 Behavior</h3>
-            <p className="text-foreground/80">{t("habits.behavior")}</p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-2">🚗 Car Rides</h3>
-            <p className="text-foreground/80">{t("habits.car")}</p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-2">🏠 At Home</h3>
-            <p className="text-foreground/80">{t("habits.home")}</p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-2">🍖 Food</h3>
-            <p className="text-foreground/80">{t("habits.food")}</p>
-          </div>
-
-          <div>
-            <h3 className="font-bold text-lg mb-2">🐱 Living with Cats</h3>
-            <p className="text-foreground/80">{t("habits.cats")}</p>
-          </div>
-        </div>
-      </Section>
-
-      {/* Skills Section */}
-      <Section id="skills" title={t("skills.title")} image={images.dog_vet}>
-        <div className="space-y-6">
-          <p className="text-lg leading-relaxed text-foreground/80">
-            {t("skills.intro")}
-          </p>
-          <p className="text-lg leading-relaxed text-foreground/80 italic">
-            {t("skills.explanation")}
-          </p>
-
-          <div className="bg-accent/20 border border-accent/30 p-6 rounded-xl">
-            <h3 className="font-bold text-lg mb-4">Commands I Know:</h3>
-            <ul className="grid grid-cols-2 gap-3">
-              <li className="flex items-center gap-2">
-                <span className="text-accent">✓</span> Sit
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-accent">✓</span> Lie Down
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-accent">✓</span> Place
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-accent">✓</span> Come
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-accent">✓</span> Give Paw
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-accent">✓</span> Ball
-              </li>
-            </ul>
-          </div>
-        </div>
-      </Section>
-
-      {/* Health Section */}
-      <Section id="health" title={t("health.title")} imagePosition="right">
-        <div className="space-y-6">
-          <p className="text-lg font-semibold text-foreground">{t("health.intro")}</p>
-
-          <div className="space-y-4">
-            <div className="bg-secondary/50 p-6 rounded-xl">
-              <p className="text-foreground/80">{t("health.bullet1")}</p>
-            </div>
-
-            <div className="bg-secondary/50 p-6 rounded-xl">
-              <p className="text-foreground/80">{t("health.bullet2")}</p>
-            </div>
-
-            <div className="bg-secondary/50 p-6 rounded-xl">
-              <p className="text-foreground/80">{t("health.bullet3")}</p>
-            </div>
-
-            <div className="bg-secondary/50 p-6 rounded-xl">
-              <p className="text-foreground/80">{t("health.bullet4")}</p>
-            </div>
-          </div>
-
-          <div className="mt-8 grid md:grid-cols-2 gap-4">
-            <img
-              src={images.health1}
-              alt="Health records"
-              className="w-full h-auto rounded-xl shadow-lg"
-            />
-            <img
-              src={images.health2}
-              alt="Health records"
-              className="w-full h-auto rounded-xl shadow-lg"
-            />
-          </div>
-        </div>
-      </Section>
-
-      {/* Conditions Section */}
-      <Section id="conditions" title={t("conditions.title")} image={images.dog_apartment} imagePosition="left">
-        <div className="space-y-6">
-          <div className="bg-primary/10 border border-primary/30 p-6 rounded-xl">
-            <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
-              <Home size={24} className="text-primary" />
-              {t("conditions.title")}
-            </h3>
-            <p className="text-foreground/80">{t("conditions.adoption")}</p>
-          </div>
-
-          <div className="bg-primary/10 border border-primary/30 p-6 rounded-xl">
-            <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
-              <Users size={24} className="text-primary" />
-              Relationship & Support
-            </h3>
-            <p className="text-foreground/80 mb-4">{t("conditions.communication")}</p>
-            <p className="text-foreground/80">{t("conditions.support")}</p>
-          </div>
-
-          <div className="bg-accent/20 border border-accent/30 p-6 rounded-xl">
-            <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
-              <Heart size={24} className="text-accent" />
-              Package Deal
-            </h3>
-            <p className="text-foreground/80 italic">{t("conditions.perk")}</p>
-          </div>
-        </div>
-      </Section>
-
-      {/* Contact Section */}
-      <section id="contact" className="scroll-mt-24 py-16 md:py-24 px-4">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl md:text-5xl font-bold mb-8 text-foreground">
-            {t("contact.title")}
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <div className="space-y-6">
-              <p className="text-lg leading-relaxed text-foreground/80">
-                {t("contact.location")}
-              </p>
-
-              <div className="bg-gradient-to-br from-accent/20 to-primary/20 p-8 rounded-2xl border border-primary/30">
-                <h3 className="text-2xl font-bold mb-4">📍 Location</h3>
-                <p className="text-foreground/80 mb-2">Vukov Spomenik</p>
-                <p className="text-foreground/80">near Super Vero Zira</p>
-                <p className="text-foreground/80 mt-4 text-sm">Belgrade, Serbia</p>
+            <div className="mt-8 md:mt-12 grid md:grid-cols-[1fr_360px] gap-6 md:gap-12 items-stretch">
+              {/* Image. On mobile: rendered FIRST (right after H1) and capped
+                  to a portrait card via aspect ratio. On desktop: lives in
+                  the right column. The button is absolutely positioned so
+                  the image's natural aspect doesn't drag the grid row taller
+                  than the text column — height is purely text-driven. */}
+              <div className="order-1 md:order-2 mx-auto md:mx-0 w-full max-w-[280px] md:max-w-none aspect-[4/5] md:aspect-auto md:h-full md:relative">
+                <GalleryImage
+                  src={images.dog_vet2}
+                  alt={t("media.hero_alt")}
+                  caption={t("media.hero_caption")}
+                  className="rounded-2xl overflow-hidden shadow-xl h-full md:absolute md:inset-0"
+                  imgClassName="rounded-2xl object-cover h-full w-full brightness-105 contrast-[1.03] saturate-[1.05]"
+                  loading="eager"
+                />
               </div>
 
-              <div className="bg-gradient-to-br from-primary/20 to-secondary/20 p-8 rounded-2xl border border-primary/30">
-                <h3 className="text-2xl font-bold mb-4">🐾 Next Steps</h3>
-                <ul className="space-y-2 text-foreground/80">
-                  <li>✓ Learn about me</li>
-                  <li>✓ Come for a walk with us</li>
-                  <li>✓ Have some tea & chat</li>
-                  <li>✓ Let's become family!</li>
-                </ul>
+              <div className="order-2 md:order-1 space-y-5">
+                <p className="text-lg leading-relaxed text-foreground/80">
+                  {t("hero.intro")}
+                </p>
+                <p className="text-lg leading-relaxed text-foreground/80">
+                  {richText(t("hero.story"))}
+                </p>
+                <p className="text-lg leading-relaxed text-foreground/80">
+                  {richText(t("hero.current"))}
+                </p>
+                <p className="text-xl font-semibold text-primary italic">
+                  {t("hero.question")}
+                </p>
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    id="hero-cta"
+                    type="button"
+                    onClick={() => scrollToId("contact")}
+                    aria-label={t("cta.adopt_aria")}
+                    className="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95 px-6 py-3 rounded-full text-base md:text-lg font-semibold shadow-lg shadow-primary/30 transition-all hover:shadow-xl hover:shadow-primary/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
+                  >
+                    <Heart size={20} aria-hidden="true" />
+                    {t("cta.adopt")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollToId("appearance")}
+                    className="inline-flex items-center gap-2 bg-secondary/60 hover:bg-secondary text-foreground px-6 py-3 rounded-full text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-secondary/40"
+                  >
+                    {t("cta.learn_more")}
+                  </button>
+                </div>
               </div>
             </div>
-
-            <img
-              src={images.person_dog}
-              alt="Meeting spot"
-              className="w-full h-auto rounded-2xl shadow-xl object-cover"
-            />
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* Appearance — pure infographic, no description duplication */}
+        <Section
+          id="appearance"
+          title={t("appearance.title")}
+          image={{
+            src: images.dog_car,
+            alt: t("media.habits_alt"),
+            caption: t("media.habits_caption"),
+          }}
+          imagePosition="right"
+        >
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-5 flex flex-col gap-1 col-span-1">
+              <div className="text-4xl md:text-5xl font-bold text-primary leading-none">
+                {t("ui.appearance.kg_value")}
+                <span className="text-2xl md:text-3xl ml-1">
+                  {t("ui.appearance.kg_unit")}
+                </span>
+              </div>
+              <div className="text-foreground/70 text-sm">
+                {t("ui.appearance.kg_label")}
+              </div>
+            </div>
+            <div className="bg-primary/10 border border-primary/20 rounded-2xl p-5 flex flex-col gap-1 col-span-1">
+              <div className="text-4xl md:text-5xl font-bold text-primary leading-none">
+                {t("ui.appearance.cm_value")}
+                <span className="text-2xl md:text-3xl ml-1">
+                  {t("ui.appearance.cm_unit")}
+                </span>
+              </div>
+              <div className="text-foreground/70 text-sm">
+                {t("ui.appearance.cm_label")}
+              </div>
+            </div>
+            <div className="bg-accent/20 border border-accent/30 rounded-2xl p-5 flex items-center gap-3 col-span-2">
+              <span className="text-4xl" aria-hidden="true">
+                🌸
+              </span>
+              <div>
+                <div className="font-semibold text-foreground text-lg">
+                  {t("ui.appearance.sex_value")}
+                </div>
+                <div className="text-foreground/60 text-xs uppercase tracking-wide">
+                  {t("ui.appearance.sex_label")}
+                </div>
+              </div>
+            </div>
+            <div className="bg-secondary/60 border border-border/40 rounded-2xl p-5 flex items-center gap-3 col-span-2 sm:col-span-1">
+              <span className="text-4xl" aria-hidden="true">
+                🦊
+              </span>
+              <div>
+                <div className="font-semibold text-foreground">
+                  {t("ui.appearance.ears")}
+                </div>
+              </div>
+            </div>
+            <div className="bg-secondary/60 border border-border/40 rounded-2xl p-5 flex items-center gap-3 col-span-2 sm:col-span-1">
+              <span className="text-4xl" aria-hidden="true">
+                🌀
+              </span>
+              <div>
+                <div className="font-semibold text-foreground">
+                  {t("ui.appearance.tail")}
+                </div>
+              </div>
+            </div>
+            <div className="bg-accent/20 border border-accent/30 rounded-2xl p-5 flex items-center gap-3 col-span-2">
+              <span className="text-4xl" aria-hidden="true">
+                🐕
+              </span>
+              <div>
+                <div className="font-semibold text-foreground">
+                  {t("ui.appearance.face")}
+                </div>
+                <div className="text-foreground/60 text-xs italic">
+                  {t("ui.appearance.face_sub")}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        {/* Habits Section — image is sticky on desktop so it stays glued
+            to the viewport while the long list of habits scrolls past. */}
+        <Section
+          id="habits"
+          title={t("habits.title")}
+          image={{
+            src: images.bulka_face,
+            alt: t("media.appearance_alt"),
+            caption: t("media.appearance_caption"),
+          }}
+          imagePosition="left"
+          stickyImage
+        >
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-bold text-lg mb-2">
+                <span aria-hidden="true">🚽</span> {t("ui.habits.bathroom_title")}
+              </h3>
+              <p className="text-foreground/80">{t("habits.bathroom")}</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg mb-2">
+                <span aria-hidden="true">🚶</span> {t("ui.habits.walks_title")}
+              </h3>
+              <p className="text-foreground/80">{t("habits.walks")}</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg mb-2">
+                <span aria-hidden="true">🐕</span> {t("ui.habits.behavior_title")}
+              </h3>
+              <p className="text-foreground/80">{t("habits.behavior")}</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg mb-2">
+                <span aria-hidden="true">🚗</span> {t("ui.habits.car_title")}
+              </h3>
+              <p className="text-foreground/80">{t("habits.car")}</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg mb-2">
+                <span aria-hidden="true">🏠</span> {t("ui.habits.home_title")}
+              </h3>
+              <p className="text-foreground/80">{t("habits.home")}</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg mb-2">
+                <span aria-hidden="true">🍖</span> {t("ui.habits.food_title")}
+              </h3>
+              <p className="text-foreground/80">{t("habits.food")}</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg mb-2">
+                <span aria-hidden="true">🐱</span> {t("ui.habits.cats_title")}
+              </h3>
+              <p className="text-foreground/80">{t("habits.cats")}</p>
+            </div>
+          </div>
+        </Section>
+
+        {/* Skills Section */}
+        <Section
+          id="skills"
+          title={t("skills.title")}
+          image={{
+            src: images.bulka_tv,
+            alt: t("media.skills_alt"),
+            caption: t("media.skills_caption"),
+          }}
+        >
+          <div className="space-y-6">
+            <p className="text-lg leading-relaxed text-foreground/80">
+              {t("skills.intro")}
+            </p>
+
+            <div className="bg-accent/20 border border-accent/30 p-6 rounded-xl">
+              <h3 className="font-bold text-lg mb-4">
+                {t("ui.skills.commands_title")}
+              </h3>
+              <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {[
+                  t("ui.skills.cmd_sit"),
+                  t("ui.skills.cmd_lie"),
+                  t("ui.skills.cmd_place"),
+                  t("ui.skills.cmd_come"),
+                  t("ui.skills.cmd_paw"),
+                  t("ui.skills.cmd_ball"),
+                  t("ui.skills.cmd_no"),
+                ].map((cmd) => (
+                  <li
+                    key={cmd}
+                    className="flex items-center gap-2 bg-background/60 rounded-lg px-3 py-2"
+                  >
+                    <span className="text-accent" aria-hidden="true">
+                      ✓
+                    </span>
+                    <span className="font-medium">{cmd}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <p className="text-foreground/70 italic">
+              {t("skills.explanation")}
+            </p>
+          </div>
+        </Section>
+
+        {/* Health Section — x-rays + the vet-visit photo (moved from Conditions) */}
+        <section
+          id="health"
+          aria-labelledby="health-title"
+          className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30"
+        >
+          <div className="max-w-6xl mx-auto">
+            <h2
+              id="health-title"
+              className="text-4xl md:text-5xl font-bold mb-8 text-foreground"
+            >
+              {t("health.title")}
+            </h2>
+
+            <div className="space-y-6">
+              <p className="text-lg font-semibold text-foreground">
+                {t("health.intro")}
+              </p>
+
+              <ul className="space-y-4">
+                {[
+                  { idx: 1, Icon: Crosshair, key: "health.bullet1" },
+                  { idx: 2, Icon: Bone, key: "health.bullet2" },
+                  { idx: 3, Icon: Worm, key: "health.bullet3" },
+                  { idx: 4, Icon: Ban, key: "health.bullet4" },
+                ].map(({ idx, Icon, key }) => (
+                  <li
+                    key={idx}
+                    className="relative overflow-hidden flex gap-4 p-5 pl-7 rounded-2xl border bg-primary/[0.07] border-primary/30"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 inset-y-0 w-1.5 bg-primary rounded-l-2xl"
+                    />
+                    <div className="shrink-0 w-12 h-12 rounded-xl flex items-center justify-center bg-primary/20 text-primary">
+                      <Icon size={22} aria-hidden="true" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs uppercase tracking-wide font-bold mb-1 text-primary">
+                        {t("ui.health_card.prefix")}
+                        {idx}
+                      </div>
+                      <p className="text-foreground leading-relaxed">
+                        {t(key)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Combined media gallery: vet visit + 2 x-rays + cardiology report.
+                  Mobile: horizontal swipeable carousel with snap points (~85% width each).
+                  Desktop (md+): 4-column grid, slightly smaller per-card to keep them tidy. */}
+              <figure
+                className={cn(
+                  "mt-6",
+                  "flex md:grid md:grid-cols-4 gap-3 md:gap-4 items-stretch",
+                  "overflow-x-auto md:overflow-x-visible snap-x snap-mandatory md:snap-none",
+                  "[-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                  "-mx-4 px-4 md:mx-0 md:px-0",
+                )}
+              >
+                <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
+                  <GalleryImage
+                    src={images.dog_apartment}
+                    alt={t("media.conditions_alt")}
+                    caption={t("media.conditions_caption")}
+                    className="rounded-xl overflow-hidden shadow-lg h-full"
+                    imgClassName="rounded-xl object-cover w-full h-full aspect-[3/4]"
+                  />
+                </div>
+                {/* Bullet circle is BURNED INTO health1.webp via scripts/burn-xray-markers.py
+                    so it shows in messenger previews / search crawls / lightbox without JS. */}
+                <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
+                  <GalleryImage
+                    src={images.health1}
+                    alt={t("media.health1_alt")}
+                    caption={t("media.health1_caption")}
+                    className="rounded-xl overflow-hidden shadow-lg h-full bg-black/5"
+                    imgClassName="rounded-xl object-cover w-full h-full aspect-[3/4]"
+                  />
+                </div>
+                {/* Fracture marker hidden — we don't have a reliable location to point at. */}
+                <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
+                  <GalleryImage
+                    src={images.health2}
+                    alt={t("media.health2_alt")}
+                    caption={t("media.health2_caption")}
+                    className="rounded-xl overflow-hidden shadow-lg h-full bg-black/5"
+                    imgClassName="rounded-xl object-cover w-full h-full aspect-[3/4]"
+                  />
+                </div>
+                <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
+                  <GalleryImage
+                    src={images.cardiology}
+                    alt={t("ui.cardiology.alt")}
+                    caption={t("ui.cardiology.caption")}
+                    className="rounded-xl overflow-hidden shadow-lg bg-white h-full"
+                    imgClassName="rounded-xl object-contain w-full h-full aspect-[3/4] bg-white"
+                  />
+                </div>
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        {/* Conditions Section — uses the bench-with-friends photo (Bulka in social context) */}
+        <Section
+          id="conditions"
+          title={t("conditions.title")}
+          image={{
+            src: images.bulka_friends,
+            alt: t("media.story_alt"),
+            caption: t("media.story_caption"),
+          }}
+          imagePosition="left"
+        >
+          <div className="space-y-6">
+            <div className="bg-primary/10 border border-primary/30 p-6 rounded-xl">
+              <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+                <Home size={24} className="text-primary" aria-hidden="true" />
+                {t("ui.conditions.adoption_title")}
+              </h3>
+              <p className="text-foreground/80">{t("conditions.adoption")}</p>
+            </div>
+
+            <div className="bg-primary/10 border border-primary/30 p-6 rounded-xl">
+              <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+                <Users size={24} className="text-primary" aria-hidden="true" />
+                {t("ui.conditions.support_title")}
+              </h3>
+              <p className="text-foreground/80 mb-4">
+                {t("conditions.communication")}
+              </p>
+              <p className="text-foreground/80">{t("conditions.support")}</p>
+            </div>
+
+            <div className="bg-accent/20 border border-accent/30 p-6 rounded-xl">
+              <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+                <Heart size={24} className="text-accent" aria-hidden="true" />
+                {t("ui.conditions.bonus_title")}
+              </h3>
+              <p className="text-foreground/80 italic">{t("conditions.perk")}</p>
+            </div>
+          </div>
+        </Section>
+
+        {/* FAQ section — preempts common objections + carries the "Лена заберёт обратно" guarantee.
+            The component owns its own h2 + intro to keep tone of voice in one place. */}
+        <section
+          id="faq"
+          aria-labelledby="faq-title"
+          className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30"
+        >
+          <div className="max-w-6xl mx-auto">
+            <FAQ />
+          </div>
+        </section>
+
+        {/* Mini-game — env-gated. VITE_ENABLE_GAME=1 turns it on. */}
+        {SHOW_GAME && (
+          <section
+            aria-labelledby="day-title"
+            className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30 bg-gradient-to-b from-background to-primary/5"
+          >
+            <div className="max-w-6xl mx-auto">
+              <h2
+                id="day-title"
+                className="text-3xl md:text-4xl font-bold mb-3 text-foreground"
+              >
+                {t("ui.game.title")}
+              </h2>
+              <p className="text-foreground/70 mb-8 max-w-2xl">
+                {t("ui.game.subtitle")}
+              </p>
+              <BulkaDay />
+            </div>
+          </section>
+        )}
+
+        {/* Contact Section */}
+        <section
+          id="contact"
+          aria-labelledby="contact-title"
+          className="scroll-mt-24 py-16 md:py-24 px-4"
+        >
+          <div className="max-w-6xl mx-auto">
+            <h2
+              id="contact-title"
+              className="text-4xl md:text-5xl font-bold mb-8 text-foreground"
+            >
+              {t("contact.title")}
+            </h2>
+
+            <div className="grid md:grid-cols-2 gap-8 items-stretch">
+              <div className="space-y-6">
+                <p className="text-lg leading-relaxed text-foreground/80">
+                  {t("contact.location")}
+                </p>
+
+                <a
+                  href={MAPS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${t("ui.contact.location_address1")}, ${t("ui.contact.location_address2")} — ${t("contact_section.open_map")}`}
+                  className="group relative block rounded-2xl overflow-hidden border border-primary/30 shadow-lg hover:shadow-xl transition-shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/40"
+                >
+                  {/* Tinted map background */}
+                  <img
+                    src={asset("images/map.webp")}
+                    alt=""
+                    aria-hidden="true"
+                    loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover saturate-75 contrast-[0.95] group-hover:brightness-95 transition-all"
+                  />
+                  {/* Orange veil — fully opaque on the left so address text is readable,
+                      fading to transparent on the right so the map stays visible. */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 bg-gradient-to-r from-primary via-primary/70 to-transparent"
+                    style={{
+                      // Tighter falloff so the readable zone stays a comfortable column
+                      // on the left and the map breathes on the right.
+                      backgroundImage:
+                        "linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.85) 35%, hsl(var(--primary) / 0.35) 65%, transparent 90%)",
+                    }}
+                  />
+                  <address className="not-italic relative z-10 p-8 min-h-[280px] flex flex-col justify-end max-w-[60%]">
+                    <h3 className="text-2xl font-bold mb-3 flex items-center gap-2 text-primary-foreground">
+                      <MapPin size={24} aria-hidden="true" />
+                      {t("ui.contact.location_title")}
+                    </h3>
+                    <p className="text-primary-foreground font-semibold">
+                      {t("ui.contact.location_address1")}
+                    </p>
+                    <p className="text-primary-foreground/90">
+                      {t("ui.contact.location_address2")}
+                    </p>
+                    <p className="text-primary-foreground/75 mt-2 text-sm">
+                      {t("ui.contact.location_city")}
+                    </p>
+                    <span className="mt-5 inline-flex items-center gap-2 bg-primary-foreground text-primary group-hover:bg-primary-foreground/90 px-5 py-2.5 rounded-full text-sm font-semibold shadow-md self-start">
+                      <MapPin size={16} aria-hidden="true" />
+                      {t("contact_section.open_map")}
+                    </span>
+                  </address>
+                </a>
+
+                <div className="bg-gradient-to-br from-primary/20 to-secondary/20 p-8 rounded-2xl border border-primary/30">
+                  <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                    <span aria-hidden="true">🐾</span>{" "}
+                    {t("ui.contact.contacts_title")}
+                  </h3>
+                  <ul className="space-y-3">
+                    {contactLinks.map(({ href, label, kind, Icon, newTab }) => (
+                      <li key={kind}>
+                        <a
+                          href={href}
+                          rel="noopener"
+                          {...(newTab ? { target: "_blank" } : {})}
+                          className="group flex items-center gap-3 px-4 py-3 rounded-xl bg-background/60 hover:bg-background border border-border/50 hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
+                          <Icon
+                            size={20}
+                            aria-hidden="true"
+                            className="text-primary shrink-0"
+                          />
+                          <div className="flex flex-col leading-tight min-w-0">
+                            <span className="text-xs uppercase tracking-wide text-foreground/50">
+                              {kind}
+                            </span>
+                            <span className="text-foreground font-medium truncate">
+                              {label}
+                            </span>
+                          </div>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Donations panel — env-gated. Renders nothing without VITE_ENABLE_DONATIONS=1 */}
+                <DonationsPanel />
+              </div>
+
+              {/* Photo column: same absolute trick as the hero — image button
+                  is positioned absolutely so its natural aspect doesn't drag
+                  the grid row taller than the left column of cards. */}
+              <div className="md:relative md:h-full">
+                <GalleryImage
+                  src={images.person_dog}
+                  alt={t("media.contact_alt")}
+                  caption={t("media.contact_caption")}
+                  className="rounded-2xl overflow-hidden shadow-xl h-full md:absolute md:inset-0"
+                  imgClassName="rounded-2xl object-cover w-full h-full brightness-105 contrast-[1.03] saturate-[1.05]"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Photo strip — leftover-but-loved photos, lazy-drift gallery. */}
+        <section
+          aria-label={t("ui.strip.aria")}
+          className="py-16 md:py-20 border-t border-border/30 bg-gradient-to-b from-background to-primary/5"
+        >
+          <div className="max-w-6xl mx-auto px-4 mb-6">
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground">
+              {t("ui.strip.title")}
+            </h2>
+            <p className="text-foreground/60 text-sm mt-1">
+              {t("ui.strip.subtitle")}
+            </p>
+          </div>
+          <PhotoStrip
+            images={[
+              {
+                src: images.dog_home,
+                alt: t("media.appearance_alt"),
+                caption: t("media.appearance_caption"),
+              },
+              {
+                src: images.dog_vet,
+                alt: t("media.skills_alt"),
+                caption: t("media.skills_caption"),
+              },
+              {
+                src: images.dogs_public,
+                alt: t("media.story_alt"),
+                caption: t("media.story_caption"),
+              },
+              {
+                src: images.lena_dogs,
+                alt: t("media.contact_alt"),
+                caption: t("media.contact_caption"),
+              },
+            ]}
+          />
+        </section>
+      </main>
 
       {/* Footer */}
-      <footer className="bg-primary/10 border-t border-border py-12 px-4">
-        <div className="max-w-6xl mx-auto text-center">
-          <h3 className="text-2xl font-bold mb-2 text-primary">🐾 Bulka</h3>
-          <p className="text-foreground/70 mb-4">
-            A dog looking for a loving home
+      <footer className="bg-primary/10 border-t border-border py-12 px-4 mt-0">
+        <div className="max-w-6xl mx-auto text-center space-y-2">
+          <p className="text-2xl font-bold text-primary">
+            🐾 {t("brand.name")}
           </p>
+          <p className="text-foreground/70">{t("footer.tagline")}</p>
+          {/* Footer credit — Лена → Instagram, Алекс → mextner.com. Underlines
+              kept very faint so the line reads as prose, not a link bar. */}
           <p className="text-sm text-foreground/50">
-            Made with ❤️ by Lena for Bulka's future
+            © {currentYear} ·{" "}
+            {(() => {
+              const tpl = t("ui.footer_made.template");
+              const linkCls =
+                "underline decoration-foreground/15 underline-offset-2 hover:decoration-primary/60 hover:text-primary transition-colors";
+              const lena = (
+                <a
+                  key="lena"
+                  href={t("contact_links.instagram_url")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkCls}
+                >
+                  {t("ui.footer_made.lena")}
+                </a>
+              );
+              const alex = (
+                <a
+                  key="alex"
+                  href="https://mextner.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkCls}
+                >
+                  {t("ui.footer_made.alex")}
+                </a>
+              );
+              const parts = tpl.split(/(\{LENA\}|\{ALEX\})/);
+              return parts.map((p, i) => {
+                if (p === "{LENA}") return <React.Fragment key={i}>{lena}</React.Fragment>;
+                if (p === "{ALEX}") return <React.Fragment key={i}>{alex}</React.Fragment>;
+                return <React.Fragment key={i}>{p}</React.Fragment>;
+              });
+            })()}
           </p>
         </div>
       </footer>
