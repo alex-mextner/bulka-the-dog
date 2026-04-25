@@ -748,8 +748,9 @@ export default function Index() {
 
         {/* Photo strip — leftover-but-loved photos, lazy-drift gallery. */}
         <section
+          id="gallery"
           aria-label={t("ui.strip.aria")}
-          className="py-16 md:py-20 border-t border-border/30 bg-gradient-to-b from-background to-primary/5"
+          className="scroll-mt-24 py-16 md:py-20 border-t border-border/30 bg-gradient-to-b from-background to-primary/5"
         >
           <div className="max-w-6xl mx-auto px-4 mb-6">
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">

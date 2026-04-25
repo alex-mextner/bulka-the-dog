@@ -456,7 +456,9 @@ export const translations: Translations = {
       skills: "Skills",
       health: "Health",
       conditions: "Conditions",
+      faq: "FAQ",
       contact: "Contact",
+      gallery: "Photos",
     },
     cta: {
       adopt: "Let's meet",
