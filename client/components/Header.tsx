@@ -361,13 +361,14 @@ export function Header() {
 
         {/* Fade-out gradient under the burger when the morphed nav is showing —
             visual hint that the chip row continues under the X and is
-            swipeable. The transparent zone now extends under the X and the
-            actual fade-to-background only kicks in around the X's mid-point,
-            so chips visibly disappear *into* the icon rather than next to it. */}
+            swipeable. Wider band (w-32) with the fade beginning ~30% in and
+            reaching fully opaque background by the X — chips visibly slide
+            UNDER the X icon instead of stopping before it. Base colour
+            matches the header's bg-background/95 so the seam is invisible. */}
         {isMenuOpen && (
           <div
             aria-hidden="true"
-            className="nav:hidden absolute right-0 top-0 bottom-0 w-24 z-[9] pointer-events-none bg-[linear-gradient(to_right,transparent_0%,transparent_50%,hsl(var(--background))_95%)]"
+            className="nav:hidden absolute right-0 top-0 bottom-0 w-32 z-[9] pointer-events-none bg-[linear-gradient(to_right,transparent_0%,transparent_30%,hsl(var(--background)/0.95)_70%,hsl(var(--background)/0.95)_100%)]"
           />
         )}
 
