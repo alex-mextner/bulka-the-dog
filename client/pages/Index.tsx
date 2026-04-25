@@ -109,8 +109,8 @@ export default function Index() {
               </p>
             </div>
             <img
-              src={images.lena_dogs}
-              alt="Bulka with Lena"
+              src={images.dog_apartment}
+              alt="Bulka the dog"
               className="w-full h-auto rounded-2xl shadow-xl object-cover"
             />
           </div>
