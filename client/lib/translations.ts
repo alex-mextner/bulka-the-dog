@@ -123,12 +123,12 @@ export const translations: Translations = {
       hero_caption: "В лифте: ловлю себя в зеркале",
       story_alt: "Я в парке с друзьями",
       story_caption: "В парке с друзьями",
-      appearance_alt: "Я лежу дома, смотрю в окно, рядом кошка на подоконнике",
-      appearance_caption: "Кошки своими делами, я своими",
+      appearance_alt: "Меня гладят по голове, я зажмурилась от удовольствия",
+      appearance_caption: "Когда чешут за ухом — я в дзене",
       habits_alt: "Я лежу на ковре с косточкой возле постели",
       habits_caption: "Будни: косточка, ковёр, тёплый пол",
-      skills_alt: "Я лежу на ковре, рядом телевизор",
-      skills_caption: "В гостях. Жду, чтобы дали лапу",
+      skills_alt: "Я сижу на ковре перед телевизором",
+      skills_caption: "Сижу. Жду команду «дай лапу»",
       health1_alt: "Мой рентген: позвоночник и пуля у него",
       health1_caption: "Рентген живота. Пуля у позвоночника — она же не мешает",
       health2_alt: "Мой рентген: задняя лапа",
@@ -190,7 +190,7 @@ export const translations: Translations = {
     },
     faq: {
       title: "Что меня обычно спрашивают",
-      subtitle: "Если что-то не закрыли тут — пишите Лене.",
+      subtitle: "Не нашли свой вопрос? Спросите Лену напрямую — она быстрее меня печатает.",
       banner_title: "Если не сложится, Лена заберёт меня обратно.",
       banner_subtitle: "Без обид, без условий, без «попробуйте ещё месяц».",
       kids: {
@@ -219,7 +219,7 @@ export const translations: Translations = {
       },
       remote: {
         q: "Я не в Белграде. Можно дистанционно?",
-        a: "Зависит. Лена в Белграде — чем ближе вы, тем реальнее. Если в EU — давайте созвонимся, придумаем как. Если совсем далеко (другой континент, виза, перелёт через полмира) — без обмана: вряд ли получится.",
+        a: "Зависит, насколько далеко. Белград, Нови Сад и окрестности — нормально: Лена хочет иногда меня навещать, для этого ей надо до меня доезжать. По остальной EU — давайте созвонимся, что-нибудь придумаем. Другой континент, виза, перелёт через полмира — честно: вряд ли.",
       },
       deadline: {
         q: "Когда нужно решить?",
@@ -377,7 +377,7 @@ export const translations: Translations = {
     },
     faq: {
       title: "Šta me obično pitaju",
-      subtitle: "Ako nešto nismo pokrili ovde — pišite Leni.",
+      subtitle: "Niste našli svoje pitanje? Pišite Leni direktno — ona kuca brže od mene.",
       banner_title: "Ako ne ispadne kako treba, Lena me uzima nazad.",
       banner_subtitle: "Bez ljutnje, bez uslova, bez «probajte još mesec dana».",
       kids: {
@@ -406,7 +406,7 @@ export const translations: Translations = {
       },
       remote: {
         q: "Nisam u Beogradu. Može na daljinu?",
-        a: "Zavisi. Lena je u Beogradu — što ste bliže, to je realnije. Ako ste u EU — da se čujemo, smislićemo nešto. Ako ste baš daleko (drugi kontinent, viza, let preko pola sveta) — bez foliranja: teško da će uspeti.",
+        a: "Zavisi koliko daleko. Beograd, Novi Sad i okolina — okej: Lena želi povremeno da me obilazi, pa mora da me dohvati. Ostatak EU — da se čujemo, smislićemo nešto. Drugi kontinent, viza, let preko pola sveta — iskreno: teško.",
       },
       deadline: {
         q: "Kad treba da se odlučim?",
@@ -418,12 +418,12 @@ export const translations: Translations = {
       hero_caption: "U liftu: pratim sebe u ogledalu",
       story_alt: "Ja u parku sa drugarima",
       story_caption: "U parku sa drugarima",
-      appearance_alt: "Ležim kod kuće, gledam kroz prozor, pored mene mačka",
-      appearance_caption: "Mačke svojim poslom, ja svojim",
+      appearance_alt: "Miluju me po glavi, žmurim od zadovoljstva",
+      appearance_caption: "Kad me češu iza uha — ja sam u zenu",
       habits_alt: "Ležim na tepihu sa kosti pored kreveta",
       habits_caption: "Svakodnevica: kost, tepih, topao pod",
-      skills_alt: "Ležim na tepihu, pored televizora",
-      skills_caption: "U gostima. Čekam da daju šapu",
+      skills_alt: "Sedim na tepihu ispred televizora",
+      skills_caption: "Sedim. Čekam komandu „daj šapu“",
       health1_alt: "Moj rendgen: kičma i metak pored nje",
       health1_caption: "Rendgen stomaka. Metak kod kičme — ne smeta",
       health2_alt: "Moj rendgen: zadnja šapica",
@@ -596,7 +596,7 @@ export const translations: Translations = {
     },
     faq: {
       title: "Stuff people usually ask",
-      subtitle: "If something isn't covered here — message Lena.",
+      subtitle: "Don't see your question? Ping Lena directly — she types faster than I do.",
       banner_title: "If it doesn't work out, Lena takes me back.",
       banner_subtitle: "No drama, no conditions, no \"give it another month.\"",
       kids: {
@@ -625,7 +625,7 @@ export const translations: Translations = {
       },
       remote: {
         q: "I'm not in Belgrade. Can we do this remotely?",
-        a: "Depends. Lena is in Belgrade — the closer you are, the more realistic it gets. EU? Let's hop on a call and figure it out. Way far (another continent, visas, flying halfway across the planet) — straight up: probably not going to happen.",
+        a: "Depends on how far. Belgrade, Novi Sad and the surrounding area — fine: Lena wants to swing by and visit me sometimes, so she needs to be able to reach me. Rest of the EU — let's hop on a call, we'll figure something out. Another continent, visas, a flight halfway across the planet — straight up: probably not.",
       },
       deadline: {
         q: "When do I need to decide?",
@@ -637,12 +637,12 @@ export const translations: Translations = {
       hero_caption: "In the elevator: catching myself in the mirror",
       story_alt: "Me in the park with friends",
       story_caption: "In the park with friends",
-      appearance_alt: "I'm lying at home looking out the window, a cat next to me",
-      appearance_caption: "Cats do their things, I do mine",
+      appearance_alt: "Someone's petting my head, my eyes squeezed shut in bliss",
+      appearance_caption: "When you scratch behind my ear — pure zen",
       habits_alt: "I'm lying on the rug with a bone next to the bed",
       habits_caption: "Daily life: bone, rug, warm floor",
-      skills_alt: "I'm on the rug, the TV is on",
-      skills_caption: "Visiting people. Waiting to give a paw",
+      skills_alt: "I'm sitting on the rug in front of the TV",
+      skills_caption: "Sitting. Waiting for the \"paw\" command",
       health1_alt: "My X-ray: spine and bullet next to it",
       health1_caption: "Belly X-ray. Bullet near the spine — doesn't bother me",
       health2_alt: "My X-ray: rear leg",
