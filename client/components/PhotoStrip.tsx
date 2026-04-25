@@ -78,6 +78,18 @@ export function PhotoStrip({
   const viewportWidthRef = React.useRef(0); // visible viewport width
   const engagedRef = React.useRef(false); // mouse over the strip → mouse-driven mode
   const fitsRef = React.useRef(false); // strip fits the viewport entirely → no drift
+  // Touch-mode private float accumulator. `scrollLeft` only stores integers
+  // when read back, so writing `scrollLeft + 0.6` every frame and re-reading
+  // it loses the sub-pixel delta — strip stays pinned at 0 forever. We keep
+  // the precise position here, write `Math.round(...)` to scrollLeft, and
+  // resync from scrollLeft only on user-initiated scroll.
+  const touchAccumRef = React.useRef<number | null>(null);
+  // Watchdog: if a touchend never fires (flaky gesture, system sheet pulled
+  // up mid-swipe), engagedRef gets stuck `true` and drift never resumes.
+  // Track touchstart timestamp + the resume timer so the rAF loop can force-
+  // reset after 3s, and so consecutive swipes can cancel stale unsetters.
+  const lastTouchStartRef = React.useRef<number>(0);
+  const touchResumeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [fits, setFits] = React.useState(false); // mirrors fitsRef for layout class hints
 
   // Two orthogonal flags:
@@ -142,6 +154,40 @@ export function PhotoStrip({
     };
   }, [measure, images]);
 
+  // Resync the touch-mode float accumulator with native scrollLeft whenever
+  // the user moves the strip themselves (finger swipe, trackpad, momentum
+  // settle). Without this, the next drift frame would jump back to where
+  // our float said we were, fighting the user. Skipped while engaged — the
+  // user-driven phase doesn't need (and shouldn't be perturbed by) writes.
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!touchMode) return;
+    const v = viewportRef.current;
+    if (!v) return;
+    const onScroll = () => {
+      if (engagedRef.current) {
+        // Keep accumulator roughly in sync so resume isn't jarring.
+        touchAccumRef.current = v.scrollLeft;
+      } else if (touchAccumRef.current == null) {
+        touchAccumRef.current = v.scrollLeft;
+      }
+    };
+    v.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      v.removeEventListener("scroll", onScroll);
+    };
+  }, [touchMode]);
+
+  // Clean up any pending resume timer on unmount.
+  React.useEffect(() => {
+    return () => {
+      if (touchResumeTimerRef.current != null) {
+        clearTimeout(touchResumeTimerRef.current);
+        touchResumeTimerRef.current = null;
+      }
+    };
+  }, []);
+
   // The drift loop. Skipped under reduced motion. On touch devices we drive
   // `scrollLeft` directly (so native swipe works alongside drift); on desktop
   // we transform the inner track.
@@ -157,13 +203,33 @@ export function PhotoStrip({
 
       if (touchMode) {
         // Touch device: drive native scrollLeft on the viewport, so user swipe
-        // and JS drift can coexist without fighting each other. Bumped speed
-        // 2.5× over the desktop default so motion is visible on phones (the
-        // viewport is narrower, the same px/s feels slower relative to it).
+        // and JS drift can coexist without fighting each other. 4× the desktop
+        // base so motion is visible on phones (~64 px/s ≈ 1px/frame at 60fps);
+        // sub-pixel deltas would otherwise round to zero each frame.
         const v = viewportRef.current;
+        // Watchdog — bulletproof recovery if touchend got eaten and
+        // engagedRef is still pinned 3s after the last touchstart.
+        if (
+          engagedRef.current &&
+          lastTouchStartRef.current > 0 &&
+          ts - lastTouchStartRef.current > 3000
+        ) {
+          engagedRef.current = false;
+          if (touchResumeTimerRef.current != null) {
+            clearTimeout(touchResumeTimerRef.current);
+            touchResumeTimerRef.current = null;
+          }
+        }
         if (v && !engagedRef.current && max > 0) {
-          const TOUCH_SPEED = baseSpeed * 2.5;
-          let next = v.scrollLeft + TOUCH_SPEED * dt * directionRef.current;
+          const TOUCH_SPEED = baseSpeed * 4;
+          // Initialize / resync the accumulator from scrollLeft on first
+          // entry. The scroll listener also resyncs whenever the user moves
+          // the strip themselves, so we don't fight finger-driven scroll.
+          if (touchAccumRef.current == null) {
+            touchAccumRef.current = v.scrollLeft;
+          }
+          let next =
+            touchAccumRef.current + TOUCH_SPEED * dt * directionRef.current;
           if (next >= max) {
             next = max;
             directionRef.current = -1;
@@ -171,7 +237,8 @@ export function PhotoStrip({
             next = 0;
             directionRef.current = 1;
           }
-          v.scrollLeft = next;
+          touchAccumRef.current = next;
+          v.scrollLeft = Math.round(next);
         }
         // Track transform stays at 0 in touch mode.
         const track = trackRef.current;
@@ -240,10 +307,19 @@ export function PhotoStrip({
   const setEngaged = React.useCallback((engaged: boolean) => {
     engagedRef.current = engaged;
     if (!engaged) {
-      // Resume drift from current offset; pick the direction that takes the
-      // strip toward the nearer wall — feels less jerky than always going left.
+      // Resume drift from current position; pick the direction that takes
+      // the strip toward the nearer wall — feels less jerky than always
+      // going left. Touch mode reads from scrollLeft (and resyncs the
+      // accumulator), desktop reads from offsetRef.
       const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
-      directionRef.current = offsetRef.current > max / 2 ? -1 : 1;
+      const v = viewportRef.current;
+      const current =
+        v && (v.scrollLeft || 0) > 0 ? v.scrollLeft : offsetRef.current;
+      directionRef.current = current > max / 2 ? -1 : 1;
+      // Force the touch accumulator to resync from scrollLeft on resume,
+      // so a long engaged phase (where the user scrolled around) doesn't
+      // teleport the strip back to its pre-engagement position.
+      if (v) touchAccumRef.current = v.scrollLeft;
     }
   }, []);
 
@@ -262,10 +338,35 @@ export function PhotoStrip({
       // Touch: while a finger is on the strip, pause auto-drift so we don't
       // fight the user's swipe. Resume after a beat once they're done.
       // touchcancel covers the gesture-aborted edge case (incoming call,
-      // system sheet) so engagedRef can't get stuck pinned.
-      onTouchStart={() => setEngaged(true)}
-      onTouchEnd={() => setTimeout(() => setEngaged(false), 1500)}
-      onTouchCancel={() => setEngaged(false)}
+      // system sheet) so engagedRef can't get stuck pinned. The rAF loop
+      // also force-resets engagedRef after 3s as a final safety net.
+      onTouchStart={() => {
+        // Cancel any stale "resume" timer from a previous swipe so it can't
+        // fire mid-gesture and unset engagedRef while finger is still down.
+        if (touchResumeTimerRef.current != null) {
+          clearTimeout(touchResumeTimerRef.current);
+          touchResumeTimerRef.current = null;
+        }
+        lastTouchStartRef.current =
+          typeof performance !== "undefined" ? performance.now() : Date.now();
+        setEngaged(true);
+      }}
+      onTouchEnd={() => {
+        if (touchResumeTimerRef.current != null) {
+          clearTimeout(touchResumeTimerRef.current);
+        }
+        touchResumeTimerRef.current = setTimeout(() => {
+          touchResumeTimerRef.current = null;
+          setEngaged(false);
+        }, 1500);
+      }}
+      onTouchCancel={() => {
+        if (touchResumeTimerRef.current != null) {
+          clearTimeout(touchResumeTimerRef.current);
+          touchResumeTimerRef.current = null;
+        }
+        setEngaged(false);
+      }}
       onFocusCapture={() => setEngaged(true)}
       onBlurCapture={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
