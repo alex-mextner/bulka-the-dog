@@ -4,12 +4,24 @@ import path from "node:path";
 import { createServer } from "./server";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
+  // Vercel serves us at the root of the (sub)domain — no base prefix needed.
+  base: "/",
   server: {
     host: "::",
-    port: 8080,
+    // Honour PORT env var (preview/CI tools pass it). Falls back to 8080 locally.
+    port: Number(process.env.PORT) || 8080,
+    // Allow access via Tailscale tailnet domains and any localhost / .local
+    // hostname so the dev server is reachable from the phone on the same VPN.
+    // Leading-dot entries are subdomain wildcards in Vite.
+    allowedHosts: [
+      "localhost",
+      ".local",
+      ".ts.net",
+      ".tailscale.net",
+    ],
     fs: {
-      allow: ["./client", "./shared", "index.html"],
+      allow: ["./client", "./shared", "./node_modules", "index.html"],
       deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "server/**"],
     },
   },

@@ -13,6 +13,12 @@ export default {
       },
     },
     extend: {
+      screens: {
+        // Custom: where the full inline nav fits comfortably alongside logo,
+        // language switcher and the sticky CTA. Below this we collapse to the
+        // burger + horizontal-scroll nav.
+        nav: "1100px",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
