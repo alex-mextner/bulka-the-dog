@@ -98,10 +98,10 @@ export default function Index() {
 
           <div className="grid md:grid-cols-2 gap-8 items-center mt-12">
             <div className="space-y-6">
-              <p className="text-lg leading-relaxed text-foreground/80">
+              <p className="text-lg leading-relaxed text-foreground/80 mr-auto">
                 {t("hero.story")}
               </p>
-              <p className="text-lg leading-relaxed text-foreground/80">
+              <p className="text-lg leading-relaxed text-foreground/80 mr-auto">
                 {t("hero.current")}
               </p>
               <p className="text-xl font-semibold text-primary italic">
