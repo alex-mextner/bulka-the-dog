@@ -654,24 +654,22 @@ export default function Index() {
                   aria-label={`${t("ui.contact.location_address1")}, ${t("ui.contact.location_address2")} — ${t("contact_section.open_map")}`}
                   className="group relative block rounded-2xl overflow-hidden border border-primary/30 shadow-lg hover:shadow-xl transition-shadow focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/40"
                 >
-                  {/* Tinted map background */}
-                  <img
-                    src={asset("images/map.webp")}
-                    alt=""
-                    aria-hidden="true"
-                    loading="lazy"
-                    className="absolute inset-0 w-full h-full object-cover saturate-75 contrast-[0.95] group-hover:brightness-95 transition-all"
-                  />
-                  {/* Orange veil — fully opaque on the left so address text is readable,
-                      fading to transparent on the right so the map stays visible. */}
+                  {/* Tinted map background as a CSS background-image, NOT a
+                      nested <img> — Telegram Instant View rejects <img>
+                      inside <a> with "NESTED_ELEMENT_NOT_SUPPORTED". The
+                      orange gradient stacks on top of the map via the same
+                      background-image rule (CSS layered backgrounds). */}
                   <div
                     aria-hidden="true"
-                    className="absolute inset-0 bg-gradient-to-r from-primary via-primary/70 to-transparent"
+                    className="absolute inset-0 saturate-75 contrast-[0.95] group-hover:brightness-95 transition-all"
                     style={{
-                      // Tighter falloff so the readable zone stays a comfortable column
-                      // on the left and the map breathes on the right.
-                      backgroundImage:
+                      backgroundImage: [
                         "linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.85) 35%, hsl(var(--primary) / 0.35) 65%, transparent 90%)",
+                        `url(${asset("images/map.webp")})`,
+                      ].join(", "),
+                      backgroundSize: "cover, cover",
+                      backgroundPosition: "center, center",
+                      backgroundRepeat: "no-repeat, no-repeat",
                     }}
                   />
                   <address className="not-italic relative z-10 p-8 min-h-[280px] flex flex-col justify-end max-w-[60%]">

@@ -10,7 +10,9 @@ const navItems = [
   { id: "skills", key: "nav.skills" },
   { id: "health", key: "nav.health" },
   { id: "conditions", key: "nav.conditions" },
+  { id: "faq", key: "nav.faq" },
   { id: "contact", key: "nav.contact" },
+  { id: "gallery", key: "nav.gallery" },
 ];
 
 const languages: { code: Language; short: string }[] = [

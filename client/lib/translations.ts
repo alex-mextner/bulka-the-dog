@@ -17,7 +17,9 @@ export const translations: Translations = {
       skills: "Навыки",
       health: "Здоровье",
       conditions: "Условия",
+      faq: "Вопросы",
       contact: "Контакты",
+      gallery: "Фото",
     },
     cta: {
       adopt: "Хочу познакомиться",
@@ -235,7 +237,9 @@ export const translations: Translations = {
       skills: "Veštine",
       health: "Zdravlje",
       conditions: "Uslovi",
+      faq: "Pitanja",
       contact: "Kontakt",
+      gallery: "Slike",
     },
     cta: {
       adopt: "Hoću da se upoznamo",
