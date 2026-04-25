@@ -1,46 +1,15 @@
 # Telegram Instant View template for https://bulka.rs/
 # Submission: paste at https://instantview.telegram.org/contest
 # Docs:       https://instantview.telegram.org/docs
-# IV 2.1 minimum: only `title` and `body` are required.
+#
+# Bare-minimum baseline. IV 2.1 requires only `title` and `body`. We start
+# with that and add @remove cleanups incrementally — adding too many at
+# once made the editor get stuck on "Processing links…" indefinitely
+# (Telegram fetches metadata for every inline link in body before rendering;
+# the more rules, the more passes; aggressive @remove with overlapping
+# selectors can also stall preview generation).
 
 ~version: "2.1"
 
-# Article identity.
-site_name:      "Булка"
-title:          //h1[@id="hero-title"]
-subtitle:       //section[@aria-labelledby="hero-title"]//p[1]
-author:         "Лена"
-author_url:     "https://bulka.rs/"
-cover:          //meta[@property="og:image"]/@content
-
-# Article body — everything inside <main id="main">.
-body:           //main[@id="main"]
-
-# ---------------------------------------------------------------------------
-# Cleanups — strip what doesn't render in IV. Keep this minimal; aggressive
-# rules can silently break preview generation.
-# ---------------------------------------------------------------------------
-
-# Sticky nav header — IV provides its own chrome.
-@remove: //header
-
-# Footer — IV adds its own attribution at the bottom of articles.
-@remove: //footer
-
-# Decorative inline SVG icons inside cards (lucide-react).
-@remove: //main//svg
-
-# All buttons (CTAs, FAQ chevrons, gallery triggers).
-@remove: //button
-
-# Lightbox dialog (defensive).
-@remove: //*[@role="dialog"]
-
-# Photo strip: i18n labels — match all three locales by substring.
-@remove: //section[contains(@aria-label, "кадр")]
-@remove: //section[contains(@aria-label, "frames") or contains(@aria-label, "photos")]
-@remove: //section[contains(@aria-label, "kadr") or contains(@aria-label, "fotograf")]
-
-# Decorative tinted-map background + gradient veil in the contact card.
-@remove: //section[@id="contact"]//img[@alt=""]
-@remove: //section[@id="contact"]//div[@aria-hidden="true"]
+title: //h1[@id="hero-title"]
+body:  //main[@id="main"]
