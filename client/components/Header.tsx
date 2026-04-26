@@ -151,8 +151,15 @@ export function Header() {
       ? "opacity-0 -translate-x-3 pointer-events-none nav:opacity-100 nav:translate-x-0 nav:pointer-events-auto"
       : "opacity-100 translate-x-0",
   );
+  // morphedNav extends to right-0 (NOT right-14 like the default layer) so
+  // chips can scroll UNDER the gradient overlay AND the burger button. If we
+  // stopped at right-14 the chips would be hard-clipped 56px before the right
+  // edge and the gradient would have nothing left to fade — there'd be a
+  // solid background-coloured stripe between the last chip and the X. Burger
+  // stays clickable on top via z-10 + the gradient overlay between them
+  // (z-9, pointer-events-none) hides the chips visually behind the X.
   const morphedNavCls = cn(
-    "absolute inset-y-0 left-4 right-14 flex items-center transition-all duration-300 ease-out nav:hidden",
+    "absolute inset-y-0 left-4 right-0 flex items-center transition-all duration-300 ease-out nav:hidden",
     isMenuOpen
       ? "opacity-100 translate-x-0 pointer-events-auto"
       : "opacity-0 translate-x-3 pointer-events-none",
@@ -334,7 +341,10 @@ export function Header() {
           aria-label="Разделы страницы"
           className={morphedNavCls}
         >
-          <div className="flex items-center gap-2 overflow-x-auto pr-2 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
+          {/* pr-14 reserves the burger zone within the scroll container's
+              own padding so the last chip can still come fully into view via
+              swipe (it just lives under the gradient overlay + X). */}
+          <div className="flex items-center gap-2 overflow-x-auto pr-14 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
             {navItems.map((item) => {
               const isActive = activeSection === item.id;
               return (
