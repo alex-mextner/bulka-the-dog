@@ -192,7 +192,7 @@ export function Header() {
 
           <nav
             aria-label="Разделы страницы"
-            className="hidden nav:flex items-center gap-1 ml-4"
+            className="hidden nav:flex items-center gap-0.5 ml-2 min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {navItems.map((item) => {
               const isActive = activeSection === item.id;
@@ -202,7 +202,7 @@ export function Header() {
                   onClick={() => handleNavClick(item.id)}
                   aria-current={isActive ? "location" : undefined}
                   className={cn(
-                    "px-3 py-2 rounded-lg font-medium transition-colors text-foreground/80 hover:text-foreground hover:bg-secondary/60",
+                    "shrink-0 px-2.5 py-2 rounded-lg font-medium whitespace-nowrap text-sm transition-colors text-foreground/80 hover:text-foreground hover:bg-secondary/60",
                     isActive &&
                       "text-foreground bg-secondary/40 ring-1 ring-border/50",
                   )}
