@@ -128,13 +128,16 @@ export function Header() {
     });
   };
 
-  // Hidden on mobile (header is too tight) — shows from `sm:` (640px) up.
+  // Hidden on mobile (header is too tight) — shows from `sm:` (640px) up,
+  // and only when the hero CTA is out of view. When hidden, collapses to
+  // zero width via max-width + padding transition so the inline nav can
+  // claim that space instead of being clipped.
   const stickyCtaClasses = cn(
-    "hidden sm:inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3.5 py-2 rounded-full font-semibold text-sm shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-primary/40",
-    "transition-all duration-300 ease-out will-change-transform focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30",
+    "hidden sm:inline-flex items-center bg-primary text-primary-foreground rounded-full font-semibold text-sm shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-primary/40 overflow-hidden whitespace-nowrap",
+    "transition-[max-width,padding,opacity,transform] duration-300 ease-out will-change-[max-width,padding,opacity,transform] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30",
     showStickyCta
-      ? "opacity-100 translate-x-0 pointer-events-auto"
-      : "opacity-0 translate-x-3 pointer-events-none",
+      ? "opacity-100 translate-x-0 pointer-events-auto max-w-[14rem] px-3.5 py-2 gap-1.5"
+      : "opacity-0 translate-x-3 pointer-events-none max-w-0 px-0 py-0 gap-0",
   );
 
   // Fade/slide states for the morph. On <nav: when burger is open, the
