@@ -100,31 +100,30 @@ export function Header() {
 
   const scrollToTop = () => {
     setIsMenuOpen(false);
-    // Two rAFs: first lets React commit the menu-close, second lets the
-    // browser run layout/paint with the new header height before we kick
-    // off the smooth scroll. Without this the morph layer is still in
-    // transition when the scroll target gets computed.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      });
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleNavClick = (id: string) => {
+    const element = document.getElementById(id);
+    if (!element) return;
     setIsMenuOpen(false);
-    // Wait two animation frames for the morph layout to settle before
-    // computing the scroll target — otherwise the first tap can land off
-    // by ~the height of the morph layer's transient state.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const element = document.getElementById(id);
-        if (!element) return;
-        const headerHeight = 72; // sticky header h-[60px md:64px] + a little breathing room
-        const top =
-          element.getBoundingClientRect().top + window.scrollY - headerHeight;
-        window.scrollTo({ top, behavior: "smooth" });
-      });
+    // `offsetTop` is the element's distance from its offsetParent (here,
+    // <body>) — a document-coordinate Y that doesn't depend on the current
+    // scroll position OR transient morph-layer geometry. That makes it
+    // safe to read synchronously: even if the morph close transition is
+    // still in flight, the answer is already correct. Previously we used
+    // `getBoundingClientRect().top + scrollY`, which is mathematically
+    // equivalent ONLY when layout is stable — during the 300ms morph the
+    // first tap got a viewport-relative measurement against an in-flight
+    // header height and the browser then animated toward that wrong
+    // target (always landing near FAQ on mobile). Subsequent taps re-read
+    // closer-to-truth rects, hence the "progressive correction" symptom.
+    // A modern smooth scrollTo cancels any prior smooth scroll, so back-
+    // to-back taps work without manual cancellation.
+    const headerHeight = 72; // sticky header h-[60px md:64px] + breathing room
+    window.scrollTo({
+      top: element.offsetTop - headerHeight,
+      behavior: "smooth",
     });
   };
 
