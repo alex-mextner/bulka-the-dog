@@ -4,9 +4,21 @@ import { GalleryImage } from "@/components/Gallery";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
-// PhotoStrip — horizontal polaroid-ish row that auto-drifts left and speeds
-// up / reverses based on horizontal mouse position. Each card wraps a
-// <GalleryImage>, so click + 2-finger pinch open the global lightbox for free.
+// PhotoStrip — horizontal polaroid-ish row.
+//
+// Two completely separate motion paths:
+//
+//   • Desktop (mouse): JS rAF loop drives `transform: translate3d(...)` on the
+//     inner track. Hover scrubs to a target offset, no hover = bounce between
+//     edges. Untouched here — works fine, don't break it.
+//
+//   • Touch / coarse-pointer: viewport is a normal `overflow-x-auto` element
+//     with `touch-pan-x`. Native finger swipe IS the only thing that changes
+//     scrollLeft — JS never writes to it. Idle motion is a pure CSS keyframe
+//     animation on the inner track that translates back-and-forth between
+//     0 and `--ps-end` (which is the negative of the un-scrolled overflow).
+//     User touch flips inline `animationPlayState` to "paused" so swipe is
+//     unmolested; a 2.5s timer flips it back to "running" after touchend.
 // ---------------------------------------------------------------------------
 
 export type PhotoStripItem = {
@@ -59,6 +71,28 @@ function isTouchDevice(): boolean {
   return coarse || "ontouchstart" in window;
 }
 
+// Module-scope keyframes injection. Defined once per page-load even if many
+// PhotoStrips mount; the `data-` attribute guards against duplicate insertion.
+// The keyframe goes 0 → --ps-end → 0 so a single `animation-iteration: infinite`
+// gives a smooth back-and-forth without extra direction tracking.
+const KEYFRAMES_STYLE_ID = "ps-drift-keyframes";
+const KEYFRAMES_CSS = `
+@keyframes ps-drift {
+  0%   { transform: translate3d(0, 0, 0); }
+  50%  { transform: translate3d(var(--ps-end, 0px), 0, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+`;
+
+function ensureKeyframesInjected() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(KEYFRAMES_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = KEYFRAMES_STYLE_ID;
+  style.textContent = KEYFRAMES_CSS;
+  document.head.appendChild(style);
+}
+
 export function PhotoStrip({
   images,
   baseSpeed = 16,
@@ -68,7 +102,8 @@ export function PhotoStrip({
   const viewportRef = React.useRef<HTMLDivElement | null>(null);
   const trackRef = React.useRef<HTMLDivElement | null>(null);
 
-  // Offset state lives in refs — we never want a re-render per frame.
+  // Desktop-only refs. The desktop branch is identical to the previous
+  // implementation; touch mode no longer touches any of these.
   const offsetRef = React.useRef(0); // current translateX (positive = scrolled left)
   const targetOffsetRef = React.useRef(0); // where we lerp toward
   const directionRef = React.useRef(1); // 1 = drifting left (offset++), -1 = right
@@ -78,24 +113,15 @@ export function PhotoStrip({
   const viewportWidthRef = React.useRef(0); // visible viewport width
   const engagedRef = React.useRef(false); // mouse over the strip → mouse-driven mode
   const fitsRef = React.useRef(false); // strip fits the viewport entirely → no drift
-  // Touch-mode private float accumulator. `scrollLeft` only stores integers
-  // when read back, so writing `scrollLeft + 0.6` every frame and re-reading
-  // it loses the sub-pixel delta — strip stays pinned at 0 forever. We keep
-  // the precise position here, write `Math.round(...)` to scrollLeft, and
-  // resync from scrollLeft only on user-initiated scroll.
-  const touchAccumRef = React.useRef<number | null>(null);
-  // Watchdog: if a touchend never fires (flaky gesture, system sheet pulled
-  // up mid-swipe), engagedRef gets stuck `true` and drift never resumes.
-  // Track touchstart timestamp + the resume timer so the rAF loop can force-
-  // reset after 3s, and so consecutive swipes can cancel stale unsetters.
-  const lastTouchStartRef = React.useRef<number>(0);
+
+  // Touch-mode pause state. Single boolean ref + a resume timer; no rAF
+  // babysitting because the animation lives entirely in CSS.
   const touchResumeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [fits, setFits] = React.useState(false); // mirrors fitsRef for layout class hints
 
   // Two orthogonal flags:
-  //   - touchMode: native scroll is allowed; mouse-driven scrub is off.
-  //                Drift still runs (gently, via scrollLeft) when content
-  //                doesn't fit, so mobile gets a quiet motion cue.
+  //   - touchMode: native scroll is allowed; idle motion is a CSS animation.
   //   - reducedMotion: motion is fully suppressed; just a static strip.
   const [touchMode, setTouchMode] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -105,6 +131,11 @@ export function PhotoStrip({
     if (typeof window === "undefined") return false;
     return prefersReducedMotion();
   });
+
+  // Inject the @keyframes block once. Cheap idempotent check inside.
+  React.useEffect(() => {
+    ensureKeyframesInjected();
+  }, []);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -121,23 +152,34 @@ export function PhotoStrip({
     };
   }, []);
 
-  // Measure track + viewport widths. We bounce between 0 and (track - viewport)
-  // — no looping, no duplicated content. If the track fits the viewport, we
-  // skip the drift entirely and let the strip sit centered.
+  // Measure track + viewport widths.
+  //
+  // Desktop drift uses these via refs. Touch mode uses them to set the
+  // `--ps-end` CSS variable on the track — that's the negative offset the
+  // CSS animation translates to at 50%, equal to the strip's overflow width.
+  //
+  // The animation `--ps-end` is only relevant when content overflows; if it
+  // fits, we clear it and the keyframe sits at 0 anyway.
   const measure = React.useCallback(() => {
     const track = trackRef.current;
     const viewport = viewportRef.current;
     if (!track || !viewport) return;
     trackWidthRef.current = track.scrollWidth;
     viewportWidthRef.current = viewport.clientWidth;
-    const nowFits = trackWidthRef.current <= viewportWidthRef.current + 1;
+    const overflow = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
+    const nowFits = overflow <= 1;
     fitsRef.current = nowFits;
     setFits((prev) => (prev === nowFits ? prev : nowFits));
+
     if (nowFits) {
       offsetRef.current = 0;
       targetOffsetRef.current = 0;
-      const t = trackRef.current;
-      if (t) t.style.transform = "translate3d(0,0,0)";
+      track.style.transform = "translate3d(0,0,0)";
+      track.style.setProperty("--ps-end", "0px");
+    } else {
+      // Negative because keyframe translates leftwards. Bracket with `-` not
+      // `calc(-1 * ...)` — same result, simpler string for the engine.
+      track.style.setProperty("--ps-end", `${-overflow}px`);
     }
   }, []);
 
@@ -154,31 +196,7 @@ export function PhotoStrip({
     };
   }, [measure, images]);
 
-  // Resync the touch-mode float accumulator with native scrollLeft whenever
-  // the user moves the strip themselves (finger swipe, trackpad, momentum
-  // settle). Without this, the next drift frame would jump back to where
-  // our float said we were, fighting the user. Skipped while engaged — the
-  // user-driven phase doesn't need (and shouldn't be perturbed by) writes.
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!touchMode) return;
-    const v = viewportRef.current;
-    if (!v) return;
-    const onScroll = () => {
-      if (engagedRef.current) {
-        // Keep accumulator roughly in sync so resume isn't jarring.
-        touchAccumRef.current = v.scrollLeft;
-      } else if (touchAccumRef.current == null) {
-        touchAccumRef.current = v.scrollLeft;
-      }
-    };
-    v.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      v.removeEventListener("scroll", onScroll);
-    };
-  }, [touchMode]);
-
-  // Clean up any pending resume timer on unmount.
+  // Clean up any pending touch-resume timer on unmount.
   React.useEffect(() => {
     return () => {
       if (touchResumeTimerRef.current != null) {
@@ -188,42 +206,25 @@ export function PhotoStrip({
     };
   }, []);
 
-  // Capture-phase pointerdown: flip engagedRef + cancel pending resume
-  // SYNCHRONOUSLY, before React's onTouchStart commits and before the next
-  // rAF tick can fire. Without this, the drift loop can write a stale
-  // scrollLeft on top of the user's nascent swipe in the gap between
-  // touchstart and React's commit, causing the swipe to appear "stuck".
-  React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!touchMode) return;
-    const v = viewportRef.current;
-    if (!v) return;
-    const onPointerDownCapture = (e: PointerEvent) => {
-      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
-      engagedRef.current = true;
-      lastTouchStartRef.current =
-        typeof performance !== "undefined" ? performance.now() : Date.now();
-      if (touchResumeTimerRef.current != null) {
-        clearTimeout(touchResumeTimerRef.current);
-        touchResumeTimerRef.current = null;
-      }
-    };
-    v.addEventListener("pointerdown", onPointerDownCapture, {
-      capture: true,
-      passive: true,
-    });
-    return () => {
-      v.removeEventListener("pointerdown", onPointerDownCapture, {
-        capture: true,
-      } as EventListenerOptions);
-    };
-  }, [touchMode]);
+  // Helpers to flip the inline animationPlayState. Touching style directly
+  // instead of via state — re-rendering on every touch would be silly.
+  const pauseTouchAnim = React.useCallback(() => {
+    const t = trackRef.current;
+    if (!t) return;
+    t.style.animationPlayState = "paused";
+  }, []);
+  const resumeTouchAnim = React.useCallback(() => {
+    const t = trackRef.current;
+    if (!t) return;
+    t.style.animationPlayState = "running";
+  }, []);
 
-  // The drift loop. Skipped under reduced motion. On touch devices we drive
-  // `scrollLeft` directly (so native swipe works alongside drift); on desktop
-  // we transform the inner track.
+  // Desktop drift loop — identical to the previous implementation, minus the
+  // touch branch (which moved out to CSS). Skipped under reduced motion or
+  // when we're in touch mode.
   React.useEffect(() => {
     if (reducedMotion) return;
+    if (touchMode) return;
 
     const step = (ts: number) => {
       const last = lastTsRef.current;
@@ -232,50 +233,7 @@ export function PhotoStrip({
 
       const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
 
-      if (touchMode) {
-        // Touch device: drive native scrollLeft on the viewport, so user swipe
-        // and JS drift can coexist without fighting each other. 1.5× the
-        // desktop base — subtle motion cue, not a marquee. Sub-pixel deltas
-        // accumulate in `touchAccumRef` and flush via Math.round per frame.
-        const v = viewportRef.current;
-        // Watchdog — bulletproof recovery if touchend got eaten and
-        // engagedRef is still pinned 8s after the last touchstart. 8s leaves
-        // room for slow held swipes without leaving drift stuck forever.
-        if (
-          engagedRef.current &&
-          lastTouchStartRef.current > 0 &&
-          ts - lastTouchStartRef.current > 8000
-        ) {
-          engagedRef.current = false;
-          if (touchResumeTimerRef.current != null) {
-            clearTimeout(touchResumeTimerRef.current);
-            touchResumeTimerRef.current = null;
-          }
-        }
-        if (v && !engagedRef.current && max > 0) {
-          const TOUCH_SPEED = baseSpeed * 1.5;
-          // Initialize / resync the accumulator from scrollLeft on first
-          // entry. The scroll listener also resyncs whenever the user moves
-          // the strip themselves, so we don't fight finger-driven scroll.
-          if (touchAccumRef.current == null) {
-            touchAccumRef.current = v.scrollLeft;
-          }
-          let next =
-            touchAccumRef.current + TOUCH_SPEED * dt * directionRef.current;
-          if (next >= max) {
-            next = max;
-            directionRef.current = -1;
-          } else if (next <= 0) {
-            next = 0;
-            directionRef.current = 1;
-          }
-          touchAccumRef.current = next;
-          v.scrollLeft = Math.round(next);
-        }
-        // Track transform stays at 0 in touch mode.
-        const track = trackRef.current;
-        if (track) track.style.transform = "translate3d(0,0,0)";
-      } else if (fitsRef.current || max <= 0) {
+      if (fitsRef.current || max <= 0) {
         // Whole strip fits the desktop viewport — pin at 0, no motion.
         offsetRef.current = 0;
         const track = trackRef.current;
@@ -313,11 +271,7 @@ export function PhotoStrip({
     };
   }, [touchMode, reducedMotion, baseSpeed]);
 
-  // Mouse-driven scrubbing. The track moves OPPOSITE to the cursor: hover
-  // near the right edge → strip slides RIGHT-to-LEFT (offset increases) so
-  // photos that were off-screen on the right come closer to the cursor.
-  // Net effect: cursor pulls photos toward itself, fewer mouse miles to
-  // reach a card.
+  // Mouse-driven scrubbing. Desktop only — touch mode never reaches here.
   const onPointerMove = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (touchMode || reducedMotion) return;
@@ -335,23 +289,13 @@ export function PhotoStrip({
     [touchMode, reducedMotion, maxBoost],
   );
 
-  // Hover / focus → mouse-driven mode (no auto-drift). On leave → resume drift.
+  // Hover / focus → mouse-driven mode (desktop only). On leave → resume drift.
   const setEngaged = React.useCallback((engaged: boolean) => {
     engagedRef.current = engaged;
     if (!engaged) {
-      // Resume drift from current position; pick the direction that takes
-      // the strip toward the nearer wall — feels less jerky than always
-      // going left. Touch mode reads from scrollLeft (and resyncs the
-      // accumulator), desktop reads from offsetRef.
       const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
-      const v = viewportRef.current;
-      const current =
-        v && (v.scrollLeft || 0) > 0 ? v.scrollLeft : offsetRef.current;
+      const current = offsetRef.current;
       directionRef.current = current > max / 2 ? -1 : 1;
-      // Force the touch accumulator to resync from scrollLeft on resume,
-      // so a long engaged phase (where the user scrolled around) doesn't
-      // teleport the strip back to its pre-engagement position.
-      if (v) touchAccumRef.current = v.scrollLeft;
     }
   }, []);
 
@@ -361,46 +305,77 @@ export function PhotoStrip({
     [images],
   );
 
+  // Style for the track. Desktop: drives `transform` from rAF, leaves
+  // `animation` empty. Touch + animated: applies the CSS keyframe; the
+  // `--ps-end` variable is set imperatively inside `measure()`. Touch + fits:
+  // no animation. Reduced motion: no animation, ever.
+  const trackStyle = React.useMemo<React.CSSProperties>(() => {
+    if (touchMode && !reducedMotion && !fits) {
+      // Duration scales loosely with content width. Even with no measurement
+      // yet (first paint before measure() runs), 40s is a calm default. The
+      // browser interpolates against `--ps-end` which gets set right after.
+      return {
+        animation: "ps-drift 40s linear infinite",
+        // willChange hints the compositor; only meaningful while animating.
+        willChange: "transform",
+      };
+    }
+    if (!touchMode && !reducedMotion) {
+      return { willChange: "transform" };
+    }
+    return {};
+  }, [touchMode, reducedMotion, fits]);
+
   return (
     <div
       ref={viewportRef}
       onPointerMove={onPointerMove}
-      onMouseEnter={() => setEngaged(true)}
-      onMouseLeave={() => setEngaged(false)}
-      // Touch: while a finger is on the strip, pause auto-drift so we don't
-      // fight the user's swipe. Resume after a beat once they're done.
-      // touchcancel covers the gesture-aborted edge case (incoming call,
-      // system sheet) so engagedRef can't get stuck pinned. The rAF loop
-      // also force-resets engagedRef after 3s as a final safety net.
+      onMouseEnter={() => {
+        if (touchMode) return;
+        setEngaged(true);
+      }}
+      onMouseLeave={() => {
+        if (touchMode) return;
+        setEngaged(false);
+      }}
+      // Touch: pause the CSS animation while a finger is down so the user's
+      // native swipe is uncontested. Resume after a 2.5s rest. We deliberately
+      // do NOT call preventDefault / stopPropagation anywhere — native
+      // overflow-x scroll + touch-pan-x are doing the heavy lifting.
       onTouchStart={() => {
-        // Cancel any stale "resume" timer from a previous swipe so it can't
-        // fire mid-gesture and unset engagedRef while finger is still down.
+        if (!touchMode) return;
         if (touchResumeTimerRef.current != null) {
           clearTimeout(touchResumeTimerRef.current);
           touchResumeTimerRef.current = null;
         }
-        lastTouchStartRef.current =
-          typeof performance !== "undefined" ? performance.now() : Date.now();
-        setEngaged(true);
+        pauseTouchAnim();
       }}
       onTouchEnd={() => {
+        if (!touchMode) return;
         if (touchResumeTimerRef.current != null) {
           clearTimeout(touchResumeTimerRef.current);
         }
         touchResumeTimerRef.current = setTimeout(() => {
           touchResumeTimerRef.current = null;
-          setEngaged(false);
+          resumeTouchAnim();
         }, 2500);
       }}
       onTouchCancel={() => {
+        if (!touchMode) return;
         if (touchResumeTimerRef.current != null) {
           clearTimeout(touchResumeTimerRef.current);
           touchResumeTimerRef.current = null;
         }
-        setEngaged(false);
+        // Cancel = gesture aborted (incoming call, system sheet). Resume
+        // immediately, no rest period — the user isn't interacting anymore.
+        resumeTouchAnim();
       }}
-      onFocusCapture={() => setEngaged(true)}
+      onFocusCapture={() => {
+        if (touchMode) return;
+        setEngaged(true);
+      }}
       onBlurCapture={(e) => {
+        if (touchMode) return;
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
           setEngaged(false);
         }
@@ -408,13 +383,12 @@ export function PhotoStrip({
       className={cn(
         "relative w-full select-none",
         // overflow-y visible so shadows + hover-scale don't clip top/bottom.
-        // Touch: native horizontal scroll IS the swipe channel; JS drift
-        // increments scrollLeft alongside. Use `snap-x snap-proximity` (not
-        // mandatory) — proximity only snaps on user-driven scroll-stop,
-        // doesn't fight programmatic scrollLeft updates each frame.
+        // Touch: native horizontal scroll IS the swipe channel; finger swipes
+        // the viewport, the inner track meanwhile auto-drifts via CSS keyframes
+        // (paused while user is touching).
         // Desktop: we transform the inner track via JS, viewport just clips.
         touchMode
-          ? "overflow-x-auto overflow-y-visible touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [scroll-behavior:auto] [overscroll-behavior-x:contain] snap-x snap-proximity"
+          ? "overflow-x-auto overflow-y-visible touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [overscroll-behavior-x:contain] snap-x snap-proximity"
           : "overflow-x-hidden overflow-y-visible",
         className,
       )}
@@ -426,11 +400,7 @@ export function PhotoStrip({
           "pt-8 pb-12",
           fits ? "justify-center" : "justify-start",
         )}
-        style={{
-          // Desktop drift uses transform; touch uses scrollLeft on viewport
-          // → no transform compositing on the track in that mode.
-          willChange: touchMode || reducedMotion ? undefined : "transform",
-        }}
+        style={trackStyle}
       >
         {items.map((item, i) => {
           const j = pickJitter(item.src, i);
