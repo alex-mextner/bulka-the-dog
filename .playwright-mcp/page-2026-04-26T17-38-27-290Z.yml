@@ -1,0 +1,338 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - link "Перейти к содержимому" [ref=e5] [cursor=pointer]:
+        - /url: "#main"
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - button "Bulka — top" [ref=e8] [cursor=pointer]: 🐾 Bulka
+          - group "Сменить язык" [ref=e10]:
+            - img [ref=e11]
+            - button "RU" [ref=e14] [cursor=pointer]
+            - button "SR" [ref=e15] [cursor=pointer]
+            - button "EN" [pressed] [ref=e16] [cursor=pointer]
+        - navigation "Разделы страницы":
+          - generic:
+            - button "Appearance"
+            - button "Habits"
+            - button "Skills"
+            - button "Health"
+            - button "Conditions"
+            - button "FAQ"
+            - button "Contact"
+            - button "Photos"
+            - button "RU"
+            - button "SR"
+            - button "EN" [pressed]
+        - button "Открыть меню" [ref=e17] [cursor=pointer]:
+          - img [ref=e18]
+    - main [ref=e19]:
+      - region "Hi! I'm Bulka the dog." [ref=e20]:
+        - generic [ref=e21]:
+          - heading "Hi! I'm Bulka the dog." [level=1] [ref=e22]
+          - generic [ref=e23]:
+            - 'button "Открыть фото: In the elevator: catching myself in the mirror" [ref=e25]':
+              - img "I'm watching my reflection in the elevator mirror" [ref=e26]
+            - generic [ref=e27]:
+              - paragraph [ref=e28]: I'm somewhere around 1–2 years old, but that's not certain. The vet is sure I won't grow anymore, so you're seeing me in my prime.
+              - paragraph [ref=e29]:
+                - text: I was found by a girl named
+                - strong [ref=e30]: Lena
+                - text: from Russia, when I was begging at the Aleksandar Ski Staza restaurant in Banovo Brdo. I was feeling really terrible because I had more than
+                - strong [ref=e31]: 70 ticks
+                - text: on me, so Lena decided to take me in and help me.
+              - paragraph [ref=e32]:
+                - text: Now Lena has patched me up, taught me
+                - strong [ref=e33]: all sorts of wisdom
+                - text: ", and is ready to give me to good owners"
+                - strong [ref=e34]: for adoption
+                - text: . Lena cried while making this website, because she wants to keep me, but she has to leave Belgrade every year for the entire winter due to air quality problems. And she wants
+                - strong [ref=e35]: loving people to always be by my side ❤️
+              - paragraph [ref=e36]: Read about me — maybe you'll fall in love with me and want to take me in?
+              - generic [ref=e37]:
+                - button "Jump to Lena's contacts" [ref=e38] [cursor=pointer]:
+                  - img [ref=e39]
+                  - text: Let's meet
+                - button "Learn more about me" [ref=e41] [cursor=pointer]:
+                  - text: Learn more about me
+                  - img [ref=e42]
+      - region "Appearance" [ref=e44]:
+        - generic [ref=e45]:
+          - heading "Appearance" [level=2] [ref=e46]
+          - generic [ref=e47]:
+            - generic [ref=e49]:
+              - generic [ref=e50]:
+                - generic [ref=e51]: 22kg
+                - generic [ref=e52]: weight
+              - generic [ref=e53]:
+                - generic [ref=e54]: 50cm
+                - generic [ref=e55]: at withers
+              - generic [ref=e56]:
+                - generic [ref=e57]: 🌸
+                - generic [ref=e58]:
+                  - generic [ref=e59]: Girl
+                  - generic [ref=e60]: sex
+              - generic [ref=e61]:
+                - generic [ref=e62]: 🦊
+                - generic [ref=e64]: Soft ears like a Corgi
+              - generic [ref=e65]:
+                - generic [ref=e66]: 🌀
+                - generic [ref=e68]: Curly tail like a Husky
+              - generic [ref=e69]:
+                - generic [ref=e70]: 🐕
+                - generic [ref=e71]:
+                  - generic [ref=e72]: Face like an Akita Inu
+                  - generic [ref=e73]: grandma clearly hung out with some noble dogs
+            - 'button "Открыть фото: Daily life: bone, rug, warm floor" [ref=e74]':
+              - img "I'm lying on the rug with a bone next to the bed" [ref=e75]
+      - region "Household habits" [ref=e76]:
+        - generic [ref=e77]:
+          - heading "Household habits" [level=2] [ref=e78]
+          - generic [ref=e79]:
+            - 'button "Открыть фото: When you scratch behind my ear — pure zen" [ref=e80]':
+              - img "Someone's petting my head, my eyes squeezed shut in bliss" [ref=e81]
+            - generic [ref=e83]:
+              - generic [ref=e84]:
+                - heading "Bathroom" [level=3] [ref=e85]: 🚽 Bathroom
+                - paragraph [ref=e86]: I figured out that you're supposed to go to the bathroom outside on my second day living at home, and since then I've never peed indoors.
+              - generic [ref=e87]:
+                - heading "Walks" [level=3] [ref=e88]: 🚶 Walks
+                - paragraph [ref=e89]: "I get walked twice a day: at 10 in the morning and 10 at night. I prefer being at home, so I'm happy to do my business and head back, but I can also keep you company for the whole day and go with you to the bank, to the beauty salon, to a restaurant, or to visit friends. I'll quietly lie down next to you and sprawl out."
+              - generic [ref=e90]:
+                - heading "Behavior" [level=3] [ref=e91]: 🐕 Behavior
+                - paragraph [ref=e92]: "I won't jump on other dogs or fight with them — I didn't find myself in a dumpster, after all. I can walk calmly both on a leash and off: I'll walk around you and sniff the flowers."
+              - generic [ref=e93]:
+                - heading "In the car" [level=3] [ref=e94]: 🚗 In the car
+                - paragraph [ref=e95]: I can jump into the car on my own and ride calmly in the back seat. I have a superpower — I never get carsick!
+              - generic [ref=e96]:
+                - heading "At home" [level=3] [ref=e97]: 🏠 At home
+                - paragraph [ref=e98]: At home I mostly sleep. Lena doesn't let me climb on the couch, which I of course consider discrimination. If I happen to be left alone all day, I'll just keep sleeping. I don't understand dogs who are afraid to be home alone — quite the opposite, it's great, you can enjoy the silence.
+              - generic [ref=e99]:
+                - heading "Food" [level=3] [ref=e100]: 🍖 Food
+                - paragraph [ref=e101]: I eat dry food twice a day. And treats. I love dog pâté and cheese.
+              - generic [ref=e102]:
+                - heading "Living with cats" [level=3] [ref=e103]: 🐱 Living with cats
+                - paragraph [ref=e104]: "Right now I live with two cats. Honestly, I don't even notice them: they just walk around, what do I care."
+      - region "Skills" [ref=e105]:
+        - generic [ref=e106]:
+          - heading "Skills" [level=2] [ref=e107]
+          - generic [ref=e108]:
+            - generic [ref=e110]:
+              - paragraph [ref=e111]: In two weeks at home I learned a bunch of commands.
+              - generic [ref=e112]:
+                - heading "Commands I know" [level=3] [ref=e113]
+                - list [ref=e114]:
+                  - listitem [ref=e115]:
+                    - generic [ref=e116]: ✓
+                    - generic [ref=e117]: Sit
+                  - listitem [ref=e118]:
+                    - generic [ref=e119]: ✓
+                    - generic [ref=e120]: Lie down
+                  - listitem [ref=e121]:
+                    - generic [ref=e122]: ✓
+                    - generic [ref=e123]: Place
+                  - listitem [ref=e124]:
+                    - generic [ref=e125]: ✓
+                    - generic [ref=e126]: Come
+                  - listitem [ref=e127]:
+                    - generic [ref=e128]: ✓
+                    - generic [ref=e129]: Give paw
+                  - listitem [ref=e130]:
+                    - generic [ref=e131]: ✓
+                    - generic [ref=e132]: Ball
+                  - listitem [ref=e133]:
+                    - generic [ref=e134]: ✓
+                    - generic [ref=e135]: "No"
+              - paragraph [ref=e136]: "I don't get what's so hard about it: you just do what you're asked, and then you get a treat."
+            - 'button "Открыть фото: Sitting. Waiting for the \"paw\" command" [ref=e137]':
+              - img "I'm sitting on the rug in front of the TV" [ref=e138]
+      - region "Health" [ref=e139]:
+        - generic [ref=e140]:
+          - heading "Health" [level=2] [ref=e141]
+          - generic [ref=e142]:
+            - paragraph [ref=e143]: Life on the streets was hard.
+            - list [ref=e144]:
+              - listitem [ref=e145]:
+                - img [ref=e148]
+                - generic [ref=e150]:
+                  - generic [ref=e151]: "#1"
+                  - paragraph [ref=e152]: First, a bad person once shot me with an air pistol. There's a bullet lodged near my spine. It doesn't affect my health and doesn't need to be removed unless it starts to hurt.
+              - listitem [ref=e153]:
+                - img [ref=e156]
+                - generic [ref=e158]:
+                  - generic [ref=e159]: "#2"
+                  - paragraph [ref=e160]: Second, a long time ago I broke my back leg. Nobody treated me, so it healed crookedly, and sometimes after an hour of walking I start to limp. The doctor says it's no big deal, it adds to my charm!
+              - listitem [ref=e161]:
+                - img [ref=e164]
+                - generic [ref=e168]:
+                  - generic [ref=e169]: "#3"
+                  - paragraph [ref=e170]: "Third, I have a heartworm living in my heart. It's at stage two right now — that's the very beginning, the worm is under one centimeter, and my heart is fully clean on ultrasound and ECG (see the report below). Lena has already started driving it out: for the next six months we visit the vet once every two weeks, pay 4000 dinars, and I get an injection plus drops. That's how the worm dies. While I'm in treatment I can't run more than 5 minutes — otherwise I cough."
+              - listitem [ref=e171]:
+                - img [ref=e174]
+                - generic [ref=e177]:
+                  - generic [ref=e178]: "#4"
+                  - paragraph [ref=e179]: Fourth, I can't be spayed until we get rid of the worm. But honestly, I like the ball more than pushy male dogs anyway.
+            - figure [ref=e180]:
+              - 'button "Открыть фото: At the vet. Lena playing emergency" [ref=e182]':
+                - img "At the vet, Lena hugging me" [ref=e183]
+              - 'button "Открыть фото: Belly X-ray. Bullet near the spine — doesn''t bother me" [ref=e185]':
+                - 'img "My X-ray: spine and bullet next to it" [ref=e186]'
+              - 'button "Открыть фото: Leg X-ray. Old injury is visible" [ref=e188]':
+                - 'img "My X-ray: rear leg" [ref=e189]'
+              - 'button "Открыть фото: Cardiology: dirofilaria immitis Stg II, in treatment" [ref=e191]':
+                - img "Cardiology report from Dr. Filip Božinovski" [ref=e192]
+      - region "Conditions" [ref=e193]:
+        - generic [ref=e194]:
+          - heading "Conditions" [level=2] [ref=e195]
+          - generic [ref=e196]:
+            - 'button "Открыть фото: No drama with other dogs — not even this fluffy one" [ref=e197]':
+              - img "Me on a bench with two people and a small fluffy dog" [ref=e198]
+            - generic [ref=e200]:
+              - generic [ref=e201]:
+                - heading "Who I go to" [level=3] [ref=e202]:
+                  - img [ref=e203]
+                  - text: Who I go to
+                - paragraph [ref=e206]: Lena says she'll give me to both an apartment and a house, but she won't allow anyone to keep me on a chain.
+              - generic [ref=e207]:
+                - heading "Support and contact" [level=3] [ref=e208]:
+                  - img [ref=e209]
+                  - text: Support and contact
+                - paragraph [ref=e214]: She also says she'd like to stay in touch, or even be friends, with my future owners. And she will definitely take me back if we don't end up getting along.
+                - paragraph [ref=e215]: She'll help pay for my treatment and spaying. And on top of that, either she or our friend Ira will take me for boarding whenever you decide to travel. And she can also drive me to the vet in her car, so you don't have to pay for a taxi.
+              - generic [ref=e216]:
+                - heading "Bonus" [level=3] [ref=e217]:
+                  - img [ref=e218]
+                  - text: Bonus
+                - paragraph [ref=e220]: Imagine that, I'm coming as a package deal with two nannies and a personal driver. Now that's something!
+      - region "Stuff people usually ask" [ref=e221]:
+        - generic "Stuff people usually ask" [ref=e223]:
+          - heading "Stuff people usually ask" [level=2] [ref=e224]
+          - paragraph [ref=e225]: Don't see your question? Ping Lena directly — she types faster than I do.
+          - note [ref=e226]:
+            - img [ref=e227]
+            - generic [ref=e230]:
+              - paragraph [ref=e231]: If it doesn't work out, Lena takes me back.
+              - paragraph [ref=e232]: No drama, no conditions, no "give it another month."
+          - list [ref=e233]:
+            - listitem [ref=e234]:
+              - button "Are you okay with kids?" [ref=e235] [cursor=pointer]:
+                - generic [ref=e236]: Are you okay with kids?
+                - img [ref=e237]
+            - listitem [ref=e239]:
+              - button "I'm renting. Can I still adopt you?" [ref=e240] [cursor=pointer]:
+                - generic [ref=e241]: I'm renting. Can I still adopt you?
+                - img [ref=e242]
+            - listitem [ref=e244]:
+              - button "How much will I spend on you per month?" [ref=e245] [cursor=pointer]:
+                - generic [ref=e246]: How much will I spend on you per month?
+                - img [ref=e247]
+            - listitem [ref=e249]:
+              - button "What if it doesn't work out?" [ref=e250] [cursor=pointer]:
+                - generic [ref=e251]: What if it doesn't work out?
+                - img [ref=e252]
+            - listitem [ref=e254]:
+              - button "What about other dogs and cats?" [ref=e255] [cursor=pointer]:
+                - generic [ref=e256]: What about other dogs and cats?
+                - img [ref=e257]
+            - listitem [ref=e259]:
+              - button "Are you healthy?" [ref=e260] [cursor=pointer]:
+                - generic [ref=e261]: Are you healthy?
+                - img [ref=e262]
+            - listitem [ref=e264]:
+              - button "I'm not in Belgrade. Can we do this remotely?" [ref=e265] [cursor=pointer]:
+                - generic [ref=e266]: I'm not in Belgrade. Can we do this remotely?
+                - img [ref=e267]
+            - listitem [ref=e269]:
+              - button "When do I need to decide?" [ref=e270] [cursor=pointer]:
+                - generic [ref=e271]: When do I need to decide?
+                - img [ref=e272]
+      - region "How to meet me?" [ref=e274]:
+        - generic [ref=e275]:
+          - heading "How to meet me?" [level=2] [ref=e276]
+          - generic [ref=e277]:
+            - generic [ref=e278]:
+              - paragraph [ref=e279]: Lena and I live at Vukov Spomenik, near Super Vero Zira. You can come walk with us, have some tea. Or if you prefer, we'll come to you to meet!
+              - link "Vukov Spomenik, near Super Vero Zira — Open in Maps" [ref=e280] [cursor=pointer]:
+                - /url: https://www.google.com/maps/search/?api=1&query=Super+Vero+Zira+Vukov+Spomenik+Belgrade
+                - generic [ref=e282]:
+                  - heading "Location" [level=3] [ref=e283]:
+                    - img [ref=e284]
+                    - text: Location
+                  - paragraph [ref=e287]: Vukov Spomenik
+                  - paragraph [ref=e288]: near Super Vero Zira
+                  - paragraph [ref=e289]: Belgrade, Serbia
+                  - generic [ref=e290]:
+                    - img [ref=e291]
+                    - text: Open in Maps
+              - generic [ref=e294]:
+                - heading "Reach Lena" [level=3] [ref=e295]:
+                  - generic [ref=e296]: 🐾
+                  - text: Reach Lena
+                - list [ref=e297]:
+                  - listitem [ref=e298]:
+                    - link "Telegram @larichkina_b" [ref=e299] [cursor=pointer]:
+                      - /url: https://t.me/larichkina_b
+                      - img [ref=e300]
+                      - generic [ref=e303]:
+                        - generic [ref=e304]: Telegram
+                        - generic [ref=e305]: "@larichkina_b"
+                  - listitem [ref=e306]:
+                    - link "WhatsApp WhatsApp" [ref=e307] [cursor=pointer]:
+                      - /url: https://wa.me/qr/BT5L6JR632BHC1
+                      - img [ref=e308]
+                      - generic [ref=e310]:
+                        - generic [ref=e311]: WhatsApp
+                        - generic [ref=e312]: WhatsApp
+                  - listitem [ref=e313]:
+                    - link "Instagram @lari4kina_babich" [ref=e314] [cursor=pointer]:
+                      - /url: https://www.instagram.com/lari4kina_babich?igsh=bTVhMjZrMWR2aXhm
+                      - img [ref=e315]
+                      - generic [ref=e318]:
+                        - generic [ref=e319]: Instagram
+                        - generic [ref=e320]: "@lari4kina_babich"
+                  - listitem [ref=e321]:
+                    - link "Phone +381 61 633 35 71" [ref=e322] [cursor=pointer]:
+                      - /url: tel:+381616333571
+                      - img [ref=e323]
+                      - generic [ref=e325]:
+                        - generic [ref=e326]: Phone
+                        - generic [ref=e327]: +381 61 633 35 71
+            - generic:
+              - 'button "Открыть фото: Courtyard at Vukov Spomenik. We can meet here"':
+                - img "Me with Lena in a courtyard under the trees"
+      - region "More photos of Bulka" [ref=e328]:
+        - generic [ref=e329]:
+          - heading "More frames" [level=2] [ref=e330]
+          - paragraph [ref=e331]: Move the mouse left/right, or just watch.
+        - generic [ref=e333]:
+          - generic [ref=e335]:
+            - 'button "Открыть фото: Cats do their things, I do mine" [ref=e337]':
+              - img "I'm lying at home, cats are sitting on the windowsill" [ref=e338]
+            - generic [ref=e339]: Cats do their things, I do mine
+          - generic [ref=e341]:
+            - 'button "Открыть фото: Learning commands. Sometimes I even follow them" [ref=e343]':
+              - img "I'm lying on a rug at someone's place, TV in the background" [ref=e344]
+            - generic [ref=e345]: Learning commands. Sometimes I even follow them
+          - generic [ref=e347]:
+            - 'button "Открыть фото: In the park with friends" [ref=e349]':
+              - img "Me in the park with another dog and two people" [ref=e350]
+            - generic [ref=e351]: In the park with friends
+          - generic [ref=e353]:
+            - 'button "Открыть фото: Riding in the car. I don''t get carsick — superpower" [ref=e355]':
+              - img "Me with Lena in the car, Lena smiling on a selfie" [ref=e356]
+            - generic [ref=e357]: Riding in the car. I don't get carsick — superpower
+    - contentinfo [ref=e358]:
+      - generic [ref=e359]:
+        - paragraph [ref=e360]: 🐾 Bulka
+        - paragraph [ref=e361]: A dog looking for loving owners
+        - paragraph [ref=e362]:
+          - text: © 2026 · Made by
+          - link "Lena" [ref=e363] [cursor=pointer]:
+            - /url: https://www.instagram.com/lari4kina_babich?igsh=bTVhMjZrMWR2aXhm
+          - text: and
+          - link "Alex" [ref=e364] [cursor=pointer]:
+            - /url: https://mextner.com
+          - text: with love for Bulka

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
-import Lightbox from "yet-another-react-lightbox";
+import Lightbox, { type ZoomRef } from "yet-another-react-lightbox";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Captions from "yet-another-react-lightbox/plugins/captions";
 import Counter from "yet-another-react-lightbox/plugins/counter";
@@ -180,6 +180,11 @@ type GalleryContextValue = {
   // Imperative handle for the pinch-to-open transition overlay. GalleryImage
   // drives this directly during a 2-finger gesture so we avoid 60Hz setState.
   pinchOverlayRef: React.MutableRefObject<PinchOverlayHandle | null>;
+  // Carry the final pinch scale from the overlay (in GalleryImage's commit
+  // path) over to the lightbox's first-render effect, where we feed it to
+  // yarl's ZoomRef.changeZoom so the lightbox opens already zoomed to the
+  // scale the user reached. Reset to 1 on every successful read.
+  pendingZoomRef: React.MutableRefObject<number>;
 };
 
 const GalleryContext = React.createContext<GalleryContextValue | null>(null);
@@ -206,6 +211,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const [index, setIndex] = React.useState(0);
   const triggerRef = React.useRef<HTMLElement | null>(null);
   const pinchOverlayRef = React.useRef<PinchOverlayHandle | null>(null);
+  const pendingZoomRef = React.useRef<number>(1);
 
   const register = React.useCallback((entry: Omit<GalleryEntry, "id">) => {
     const id = nextIdRef.current++;
@@ -309,6 +315,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       triggerRef,
       setTrigger,
       pinchOverlayRef,
+      pendingZoomRef,
     }),
     [register, update, unregister, open, entries, isOpen, index, close, setTrigger],
   );
@@ -346,7 +353,7 @@ export function GalleryImage({
   loading = "lazy",
   ...imgProps
 }: GalleryImageProps) {
-  const { register, update, unregister, open, setTrigger, pinchOverlayRef } =
+  const { register, update, unregister, open, setTrigger, pinchOverlayRef, pendingZoomRef } =
     useGallery();
   const idRef = React.useRef<number | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -427,11 +434,16 @@ export function GalleryImage({
       active = false;
       const commit = lastScale >= PINCH_COMMIT_SCALE;
       if (commit) {
+        // Stash the scale so the lightbox's mount-effect can hand it to
+        // yarl's ZoomRef, opening already zoomed to where the user got to.
+        // The 1 → max clamp matches yarl's own maxZoom (3 × by default).
+        pendingZoomRef.current = Math.min(3, Math.max(1, lastScale));
         // Open the real lightbox first, then dismiss the overlay so yarl's
         // own opening visuals immediately replace ours with no flash gap.
         handleOpen();
         pinchOverlayRef.current?.close(true);
       } else {
+        pendingZoomRef.current = 1;
         pinchOverlayRef.current?.close(false);
       }
       cleanup?.();
@@ -501,7 +513,7 @@ export function GalleryImage({
       btn.removeEventListener("touchstart", onNativeTouchStart);
       cleanup?.();
     };
-  }, [handleOpen, pinchOverlayRef, setTrigger, src, alt]);
+  }, [handleOpen, pinchOverlayRef, setTrigger, src, alt, pendingZoomRef]);
 
   return (
     <button
@@ -540,7 +552,70 @@ export function GalleryImage({
 // ---------------------------------------------------------------------------
 
 export function GalleryLightbox() {
-  const { entries, isOpen, index, close } = useGallery();
+  const { entries, isOpen, index, close, pendingZoomRef } = useGallery();
+  // yarl exposes the active slide's zoom controls through a forwarded ref.
+  // We need this to seed the initial zoom level after a pinch-to-open
+  // commit, so the lightbox opens already zoomed to the scale the user
+  // reached on the thumbnail (instead of resetting to fit-the-screen).
+  const zoomRef = React.useRef<ZoomRef | null>(null);
+
+  // After the lightbox opens, if there's a pending zoom from a pinch gesture
+  // (set by GalleryImage's commit path), feed it to yarl. We can't do this
+  // in the same tick that isOpen flips — yarl's zoom plugin attaches its ref
+  // on its own first render, which happens AFTER our state update commits.
+  // requestAnimationFrame defers us by one frame, by which point the slide
+  // is mounted, the ref is set, and `disabled` is false.
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const target = pendingZoomRef.current;
+    if (target <= 1) return;
+    // Poll up to 30 frames (~500ms) waiting for yarl's ZoomRef to attach
+    // and the slide to be ready. The Zoom plugin attaches its ref on the
+    // active slide; until that slide is mounted and its image started
+    // decoding, `disabled` stays true and changeZoom is a no-op.
+    // Yarl's ZoomState has a useLayoutEffect that resets zoom to 1 on mount
+    // and on globalIndex/currentSource changes. The reset can fire AFTER our
+    // first changeZoom(target) call (yarl performs several internal layout
+    // commits while preloading the slide). Robust strategy: poll for up to
+    // 800ms and re-issue changeZoom every frame until either zoomRef.zoom
+    // matches target or we've held it for a few frames in a row. The first
+    // call is `rapid: false` so yarl plays its WebAnimations zoom — that's
+    // what visually shows the zoom-in. Subsequent corrections (if yarl tries
+    // to reset us) use rapid: true so they don't re-trigger the animation.
+    let frame = 0;
+    let rafId = 0;
+    let firstApply = true;
+    let stableFrames = 0;
+    const tick = () => {
+      frame++;
+      const z = zoomRef.current;
+      if (!z || z.disabled) {
+        if (frame > 50) {
+          pendingZoomRef.current = 1;
+          return;
+        }
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+      // Apply / re-apply target zoom.
+      if (Math.abs(z.zoom - target) > 0.01) {
+        z.changeZoom(target, !firstApply);
+        firstApply = false;
+        stableFrames = 0;
+      } else {
+        stableFrames++;
+      }
+      // Once the zoom has held at the target for ~5 frames (=83ms), yarl's
+      // own resets are done settling. Stop polling.
+      if (stableFrames >= 5 || frame > 50) {
+        pendingZoomRef.current = 1;
+        return;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [isOpen, pendingZoomRef]);
 
   const slides = React.useMemo(
     () =>
@@ -578,6 +653,12 @@ export function GalleryLightbox() {
       // image). 10vw on each side → image ~80vw wide on phones, consistent
       // across all slides regardless of which one was opened first.
       carousel={{ finite: false }}
+      animation={{
+        // Faster than the default 500ms zoom animation so the
+        // pinch-to-open seed-zoom reads as a continuation of the gesture
+        // rather than a separate "and now we zoom" beat.
+        zoom: 200,
+      }}
       styles={
         {
           container: {
@@ -590,7 +671,10 @@ export function GalleryLightbox() {
         } as Record<string, React.CSSProperties>
       }
       // Pinch / wheel zoom config — keeps both touch and desktop snappy.
+      // `ref: zoomRef` exposes ZoomRef.changeZoom so we can seed initial
+      // zoom from a pinch-to-open gesture (see useEffect on isOpen above).
       zoom={{
+        ref: zoomRef,
         maxZoomPixelRatio: 3,
         scrollToZoom: true,
         wheelZoomDistanceFactor: 100,
