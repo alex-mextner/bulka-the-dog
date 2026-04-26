@@ -84,6 +84,19 @@ const VELOCITY_WINDOW_MS = 100;
 // which feels right for a small carousel — long enough to be visible,
 // short enough not to feel laggy.
 const FRICTION = 3.0;
+// Spring-back stiffness for the boundary rubber-band release. Exponential
+// ease with k=14 reaches the target in ~250ms, comparable to UIScrollView's
+// default deceleration spring on iOS.
+const SPRING_BACK_K = 14;
+
+// Apple-style rubber-band displacement: as the user drags past a boundary,
+// the actual displacement asymptotes to `dimension`. f(d, w) = d*w/(d+w).
+// At d = w, displacement = w/2; at d = 5w, displacement = 5w/6. The further
+// you pull, the more it resists — exactly the feeling of a stretched band.
+function rubberBandAmount(distance: number, dimension: number): number {
+  if (dimension <= 0) return 0;
+  return (distance * dimension) / (distance + dimension);
+}
 
 export function PhotoStrip({
   images,
@@ -126,8 +139,14 @@ export function PhotoStrip({
   //   - "inertia": post-touchend kinetic decay; smoothly hands off to "drift"
   //                when |velocity| falls to baseSpeed, preserving sign so
   //                the drift continues in the direction of the swipe.
+  //   - "spring": rubber-band release — user dragged past 0 or max, on
+  //               release we spring back to the boundary, then drift.
   //   - "engaged": desktop hover-driven scrub.
-  const phaseRef = React.useRef<"drift" | "inertia" | "engaged">("drift");
+  const phaseRef = React.useRef<"drift" | "inertia" | "spring" | "engaged">(
+    "drift",
+  );
+  // Target offset for the spring phase (always 0 or max).
+  const springTargetRef = React.useRef(0);
 
   const [fits, setFits] = React.useState(false);
 
@@ -217,6 +236,20 @@ export function PhotoStrip({
         // Desktop mouse scrub.
         const tgt = targetOffsetRef.current;
         offsetRef.current += (tgt - offsetRef.current) * Math.min(1, 12 * dt);
+        if (track)
+          track.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
+      } else if (touchMode && phaseRef.current === "spring") {
+        // Spring back to the nearest boundary after a rubber-banded drag.
+        // Exponential ease toward target — visually indistinguishable from
+        // a critically-damped spring at this scale, and cheaper.
+        const target = springTargetRef.current;
+        offsetRef.current +=
+          (target - offsetRef.current) * Math.min(1, SPRING_BACK_K * dt);
+        if (Math.abs(offsetRef.current - target) < 0.5) {
+          offsetRef.current = target;
+          // direction was set on touchend (away from the boundary).
+          phaseRef.current = "drift";
+        }
         if (track)
           track.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
       } else if (touchMode && phaseRef.current === "inertia") {
@@ -336,9 +369,17 @@ export function PhotoStrip({
       if (e.cancelable) e.preventDefault();
 
       const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
+      const w = viewportWidthRef.current;
       let next = touchStartOffsetRef.current - dx;
-      if (next < 0) next = 0;
-      else if (next > max) next = max;
+      // Apple-style rubber-band: instead of clamping past the boundary,
+      // ease asymptotically toward (boundary + viewportWidth). The further
+      // the finger pulls, the slower the offset moves — feels exactly like
+      // the stretched-band behaviour of UIScrollView.
+      if (next < 0) {
+        next = -rubberBandAmount(-next, w);
+      } else if (next > max) {
+        next = max + rubberBandAmount(next - max, w);
+      }
       offsetRef.current = next;
       const track = trackRef.current;
       if (track) track.style.transform = `translate3d(${-next}px, 0, 0)`;
@@ -394,11 +435,23 @@ export function PhotoStrip({
       }
       touchSamplesRef.current = [];
 
-      // If the swipe was barely a swipe (finger was already stopped at
-      // release), skip inertia and just resume drift, picking direction
-      // based on which edge we're closer to so the bouncer keeps working.
-      if (Math.abs(offsetVel) <= baseSpeed) {
-        const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
+      const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
+
+      // If the user dragged past a boundary (rubber-band stretched), the
+      // release ALWAYS goes through the spring phase — no inertia, no
+      // drift first. Velocity is irrelevant here; the spring's job is just
+      // to settle back to the boundary cleanly. Direction for after-spring
+      // drift is set away from the boundary so the bouncer makes sense.
+      if (offsetRef.current < 0) {
+        springTargetRef.current = 0;
+        directionRef.current = 1;
+        phaseRef.current = "spring";
+      } else if (offsetRef.current > max) {
+        springTargetRef.current = max;
+        directionRef.current = -1;
+        phaseRef.current = "spring";
+      } else if (Math.abs(offsetVel) <= baseSpeed) {
+        // Barely a swipe — skip inertia, pick a sane direction.
         directionRef.current =
           offsetVel !== 0
             ? offsetVel > 0
