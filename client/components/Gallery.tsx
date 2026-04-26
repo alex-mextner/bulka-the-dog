@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Lightbox from "yet-another-react-lightbox";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import Captions from "yet-another-react-lightbox/plugins/captions";
@@ -9,6 +10,148 @@ import "yet-another-react-lightbox/plugins/captions.css";
 import "yet-another-react-lightbox/plugins/counter.css";
 
 import { cn } from "@/lib/utils";
+
+// ---------------------------------------------------------------------------
+// Pinch-to-open transition overlay
+//
+// iOS Photos pattern: on a 2-finger pinch over a thumbnail, the lightbox
+// reveals progressively under the user's fingers — the thumbnail clones
+// into a fixed-position layer, scales up, the background dims, and on
+// release we either commit (open lightbox) or animate back (cancel).
+//
+// IMPLEMENTATION: imperative API so we don't setState 60 times per second
+// during the gesture. The overlay component exposes `open / update / close`
+// via a handle ref, and GalleryImage manipulates the cloned image's
+// transform directly through that handle. Cancel paths rely on a one-shot
+// CSS transition so the spring-back is GPU-accelerated.
+// ---------------------------------------------------------------------------
+
+type PinchOpenOpts = {
+  src: string;
+  alt: string;
+  rect: { left: number; top: number; width: number; height: number };
+  borderRadius: string;
+};
+
+type PinchOverlayHandle = {
+  open: (opts: PinchOpenOpts) => void;
+  update: (scale: number, dx: number, dy: number) => void;
+  close: (commit: boolean) => void;
+};
+
+// Scale at which a release commits to opening the lightbox. Below this we
+// treat the gesture as a "false start" and animate back.
+const PINCH_COMMIT_SCALE = 1.25;
+// Maximum scale we render under the finger — clamps the visual size of the
+// overlay so a wild pinch doesn't blow up off-screen. Past this point the
+// overlay simply stops growing (dim still progresses).
+const PINCH_MAX_SCALE = 2.5;
+// Cancel animation duration (ms). The CSS transition on the cloned image
+// runs for this long when we abort.
+const PINCH_CANCEL_MS = 220;
+
+const PinchTransitionOverlay = React.forwardRef<PinchOverlayHandle, {}>(
+  function PinchTransitionOverlay(_props, ref) {
+    const [opts, setOpts] = React.useState<PinchOpenOpts | null>(null);
+    const [transitioning, setTransitioning] = React.useState(false);
+    const imgRef = React.useRef<HTMLDivElement | null>(null);
+    const dimRef = React.useRef<HTMLDivElement | null>(null);
+
+    React.useImperativeHandle(
+      ref,
+      () => ({
+        open: (o) => {
+          setTransitioning(false);
+          setOpts(o);
+        },
+        update: (scale, dx, dy) => {
+          // Clamp visible scale; dim still tracks the un-clamped scale so
+          // a stuck-at-max pinch keeps reading as "more committed".
+          const visibleScale = Math.min(PINCH_MAX_SCALE, Math.max(0.5, scale));
+          const dimAlpha = Math.min(0.9, Math.max(0, (scale - 1) / 1.5));
+          if (imgRef.current) {
+            imgRef.current.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${visibleScale})`;
+          }
+          if (dimRef.current) {
+            dimRef.current.style.backgroundColor = `rgba(0,0,0,${dimAlpha})`;
+          }
+        },
+        close: (commit) => {
+          if (commit) {
+            // Caller is opening the real lightbox right now. Just clear our
+            // overlay — yarl's portal mounts above us and visually swallows
+            // the moment.
+            setOpts(null);
+            setTransitioning(false);
+          } else {
+            // Animate back to identity (= thumbnail rect) over PINCH_CANCEL_MS,
+            // then unmount.
+            setTransitioning(true);
+            if (imgRef.current) {
+              imgRef.current.style.transform =
+                "translate3d(0, 0, 0) scale(1)";
+            }
+            if (dimRef.current) {
+              dimRef.current.style.backgroundColor = "rgba(0,0,0,0)";
+            }
+            window.setTimeout(() => {
+              setOpts(null);
+              setTransitioning(false);
+            }, PINCH_CANCEL_MS);
+          }
+        },
+      }),
+      [],
+    );
+
+    if (!opts || typeof document === "undefined") return null;
+
+    return createPortal(
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9999,
+          pointerEvents: "none", // touch events still go to whoever's listening on window
+        }}
+      >
+        <div
+          ref={dimRef}
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0)",
+            transition: transitioning
+              ? `background-color ${PINCH_CANCEL_MS}ms ease-out`
+              : "none",
+          }}
+        />
+        <div
+          ref={imgRef}
+          style={{
+            position: "absolute",
+            left: opts.rect.left,
+            top: opts.rect.top,
+            width: opts.rect.width,
+            height: opts.rect.height,
+            backgroundImage: `url("${opts.src}")`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            borderRadius: opts.borderRadius,
+            transform: "translate3d(0, 0, 0) scale(1)",
+            transformOrigin: "center center",
+            transition: transitioning
+              ? `transform ${PINCH_CANCEL_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+              : "none",
+            willChange: "transform",
+          }}
+        />
+      </div>,
+      document.body,
+    );
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,6 +177,9 @@ type GalleryContextValue = {
   // Where focus was before opening — used to restore on close.
   triggerRef: React.MutableRefObject<HTMLElement | null>;
   setTrigger: (el: HTMLElement | null) => void;
+  // Imperative handle for the pinch-to-open transition overlay. GalleryImage
+  // drives this directly during a 2-finger gesture so we avoid 60Hz setState.
+  pinchOverlayRef: React.MutableRefObject<PinchOverlayHandle | null>;
 };
 
 const GalleryContext = React.createContext<GalleryContextValue | null>(null);
@@ -59,6 +205,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [index, setIndex] = React.useState(0);
   const triggerRef = React.useRef<HTMLElement | null>(null);
+  const pinchOverlayRef = React.useRef<PinchOverlayHandle | null>(null);
 
   const register = React.useCallback((entry: Omit<GalleryEntry, "id">) => {
     const id = nextIdRef.current++;
@@ -161,12 +308,16 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       close,
       triggerRef,
       setTrigger,
+      pinchOverlayRef,
     }),
     [register, update, unregister, open, entries, isOpen, index, close, setTrigger],
   );
 
   return (
-    <GalleryContext.Provider value={value}>{children}</GalleryContext.Provider>
+    <GalleryContext.Provider value={value}>
+      {children}
+      <PinchTransitionOverlay ref={pinchOverlayRef} />
+    </GalleryContext.Provider>
   );
 }
 
@@ -195,7 +346,8 @@ export function GalleryImage({
   loading = "lazy",
   ...imgProps
 }: GalleryImageProps) {
-  const { register, update, unregister, open, setTrigger } = useGallery();
+  const { register, update, unregister, open, setTrigger, pinchOverlayRef } =
+    useGallery();
   const idRef = React.useRef<number | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
 
@@ -225,26 +377,131 @@ export function GalleryImage({
     open(idRef.current);
   }, [open, setTrigger]);
 
-  // Native touchstart listener — REQUIRED for preventDefault to actually
-  // block iOS Safari's page-pinch-zoom on a 2-finger gesture over a
-  // thumbnail. React's synthetic onTouchStart is registered as passive at
-  // the document root, so e.preventDefault() inside it is a silent no-op.
-  // Only a non-passive native listener can prevent the default action.
+  // Pinch-to-open with progressive transition overlay (iOS Photos style).
+  //
+  // The native non-passive touchstart listener is mandatory because React's
+  // synthetic onTouchStart is registered passive at the document root, so
+  // preventDefault inside it is a silent no-op. We need preventDefault to
+  // block iOS Safari's page-pinch-zoom on a 2-finger gesture.
+  //
+  // Once we own the gesture we attach window-level listeners (also non-
+  // passive) so we keep tracking even if a finger leaves the button rect.
+  // Per-frame updates push directly into the overlay's imperative API —
+  // no React rerenders during the gesture.
   React.useEffect(() => {
     const btn = buttonRef.current;
     if (!btn) return;
-    const onNativeTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        // Eat the default action (page pinch-zoom) and immediately open
-        // the lightbox so the user's continuing pinch lands inside yarl's
-        // Zoom plugin (it has its own native pointer handlers).
-        if (e.cancelable) e.preventDefault();
-        handleOpen();
-      }
+
+    let active = false;
+    let initialDist = 0;
+    let initialMidX = 0;
+    let initialMidY = 0;
+    let lastScale = 1;
+    let cleanup: (() => void) | null = null;
+
+    const distance = (t1: Touch, t2: Touch) =>
+      Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+    const onWindowTouchMove = (e: TouchEvent) => {
+      if (!active) return;
+      if (e.touches.length < 2) return;
+      // Block page-zoom and page-pan throughout the gesture.
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = distance(t1, t2);
+      if (initialDist <= 0) return;
+      const scale = dist / initialDist;
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+      lastScale = scale;
+      pinchOverlayRef.current?.update(
+        scale,
+        midX - initialMidX,
+        midY - initialMidY,
+      );
     };
+
+    const finishGesture = () => {
+      if (!active) return;
+      active = false;
+      const commit = lastScale >= PINCH_COMMIT_SCALE;
+      if (commit) {
+        // Open the real lightbox first, then dismiss the overlay so yarl's
+        // own opening visuals immediately replace ours with no flash gap.
+        handleOpen();
+        pinchOverlayRef.current?.close(true);
+      } else {
+        pinchOverlayRef.current?.close(false);
+      }
+      cleanup?.();
+      cleanup = null;
+    };
+
+    const onWindowTouchEnd = (e: TouchEvent) => {
+      if (!active) return;
+      // Commit only when BOTH fingers are off — otherwise wait (finger
+      // adjustments mid-pinch shouldn't trigger commit).
+      if (e.touches.length >= 1) return;
+      finishGesture();
+    };
+
+    const onWindowTouchCancel = () => {
+      if (!active) return;
+      finishGesture();
+    };
+
+    const onNativeTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      if (active) return;
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      initialDist = distance(t1, t2);
+      initialMidX = (t1.clientX + t2.clientX) / 2;
+      initialMidY = (t1.clientY + t2.clientY) / 2;
+      lastScale = 1;
+      active = true;
+
+      // Snapshot the button rect AND its border-radius so the overlay
+      // exactly mirrors the polaroid frame visually.
+      const rect = btn.getBoundingClientRect();
+      const cs = window.getComputedStyle(btn);
+      pinchOverlayRef.current?.open({
+        src,
+        alt,
+        rect: {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        },
+        borderRadius: cs.borderRadius,
+      });
+      // Remember the original trigger so close()-after-commit returns focus
+      // here, not to whatever else might steal it during the gesture.
+      setTrigger(btn);
+
+      window.addEventListener("touchmove", onWindowTouchMove, {
+        passive: false,
+      });
+      window.addEventListener("touchend", onWindowTouchEnd, { passive: false });
+      window.addEventListener("touchcancel", onWindowTouchCancel, {
+        passive: false,
+      });
+      cleanup = () => {
+        window.removeEventListener("touchmove", onWindowTouchMove);
+        window.removeEventListener("touchend", onWindowTouchEnd);
+        window.removeEventListener("touchcancel", onWindowTouchCancel);
+      };
+    };
+
     btn.addEventListener("touchstart", onNativeTouchStart, { passive: false });
-    return () => btn.removeEventListener("touchstart", onNativeTouchStart);
-  }, [handleOpen]);
+    return () => {
+      btn.removeEventListener("touchstart", onNativeTouchStart);
+      cleanup?.();
+    };
+  }, [handleOpen, pinchOverlayRef, setTrigger, src, alt]);
 
   return (
     <button
