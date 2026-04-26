@@ -576,38 +576,34 @@ export function GalleryLightbox() {
     // Yarl's ZoomState has a useLayoutEffect that resets zoom to 1 on mount
     // and on globalIndex/currentSource changes. The reset can fire AFTER our
     // first changeZoom(target) call (yarl performs several internal layout
-    // commits while preloading the slide). Robust strategy: poll for up to
-    // 800ms and re-issue changeZoom every frame until either zoomRef.zoom
-    // matches target or we've held it for a few frames in a row. The first
-    // call is `rapid: false` so yarl plays its WebAnimations zoom — that's
-    // what visually shows the zoom-in. Subsequent corrections (if yarl tries
-    // to reset us) use rapid: true so they don't re-trigger the animation.
-    let frame = 0;
+    // commits while preloading the slide AND when image source switches
+    // from preload to current after decode). On production builds the
+    // reset can land anywhere in the first ~1.5s after open. Strategy:
+    // poll every frame for 1500ms and re-issue changeZoom whenever
+    // zoomRef.zoom drifts away from target. First call is `rapid: false`
+    // so yarl plays its WebAnimations zoom-in (the visible animation).
+    // Subsequent corrections use rapid:true so they snap silently.
+    const startTs = performance.now();
     let rafId = 0;
     let firstApply = true;
-    let stableFrames = 0;
+    const POLL_MS = 1500;
     const tick = () => {
-      frame++;
+      const elapsed = performance.now() - startTs;
       const z = zoomRef.current;
       if (!z || z.disabled) {
-        if (frame > 50) {
+        if (elapsed > POLL_MS) {
           pendingZoomRef.current = 1;
           return;
         }
         rafId = requestAnimationFrame(tick);
         return;
       }
-      // Apply / re-apply target zoom.
+      // Re-apply if drifted (yarl reset us, or initial state still 1).
       if (Math.abs(z.zoom - target) > 0.01) {
         z.changeZoom(target, !firstApply);
         firstApply = false;
-        stableFrames = 0;
-      } else {
-        stableFrames++;
       }
-      // Once the zoom has held at the target for ~5 frames (=83ms), yarl's
-      // own resets are done settling. Stop polling.
-      if (stableFrames >= 5 || frame > 50) {
+      if (elapsed > POLL_MS) {
         pendingZoomRef.current = 1;
         return;
       }
