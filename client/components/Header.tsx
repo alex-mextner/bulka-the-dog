@@ -380,16 +380,21 @@ export function Header() {
           </div>
         </nav>
 
-        {/* Fade-out gradient under the burger when the morphed nav is showing —
-            visual hint that the chip row continues under the X and is
-            swipeable. Wider band (w-32) with the fade beginning ~30% in and
-            reaching fully opaque background by the X — chips visibly slide
-            UNDER the X icon instead of stopping before it. Base colour
-            matches the header's bg-background/95 so the seam is invisible. */}
+        {/* Fade-out gradient under the burger when the morphed nav is showing.
+            Geometry: the X button is right-3 + p-2 + 24px icon → its centre
+            sits ~32px from the right edge. We want the gradient to be fully
+            opaque exactly UNDER that centre (so the X stands on solid
+            background while a chip's left half can still bleed through under
+            the X's left half). We also want a smooth, non-stepped fade — no
+            initial flat-transparent zone. So: 224px wide band, single linear
+            ramp from transparent at the left edge to fully opaque at ~86%
+            (≈ 32px from the right edge = the X centre). The remaining 14%
+            stays opaque, painting the area to the right of the X with
+            background colour so the gradient meets the page edge cleanly. */}
         {isMenuOpen && (
           <div
             aria-hidden="true"
-            className="nav:hidden absolute right-0 top-0 bottom-0 w-32 z-[9] pointer-events-none bg-[linear-gradient(to_right,transparent_0%,transparent_30%,hsl(var(--background)/0.95)_70%,hsl(var(--background)/0.95)_100%)]"
+            className="nav:hidden absolute right-0 top-0 bottom-0 w-56 z-[9] pointer-events-none bg-[linear-gradient(to_right,transparent,hsl(var(--background)/0.95)_86%)]"
           />
         )}
 
