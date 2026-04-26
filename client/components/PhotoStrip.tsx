@@ -188,6 +188,37 @@ export function PhotoStrip({
     };
   }, []);
 
+  // Capture-phase pointerdown: flip engagedRef + cancel pending resume
+  // SYNCHRONOUSLY, before React's onTouchStart commits and before the next
+  // rAF tick can fire. Without this, the drift loop can write a stale
+  // scrollLeft on top of the user's nascent swipe in the gap between
+  // touchstart and React's commit, causing the swipe to appear "stuck".
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!touchMode) return;
+    const v = viewportRef.current;
+    if (!v) return;
+    const onPointerDownCapture = (e: PointerEvent) => {
+      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+      engagedRef.current = true;
+      lastTouchStartRef.current =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      if (touchResumeTimerRef.current != null) {
+        clearTimeout(touchResumeTimerRef.current);
+        touchResumeTimerRef.current = null;
+      }
+    };
+    v.addEventListener("pointerdown", onPointerDownCapture, {
+      capture: true,
+      passive: true,
+    });
+    return () => {
+      v.removeEventListener("pointerdown", onPointerDownCapture, {
+        capture: true,
+      } as EventListenerOptions);
+    };
+  }, [touchMode]);
+
   // The drift loop. Skipped under reduced motion. On touch devices we drive
   // `scrollLeft` directly (so native swipe works alongside drift); on desktop
   // we transform the inner track.
@@ -203,16 +234,17 @@ export function PhotoStrip({
 
       if (touchMode) {
         // Touch device: drive native scrollLeft on the viewport, so user swipe
-        // and JS drift can coexist without fighting each other. 4× the desktop
-        // base so motion is visible on phones (~64 px/s ≈ 1px/frame at 60fps);
-        // sub-pixel deltas would otherwise round to zero each frame.
+        // and JS drift can coexist without fighting each other. 1.5× the
+        // desktop base — subtle motion cue, not a marquee. Sub-pixel deltas
+        // accumulate in `touchAccumRef` and flush via Math.round per frame.
         const v = viewportRef.current;
         // Watchdog — bulletproof recovery if touchend got eaten and
-        // engagedRef is still pinned 3s after the last touchstart.
+        // engagedRef is still pinned 8s after the last touchstart. 8s leaves
+        // room for slow held swipes without leaving drift stuck forever.
         if (
           engagedRef.current &&
           lastTouchStartRef.current > 0 &&
-          ts - lastTouchStartRef.current > 3000
+          ts - lastTouchStartRef.current > 8000
         ) {
           engagedRef.current = false;
           if (touchResumeTimerRef.current != null) {
@@ -221,7 +253,7 @@ export function PhotoStrip({
           }
         }
         if (v && !engagedRef.current && max > 0) {
-          const TOUCH_SPEED = baseSpeed * 4;
+          const TOUCH_SPEED = baseSpeed * 1.5;
           // Initialize / resync the accumulator from scrollLeft on first
           // entry. The scroll listener also resyncs whenever the user moves
           // the strip themselves, so we don't fight finger-driven scroll.
@@ -358,7 +390,7 @@ export function PhotoStrip({
         touchResumeTimerRef.current = setTimeout(() => {
           touchResumeTimerRef.current = null;
           setEngaged(false);
-        }, 1500);
+        }, 2500);
       }}
       onTouchCancel={() => {
         if (touchResumeTimerRef.current != null) {
