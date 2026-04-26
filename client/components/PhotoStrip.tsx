@@ -120,11 +120,18 @@ export function PhotoStrip({
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
+    // Re-sync from real browser at mount. On SSG, the useState initializer
+    // ran in Node where `window` is undefined and returned `false`; React's
+    // hydration then locks that in, so without this resync the strip would
+    // forever stay in desktop mode on real touch devices. (This was THE
+    // reason swipe + drift + tap all looked broken on iPhone.)
+    setTouchMode(isTouchDevice());
+    setReducedMotion(prefersReducedMotion());
+
     const mqMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const mqPointer = window.matchMedia("(pointer: coarse)");
-    const updateMotion = () => setReducedMotion(mqMotion.matches);
-    const updatePointer = () =>
-      setTouchMode(mqPointer.matches || "ontouchstart" in window);
+    const updateMotion = () => setReducedMotion(prefersReducedMotion());
+    const updatePointer = () => setTouchMode(isTouchDevice());
     mqMotion.addEventListener?.("change", updateMotion);
     mqPointer.addEventListener?.("change", updatePointer);
     return () => {
