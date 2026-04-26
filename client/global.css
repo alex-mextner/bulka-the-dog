@@ -107,6 +107,17 @@
     @apply bg-background text-foreground;
     font-family: "Inter", sans-serif;
     line-height: 1.6;
+    /* Defensive: nothing on this single-page site is meant to be wider than
+       the viewport. Without overflow-x clipping, a stretched polaroid card
+       inside the photo strip's `transform: translate3d(...)` (especially the
+       last one with negative right margin from the overlap design) can
+       produce a sub-pixel horizontal overflow that iOS Safari uses as an
+       excuse to pan the entire document horizontally. Clipping at the page
+       root removes the excuse. The vertical axis is untouched. */
+    overflow-x: clip;
+  }
+  html {
+    overflow-x: clip;
   }
 
   h1 {
