@@ -2,7 +2,13 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- maximum-scale=1 + user-scalable=no disables iOS Safari's page-pinch
+         zoom entirely. We run our own pinch gesture on thumbnails (see
+         PinchTransitionOverlay in Gallery.tsx) and slow finger pinches were
+         leaking through to the OS-level page zoom in parallel with our
+         gesture. Inside the lightbox yarl handles pinch on the photo, so
+         users still have a zoom path for the actual content. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#f97316" />
 
     <title>Булка ищет дом — добрая собака из Белграда</title>

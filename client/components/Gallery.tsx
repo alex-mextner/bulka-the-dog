@@ -268,6 +268,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
   const close = React.useCallback(() => {
     setIsOpen(false);
+    // Reset the seed zoom so a subsequent open via tap (no pinch) starts
+    // at scale 1. Without this reset, the value left by a successful
+    // pinch-commit would carry over to the next open.
+    pendingZoomRef.current = 1;
     // If we still own the pushed entry (close came from X / backdrop / ESC,
     // not from popstate), pop it so the URL/history stays clean. popstate
     // resets the flag before invoking close, so we don't double-pop.
@@ -430,6 +434,16 @@ export function GalleryImage({
       const midX = (t1.clientX + t2.clientX) / 2;
       const midY = (t1.clientY + t2.clientY) / 2;
       lastScale = scale;
+      // Update the seed-zoom ref LIVE during the gesture, not only on
+      // touchend. Why: Chromium-emulated mobile (and possibly real iOS)
+      // fires the synthetic `click` event after the FIRST finger lifts,
+      // not after the last. That click triggers handleOpen() via the
+      // button's onClick, which mounts the lightbox and starts its
+      // useEffect-poll for pendingZoomRef BEFORE finishGesture has a
+      // chance to set it. By writing it on every move we guarantee the
+      // lightbox sees the current pinch scale whenever it opens.
+      const clamped = Math.min(3, Math.max(1, scale));
+      pendingZoomRef.current = clamped;
       pinchOverlayRef.current?.update(
         scale,
         midX - initialMidX,
@@ -575,37 +589,39 @@ export function GalleryLightbox() {
   // is mounted, the ref is set, and `disabled` is false.
   React.useEffect(() => {
     if (!isOpen) return;
-    const target = pendingZoomRef.current;
-    if (target <= 1) return;
-    // Poll up to 30 frames (~500ms) waiting for yarl's ZoomRef to attach
-    // and the slide to be ready. The Zoom plugin attaches its ref on the
-    // active slide; until that slide is mounted and its image started
-    // decoding, `disabled` stays true and changeZoom is a no-op.
-    // Yarl's ZoomState has a useLayoutEffect that resets zoom to 1 on mount
-    // and on globalIndex/currentSource changes. The reset can fire AFTER
-    // our first changeZoom(target) call (yarl performs several internal
-    // layout commits while preloading + decoding the slide). On production
-    // it can land anywhere in the first ~1.5s.
+    // CRITICAL: read pendingZoomRef LIVE inside the tick — not captured at
+    // effect-run time. Why: Chromium-emulated mobile (and possibly real
+    // iOS) fires the synthetic `click` event after the FIRST finger lifts
+    // mid-pinch. That click triggers handleOpen() → setIsOpen(true) →
+    // this effect runs while the user is STILL PINCHING with one finger.
+    // GalleryImage's window-level touchmove writes the current scale into
+    // pendingZoomRef on every frame, so reading the ref each tick keeps
+    // the seed zoom tracking the live pinch until the second finger
+    // releases.
     //
-    // We poll every frame for 1500ms and re-issue changeZoom whenever
-    // zoomRef.zoom drifts off target. ALL calls use rapid:true — that
-    // means yarl skips its WebAnimations zoom-in and sets state.zoom
-    // synchronously, so the next render produces inline
-    // `transform: scale(target)` with no visible animation flash from
-    // 1 → target (which the user reported as "zoom jumps back then
-    // animates forward"). Visually the lightbox simply opens already at
-    // the user's pinch scale.
+    // Yarl's ZoomState has a useLayoutEffect that resets zoom to 1 on
+    // mount AND on globalIndex/currentSource changes. The reset can fire
+    // after our first changeZoom (yarl swaps preload→current image
+    // source on decode and re-runs the reset). We poll for 1500ms and
+    // re-issue changeZoom whenever zoom drifts off target. rapid:true
+    // skips yarl's WebAnimations zoom-in so React's next render produces
+    // inline `transform: scale(target)` synchronously — no flash from
+    // 1 → target which the user reported as "jumps back then animates".
     const startTs = performance.now();
     let rafId = 0;
     const POLL_MS = 1500;
     const tick = () => {
       const elapsed = performance.now() - startTs;
+      const target = Math.max(1, pendingZoomRef.current);
       const z = zoomRef.current;
-      if (z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
+      if (target > 1 && z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
         z.changeZoom(target, true);
       }
       if (elapsed > POLL_MS) {
-        pendingZoomRef.current = 1;
+        // Don't reset pendingZoomRef on timeout — finishGesture is the
+        // single source of truth for clearing it (set to 1 on cancel,
+        // left at the committed value on success). If we cleared here we
+        // could race with a still-active pinch and lose the value.
         return;
       }
       rafId = requestAnimationFrame(tick);
