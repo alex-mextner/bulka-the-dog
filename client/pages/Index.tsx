@@ -766,23 +766,23 @@ export default function Index() {
             images={[
               {
                 src: images.dog_home,
-                alt: t("media.appearance_alt"),
-                caption: t("media.appearance_caption"),
+                alt: t("media.strip.home_alt"),
+                caption: t("media.strip.home_caption"),
               },
               {
                 src: images.dog_vet,
-                alt: t("media.skills_alt"),
-                caption: t("media.skills_caption"),
+                alt: t("media.strip.vet_alt"),
+                caption: t("media.strip.vet_caption"),
               },
               {
                 src: images.dogs_public,
-                alt: t("media.story_alt"),
-                caption: t("media.story_caption"),
+                alt: t("media.strip.park_alt"),
+                caption: t("media.strip.park_caption"),
               },
               {
                 src: images.lena_dogs,
-                alt: t("media.contact_alt"),
-                caption: t("media.contact_caption"),
+                alt: t("media.strip.car_alt"),
+                caption: t("media.strip.car_caption"),
               },
             ]}
           />
