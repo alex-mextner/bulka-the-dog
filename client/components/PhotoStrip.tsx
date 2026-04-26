@@ -219,6 +219,80 @@ export function PhotoStrip({
     t.style.animationPlayState = "running";
   }, []);
 
+  // Native capture-phase pointerdown — pauses the CSS animation BEFORE
+  // React's synthetic event cycle commits. On iOS the touchstart→React
+  // delay is enough for the still-running animation to translate the
+  // track a few pixels mid-tap; the browser then registers the gesture
+  // as movement and swallows the synthetic `click`. Capture-phase native
+  // listener fires before any React handler, guaranteeing the animation
+  // is paused by the time the browser hit-tests the finger position.
+  //
+  // Tap-fallback: also remember the pointerdown coords. On pointerup,
+  // if the finger moved <10px AND the target is a card image/button,
+  // synthesize a click — belt-and-suspenders for iOS quirks where
+  // native click suppression still wins on transform'd targets.
+  React.useEffect(() => {
+    if (!touchMode) return;
+    const v = viewportRef.current;
+    if (typeof window === "undefined" || !v) return;
+
+    let downX = 0;
+    let downY = 0;
+    let downTarget: EventTarget | null = null;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+      // Cancel any pending resume so a stacked tap can't queue a stale unset.
+      if (touchResumeTimerRef.current != null) {
+        clearTimeout(touchResumeTimerRef.current);
+        touchResumeTimerRef.current = null;
+      }
+      pauseTouchAnim();
+      downX = e.clientX;
+      downY = e.clientY;
+      downTarget = e.target;
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+      const dx = e.clientX - downX;
+      const dy = e.clientY - downY;
+      // Tap heuristic: <10px of movement on either axis.
+      const isTap = Math.hypot(dx, dy) < 10;
+      if (isTap && downTarget instanceof HTMLElement) {
+        const btn = downTarget.closest("button");
+        if (btn && v.contains(btn)) {
+          // Defer one frame so the browser's own click event (if any) fires
+          // first; we only act if it was suppressed (idempotent — clicking
+          // an already-handled button is fine, GalleryImage's open() is
+          // gated by an idRef and double-fire is harmless).
+          requestAnimationFrame(() => btn.click());
+        }
+      }
+      // Schedule resume after tap-or-swipe — same 2.5s rest either way.
+      if (touchResumeTimerRef.current != null) {
+        clearTimeout(touchResumeTimerRef.current);
+      }
+      touchResumeTimerRef.current = setTimeout(() => {
+        touchResumeTimerRef.current = null;
+        resumeTouchAnim();
+      }, 2500);
+    };
+
+    v.addEventListener("pointerdown", onPointerDown, {
+      capture: true,
+      passive: true,
+    });
+    v.addEventListener("pointerup", onPointerUp, {
+      capture: true,
+      passive: true,
+    });
+    return () => {
+      v.removeEventListener("pointerdown", onPointerDown, { capture: true });
+      v.removeEventListener("pointerup", onPointerUp, { capture: true });
+    };
+  }, [touchMode, pauseTouchAnim, resumeTouchAnim]);
+
   // Desktop drift loop — identical to the previous implementation, minus the
   // touch branch (which moved out to CSS). Skipped under reduced motion or
   // when we're in touch mode.
@@ -338,36 +412,18 @@ export function PhotoStrip({
         if (touchMode) return;
         setEngaged(false);
       }}
-      // Touch: pause the CSS animation while a finger is down so the user's
-      // native swipe is uncontested. Resume after a 2.5s rest. We deliberately
-      // do NOT call preventDefault / stopPropagation anywhere — native
-      // overflow-x scroll + touch-pan-x are doing the heavy lifting.
-      onTouchStart={() => {
-        if (!touchMode) return;
-        if (touchResumeTimerRef.current != null) {
-          clearTimeout(touchResumeTimerRef.current);
-          touchResumeTimerRef.current = null;
-        }
-        pauseTouchAnim();
-      }}
-      onTouchEnd={() => {
-        if (!touchMode) return;
-        if (touchResumeTimerRef.current != null) {
-          clearTimeout(touchResumeTimerRef.current);
-        }
-        touchResumeTimerRef.current = setTimeout(() => {
-          touchResumeTimerRef.current = null;
-          resumeTouchAnim();
-        }, 2500);
-      }}
+      // Touch pause/resume + tap fallback are wired via native capture-phase
+      // pointerdown/up listeners (see useEffect above). The native path
+      // beats React's synthetic events to the punch so the animation is
+      // paused before the browser hit-tests the tap. We deliberately do NOT
+      // call preventDefault / stopPropagation anywhere — native overflow-x
+      // scroll + touch-pan-x are doing the heavy lifting.
       onTouchCancel={() => {
         if (!touchMode) return;
         if (touchResumeTimerRef.current != null) {
           clearTimeout(touchResumeTimerRef.current);
           touchResumeTimerRef.current = null;
         }
-        // Cancel = gesture aborted (incoming call, system sheet). Resume
-        // immediately, no rest period — the user isn't interacting anymore.
         resumeTouchAnim();
       }}
       onFocusCapture={() => {
@@ -425,8 +481,12 @@ export function PhotoStrip({
                 className={cn(
                   "bg-white p-2 pb-6 rounded-sm origin-center",
                   "shadow-[0_8px_24px_rgba(0,0,0,0.18)]",
-                  "transition-all duration-200 ease-out",
-                  "hover:scale-[1.08] hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,0,0,0.28)]",
+                  // transition-shadow only — `transition-all` would interpolate
+                  // transform too, and a transient transform animation
+                  // mid-tap on iOS is interpreted as movement and swallows
+                  // the click. Hover effects still work on desktop.
+                  "transition-shadow duration-200 ease-out",
+                  "hover:scale-[1.08] hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(0,0,0,0.28)] hover:transition-[transform,box-shadow]",
                   "focus-within:scale-[1.08] focus-within:-translate-y-1 focus-within:shadow-[0_18px_40px_rgba(0,0,0,0.28)]",
                 )}
               >
