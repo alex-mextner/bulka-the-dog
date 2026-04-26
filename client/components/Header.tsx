@@ -25,11 +25,12 @@ export function Header() {
   const { language, setLanguage, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("");
-  // Past ~80px we collapse the lang switcher into a dropdown on mobile and
-  // surface the current section name. Same threshold the active-section
-  // tracker uses to suppress the "no section yet" state at the top.
+  // Past ~80px we collapse the lang switcher into a dropdown (both mobile
+  // and desktop) and surface the current section name on mobile. Same
+  // threshold the active-section tracker uses to suppress the "no section
+  // yet" state at the top.
   const [isScrolled, setIsScrolled] = useState(false);
-  // Mobile-only: collapsed lang dropdown open/closed.
+  // Collapsed lang dropdown open/closed (rendered when isScrolled).
   const [isLangOpen, setIsLangOpen] = useState(false);
   const langWrapRef = useRef<HTMLDivElement | null>(null);
   // The hero CTA is "primary" and bright. When it scrolls out of view we
@@ -79,8 +80,8 @@ export function Header() {
     };
   }, [isLangOpen]);
 
-  // Auto-close the lang dropdown if the viewport ungrows past `nav` (desktop)
-  // or we scroll back to the top (the flat group reappears).
+  // Auto-close the lang dropdown when we scroll back to the top — the
+  // collapsed trigger is unmounted and the flat 3-button group reappears.
   useEffect(() => {
     if (!isScrolled) setIsLangOpen(false);
   }, [isScrolled]);
@@ -227,13 +228,14 @@ export function Header() {
             </button>
 
             {/* Language Switcher — flat 3-button group.
-                Visible always on desktop; on mobile only when at top of page. */}
+                Visible only at the top of the page (both mobile and desktop);
+                collapses into the dropdown below once scrolled. */}
             <div
               role="group"
               aria-label="Сменить язык"
               className={cn(
                 "items-center gap-1 px-1.5 py-1 rounded-full bg-primary/5 border border-primary/20",
-                isScrolled ? "hidden nav:flex" : "flex",
+                isScrolled ? "hidden" : "flex",
               )}
             >
               <Globe
@@ -262,12 +264,12 @@ export function Header() {
               })}
             </div>
 
-            {/* Collapsed lang dropdown — mobile + scrolled only.
+            {/* Collapsed lang dropdown — shown whenever scrolled (mobile + desktop).
                 Shows current code + chevron, expands a vertical menu. */}
             {isScrolled && (
               <div
                 ref={langWrapRef}
-                className="relative nav:hidden"
+                className="relative"
               >
                 <button
                   type="button"
