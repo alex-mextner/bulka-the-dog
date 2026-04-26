@@ -73,8 +73,17 @@ function isTouchDevice(): boolean {
 
 // Pixels of finger travel before we commit to either H-pan or V-page-scroll.
 const DIRECTION_LOCK_SLOP = 10;
-// Idle delay after touch release before auto-drift resumes.
-const RESUME_DELAY_MS = 2500;
+// Velocity sampling window for kinetic inertia (ms). Standard practice in
+// kinetic-scroll libraries (iScroll / hammer.js / native iOS): take only
+// the most recent ~100ms of touch samples — older samples drag the
+// velocity estimate toward zero on long slow drags and lose responsiveness
+// for quick flicks.
+const VELOCITY_WINDOW_MS = 100;
+// Exponential friction coefficient (1/s). v(t) = v0 * exp(-FRICTION * t).
+// At 3.0/s a 1500 px/s flick decays to baseSpeed (~16 px/s) in ~1.5s,
+// which feels right for a small carousel — long enough to be visible,
+// short enough not to feel laggy.
+const FRICTION = 3.0;
 
 export function PhotoStrip({
   images,
@@ -96,15 +105,29 @@ export function PhotoStrip({
   const engagedRef = React.useRef(false); // mouse over the strip
   const fitsRef = React.useRef(false);
 
-  // Touch state. No "yield mid-frame" flag — the loop is fully cancelled
-  // while a finger is down and re-armed from the resume timer.
+  // Touch state. The rAF loop is fully cancelled while a finger is down,
+  // and re-armed in the inertia phase on touchend (no fixed timer).
   const userTouchingRef = React.useRef(false);
   const touchStartXRef = React.useRef(0);
   const touchStartYRef = React.useRef(0);
   const touchStartOffsetRef = React.useRef(0);
   const touchTargetRef = React.useRef<EventTarget | null>(null);
   const touchDirRef = React.useRef<"h" | "v" | null>(null);
-  const touchResumeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sliding-window of recent touchmove samples for velocity estimation.
+  // Each entry: {t: ms, x: clientX of finger}. Trimmed to VELOCITY_WINDOW_MS
+  // on every push so it never grows beyond a handful of points.
+  const touchSamplesRef = React.useRef<{ t: number; x: number }[]>([]);
+  // Inertia velocity in OFFSET coordinates (px/s, signed). Positive = offset
+  // is increasing = track moving left = content scrolling rightwards.
+  // Used by step() during the inertia phase.
+  const inertiaVelocityRef = React.useRef(0);
+  // Loop phase. step() switches behaviour:
+  //   - "drift" (default): constant baseSpeed bouncer, the autoplay state.
+  //   - "inertia": post-touchend kinetic decay; smoothly hands off to "drift"
+  //                when |velocity| falls to baseSpeed, preserving sign so
+  //                the drift continues in the direction of the swipe.
+  //   - "engaged": desktop hover-driven scrub.
+  const phaseRef = React.useRef<"drift" | "inertia" | "engaged">("drift");
 
   const [fits, setFits] = React.useState(false);
 
@@ -172,15 +195,6 @@ export function PhotoStrip({
     };
   }, [measure, images]);
 
-  React.useEffect(() => {
-    return () => {
-      if (touchResumeTimerRef.current != null) {
-        clearTimeout(touchResumeTimerRef.current);
-        touchResumeTimerRef.current = null;
-      }
-    };
-  }, []);
-
   const stepRef = React.useRef<((ts: number) => void) | null>(null);
 
   // Unified rAF loop. ALWAYS writes transform on the track (no scrollLeft).
@@ -200,12 +214,44 @@ export function PhotoStrip({
         offsetRef.current = 0;
         if (track) track.style.transform = "translate3d(0,0,0)";
       } else if (!touchMode && engagedRef.current) {
+        // Desktop mouse scrub.
         const tgt = targetOffsetRef.current;
         offsetRef.current += (tgt - offsetRef.current) * Math.min(1, 12 * dt);
         if (track)
           track.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
+      } else if (touchMode && phaseRef.current === "inertia") {
+        // Kinetic decay. Exponential friction is the standard approach
+        // (iOS Safari, hammer.js, iScroll all use a variant): velocity
+        // multiplied by exp(-FRICTION * dt) per frame, so the curve is
+        // independent of frame rate. We hand off to plain drift when
+        // |velocity| drops to baseSpeed, preserving sign so the autoplay
+        // continues in the direction of the swipe (no jerky reversal).
+        let v = inertiaVelocityRef.current;
+        v *= Math.exp(-FRICTION * dt);
+        offsetRef.current += v * dt;
+        if (offsetRef.current >= max) {
+          offsetRef.current = max;
+          directionRef.current = -1;
+          inertiaVelocityRef.current = 0;
+          phaseRef.current = "drift";
+        } else if (offsetRef.current <= 0) {
+          offsetRef.current = 0;
+          directionRef.current = 1;
+          inertiaVelocityRef.current = 0;
+          phaseRef.current = "drift";
+        } else if (Math.abs(v) <= baseSpeed) {
+          // Smooth handoff: drift takes over at exactly baseSpeed in the
+          // same direction the inertia was heading.
+          directionRef.current = v > 0 ? 1 : v < 0 ? -1 : directionRef.current;
+          inertiaVelocityRef.current = 0;
+          phaseRef.current = "drift";
+        } else {
+          inertiaVelocityRef.current = v;
+        }
+        if (track)
+          track.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
       } else {
-        // Auto-drift, bouncing.
+        // Auto-drift (constant baseSpeed bouncer).
         offsetRef.current += baseSpeed * dt * directionRef.current;
         if (offsetRef.current >= max) {
           offsetRef.current = max;
@@ -253,10 +299,12 @@ export function PhotoStrip({
       touchTargetRef.current = e.target;
       touchDirRef.current = null;
       userTouchingRef.current = true;
-      if (touchResumeTimerRef.current != null) {
-        clearTimeout(touchResumeTimerRef.current);
-        touchResumeTimerRef.current = null;
-      }
+      // Reset velocity sampling buffer; seed with the start point so a
+      // touchend with no moves measures zero velocity (a tap).
+      touchSamplesRef.current = [{ t: performance.now(), x: t.clientX }];
+      // Cancel any in-flight inertia immediately — fingerback should grab
+      // the strip from wherever it is, not chase a decaying velocity.
+      inertiaVelocityRef.current = 0;
       if (rafRef.current != null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
@@ -288,46 +336,89 @@ export function PhotoStrip({
       if (e.cancelable) e.preventDefault();
 
       const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
-      // Finger moves right (dx > 0) → content should move right → track
-      // shifts right → offset (the leftward shift) decreases.
       let next = touchStartOffsetRef.current - dx;
       if (next < 0) next = 0;
       else if (next > max) next = max;
       offsetRef.current = next;
       const track = trackRef.current;
       if (track) track.style.transform = `translate3d(${-next}px, 0, 0)`;
+
+      // Push the sample into the velocity ring. We trim from the front —
+      // velocity at touchend is computed only from points within the last
+      // VELOCITY_WINDOW_MS so a slow finger that pauses just before
+      // release doesn't get falsely-fast inertia.
+      const now = performance.now();
+      const samples = touchSamplesRef.current;
+      samples.push({ t: now, x: t.clientX });
+      const cutoff = now - VELOCITY_WINDOW_MS;
+      while (samples.length > 1 && samples[0].t < cutoff) samples.shift();
     };
 
     const onTouchEnd = () => {
-      // tap = no direction lock established, no significant movement.
+      userTouchingRef.current = false;
+
+      // tap = no direction lock established (no significant movement).
       const wasTap = touchDirRef.current == null;
       if (wasTap && touchTargetRef.current instanceof HTMLElement) {
         const btn = touchTargetRef.current.closest("button");
         if (btn && v.contains(btn)) {
           // Synthesize click — iOS may have suppressed the native one
-          // because the touch landed inside an element we touched the
-          // transform of. Click handlers are idempotent (GalleryImage
-          // gates open() by an idRef), so a double-fire is harmless.
+          // because we preventDefault'd touchmove (we didn't on a tap, but
+          // the engine sometimes still gates click on transform'd parents).
+          // GalleryImage's open() is idempotent, so any double-fire is fine.
           btn.click();
         }
-      }
-
-      // Set direction for the resumed drift to head away from whichever
-      // edge we're closest to.
-      const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
-      directionRef.current = offsetRef.current > max / 2 ? -1 : 1;
-
-      if (touchResumeTimerRef.current != null) {
-        clearTimeout(touchResumeTimerRef.current);
-      }
-      touchResumeTimerRef.current = setTimeout(() => {
-        touchResumeTimerRef.current = null;
-        userTouchingRef.current = false;
+        // No inertia for a tap — just resume drift.
+        phaseRef.current = "drift";
         lastTsRef.current = null;
         if (stepRef.current != null && rafRef.current == null) {
           rafRef.current = requestAnimationFrame(stepRef.current);
         }
-      }, RESUME_DELAY_MS);
+        return;
+      }
+
+      // Compute release velocity in the OFFSET coord (px/s, signed).
+      // Finger-velocity = (x_last - x_first) / dt — positive = finger moved
+      // right. Offset-velocity is the inverse (offset increases as track
+      // moves left, i.e. when finger moves left): so we negate.
+      const samples = touchSamplesRef.current;
+      let offsetVel = 0;
+      if (samples.length >= 2) {
+        const last = samples[samples.length - 1];
+        const first = samples[0];
+        const dtSec = (last.t - first.t) / 1000;
+        if (dtSec > 0) {
+          const fingerVel = (last.x - first.x) / dtSec; // px/s
+          offsetVel = -fingerVel;
+        }
+      }
+      touchSamplesRef.current = [];
+
+      // If the swipe was barely a swipe (finger was already stopped at
+      // release), skip inertia and just resume drift, picking direction
+      // based on which edge we're closer to so the bouncer keeps working.
+      if (Math.abs(offsetVel) <= baseSpeed) {
+        const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
+        directionRef.current =
+          offsetVel !== 0
+            ? offsetVel > 0
+              ? 1
+              : -1
+            : offsetRef.current > max / 2
+              ? -1
+              : 1;
+        phaseRef.current = "drift";
+      } else {
+        inertiaVelocityRef.current = offsetVel;
+        phaseRef.current = "inertia";
+      }
+
+      // Re-arm rAF immediately — no fixed delay, the inertia phase IS the
+      // pause and it gracefully decays into the drift phase.
+      lastTsRef.current = null;
+      if (stepRef.current != null && rafRef.current == null) {
+        rafRef.current = requestAnimationFrame(stepRef.current);
+      }
     };
 
     v.addEventListener("touchstart", onTouchStart, { passive: true });
