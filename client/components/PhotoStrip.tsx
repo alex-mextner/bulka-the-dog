@@ -6,19 +6,22 @@ import { cn } from "@/lib/utils";
 // ---------------------------------------------------------------------------
 // PhotoStrip — horizontal polaroid-ish row.
 //
-// Two completely separate motion paths:
+// Two completely separate motion paths, both driven by the same rAF loop:
 //
-//   • Desktop (mouse): JS rAF loop drives `transform: translate3d(...)` on the
-//     inner track. Hover scrubs to a target offset, no hover = bounce between
-//     edges. Untouched here — works fine, don't break it.
+//   • Desktop (mouse): the loop writes `transform: translate3d(...)` on the
+//     inner track. Hover scrubs to a target offset, no hover = bounce
+//     between the two edges. Viewport is `overflow-x-hidden`.
 //
-//   • Touch / coarse-pointer: viewport is a normal `overflow-x-auto` element
-//     with `touch-pan-x`. Native finger swipe IS the only thing that changes
-//     scrollLeft — JS never writes to it. Idle motion is a pure CSS keyframe
-//     animation on the inner track that translates back-and-forth between
-//     0 and `--ps-end` (which is the negative of the un-scrolled overflow).
-//     User touch flips inline `animationPlayState` to "paused" so swipe is
-//     unmolested; a 2.5s timer flips it back to "running" after touchend.
+//   • Touch / coarse-pointer: viewport is `overflow-x-auto` + `touch-pan-x`.
+//     Native finger swipe IS the only thing that changes scrollLeft when the
+//     user is touching. When idle, the rAF loop writes `viewport.scrollLeft`
+//     directly to auto-drift between edges. A `userTouchingRef` flag gates
+//     the loop — while a finger is down, the loop yields entirely and the
+//     native scroll engine has uncontested ownership of scrollLeft. On
+//     touchend, we re-sync our float accumulator to whatever scrollLeft the
+//     user left behind, then start a 2.5s rest timer; after that, drift
+//     resumes from there. Native `<button onClick>` on each card handles
+//     taps with zero synthesis on our part — we never touch click events.
 // ---------------------------------------------------------------------------
 
 export type PhotoStripItem = {
@@ -67,30 +70,11 @@ function prefersReducedMotion(): boolean {
 
 function isTouchDevice(): boolean {
   if (typeof window === "undefined") return false;
+  // ?touch=1 forces touch mode in any browser — useful when debugging the
+  // mobile path on a desktop or in playwright (which has no coarse pointer).
+  if (window.location?.search?.includes("touch=1")) return true;
   const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
   return coarse || "ontouchstart" in window;
-}
-
-// Module-scope keyframes injection. Defined once per page-load even if many
-// PhotoStrips mount; the `data-` attribute guards against duplicate insertion.
-// The keyframe goes 0 → --ps-end → 0 so a single `animation-iteration: infinite`
-// gives a smooth back-and-forth without extra direction tracking.
-const KEYFRAMES_STYLE_ID = "ps-drift-keyframes";
-const KEYFRAMES_CSS = `
-@keyframes ps-drift {
-  0%   { transform: translate3d(0, 0, 0); }
-  50%  { transform: translate3d(var(--ps-end, 0px), 0, 0); }
-  100% { transform: translate3d(0, 0, 0); }
-}
-`;
-
-function ensureKeyframesInjected() {
-  if (typeof document === "undefined") return;
-  if (document.getElementById(KEYFRAMES_STYLE_ID)) return;
-  const style = document.createElement("style");
-  style.id = KEYFRAMES_STYLE_ID;
-  style.textContent = KEYFRAMES_CSS;
-  document.head.appendChild(style);
 }
 
 export function PhotoStrip({
@@ -102,26 +86,28 @@ export function PhotoStrip({
   const viewportRef = React.useRef<HTMLDivElement | null>(null);
   const trackRef = React.useRef<HTMLDivElement | null>(null);
 
-  // Desktop-only refs. The desktop branch is identical to the previous
-  // implementation; touch mode no longer touches any of these.
-  const offsetRef = React.useRef(0); // current translateX (positive = scrolled left)
-  const targetOffsetRef = React.useRef(0); // where we lerp toward
-  const directionRef = React.useRef(1); // 1 = drifting left (offset++), -1 = right
+  // Shared loop state. Touch and desktop both use offset/direction/lastTs/raf;
+  // they just write to different targets (scrollLeft vs transform) inside step().
+  const offsetRef = React.useRef(0); // current scroll position (px from left edge)
+  const targetOffsetRef = React.useRef(0); // desktop hover target
+  const directionRef = React.useRef(1); // 1 = drift towards right edge, -1 = back
   const lastTsRef = React.useRef<number | null>(null);
   const rafRef = React.useRef<number | null>(null);
-  const trackWidthRef = React.useRef(0); // total scroll-able width of the track
-  const viewportWidthRef = React.useRef(0); // visible viewport width
+  const trackWidthRef = React.useRef(0);
+  const viewportWidthRef = React.useRef(0);
   const engagedRef = React.useRef(false); // mouse over the strip → mouse-driven mode
   const fitsRef = React.useRef(false); // strip fits the viewport entirely → no drift
 
-  // Touch-mode pause state. Single boolean ref + a resume timer; no rAF
-  // babysitting because the animation lives entirely in CSS.
+  // Touch-mode state. While userTouchingRef is true, the rAF loop yields
+  // entirely so the browser's native scroll engine owns scrollLeft.
+  const userTouchingRef = React.useRef(false);
   const touchResumeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [fits, setFits] = React.useState(false); // mirrors fitsRef for layout class hints
 
   // Two orthogonal flags:
-  //   - touchMode: native scroll is allowed; idle motion is a CSS animation.
+  //   - touchMode: viewport uses native overflow-x-auto + touch-pan-x; rAF
+  //                writes scrollLeft instead of transform.
   //   - reducedMotion: motion is fully suppressed; just a static strip.
   const [touchMode, setTouchMode] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -131,11 +117,6 @@ export function PhotoStrip({
     if (typeof window === "undefined") return false;
     return prefersReducedMotion();
   });
-
-  // Inject the @keyframes block once. Cheap idempotent check inside.
-  React.useEffect(() => {
-    ensureKeyframesInjected();
-  }, []);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -152,14 +133,9 @@ export function PhotoStrip({
     };
   }, []);
 
-  // Measure track + viewport widths.
-  //
-  // Desktop drift uses these via refs. Touch mode uses them to set the
-  // `--ps-end` CSS variable on the track — that's the negative offset the
-  // CSS animation translates to at 50%, equal to the strip's overflow width.
-  //
-  // The animation `--ps-end` is only relevant when content overflows; if it
-  // fits, we clear it and the keyframe sits at 0 anyway.
+  // Measure track + viewport widths. Both branches need this to know the
+  // bouncing range (max = scrollWidth - clientWidth on touch, same value
+  // expressed as track-translate range on desktop).
   const measure = React.useCallback(() => {
     const track = trackRef.current;
     const viewport = viewportRef.current;
@@ -174,14 +150,13 @@ export function PhotoStrip({
     if (nowFits) {
       offsetRef.current = 0;
       targetOffsetRef.current = 0;
-      track.style.transform = "translate3d(0,0,0)";
-      track.style.setProperty("--ps-end", "0px");
-    } else {
-      // Negative because keyframe translates leftwards. Bracket with `-` not
-      // `calc(-1 * ...)` — same result, simpler string for the engine.
-      track.style.setProperty("--ps-end", `${-overflow}px`);
+      if (!touchMode) {
+        track.style.transform = "translate3d(0,0,0)";
+      } else {
+        viewport.scrollLeft = 0;
+      }
     }
-  }, []);
+  }, [touchMode]);
 
   React.useEffect(() => {
     measure();
@@ -206,99 +181,11 @@ export function PhotoStrip({
     };
   }, []);
 
-  // Helpers to flip the inline animationPlayState. Touching style directly
-  // instead of via state — re-rendering on every touch would be silly.
-  const pauseTouchAnim = React.useCallback(() => {
-    const t = trackRef.current;
-    if (!t) return;
-    t.style.animationPlayState = "paused";
-  }, []);
-  const resumeTouchAnim = React.useCallback(() => {
-    const t = trackRef.current;
-    if (!t) return;
-    t.style.animationPlayState = "running";
-  }, []);
-
-  // Native capture-phase pointerdown — pauses the CSS animation BEFORE
-  // React's synthetic event cycle commits. On iOS the touchstart→React
-  // delay is enough for the still-running animation to translate the
-  // track a few pixels mid-tap; the browser then registers the gesture
-  // as movement and swallows the synthetic `click`. Capture-phase native
-  // listener fires before any React handler, guaranteeing the animation
-  // is paused by the time the browser hit-tests the finger position.
-  //
-  // Tap-fallback: also remember the pointerdown coords. On pointerup,
-  // if the finger moved <10px AND the target is a card image/button,
-  // synthesize a click — belt-and-suspenders for iOS quirks where
-  // native click suppression still wins on transform'd targets.
-  React.useEffect(() => {
-    if (!touchMode) return;
-    const v = viewportRef.current;
-    if (typeof window === "undefined" || !v) return;
-
-    let downX = 0;
-    let downY = 0;
-    let downTarget: EventTarget | null = null;
-
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
-      // Cancel any pending resume so a stacked tap can't queue a stale unset.
-      if (touchResumeTimerRef.current != null) {
-        clearTimeout(touchResumeTimerRef.current);
-        touchResumeTimerRef.current = null;
-      }
-      pauseTouchAnim();
-      downX = e.clientX;
-      downY = e.clientY;
-      downTarget = e.target;
-    };
-
-    const onPointerUp = (e: PointerEvent) => {
-      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
-      const dx = e.clientX - downX;
-      const dy = e.clientY - downY;
-      // Tap heuristic: <10px of movement on either axis.
-      const isTap = Math.hypot(dx, dy) < 10;
-      if (isTap && downTarget instanceof HTMLElement) {
-        const btn = downTarget.closest("button");
-        if (btn && v.contains(btn)) {
-          // Defer one frame so the browser's own click event (if any) fires
-          // first; we only act if it was suppressed (idempotent — clicking
-          // an already-handled button is fine, GalleryImage's open() is
-          // gated by an idRef and double-fire is harmless).
-          requestAnimationFrame(() => btn.click());
-        }
-      }
-      // Schedule resume after tap-or-swipe — same 2.5s rest either way.
-      if (touchResumeTimerRef.current != null) {
-        clearTimeout(touchResumeTimerRef.current);
-      }
-      touchResumeTimerRef.current = setTimeout(() => {
-        touchResumeTimerRef.current = null;
-        resumeTouchAnim();
-      }, 2500);
-    };
-
-    v.addEventListener("pointerdown", onPointerDown, {
-      capture: true,
-      passive: true,
-    });
-    v.addEventListener("pointerup", onPointerUp, {
-      capture: true,
-      passive: true,
-    });
-    return () => {
-      v.removeEventListener("pointerdown", onPointerDown, { capture: true });
-      v.removeEventListener("pointerup", onPointerUp, { capture: true });
-    };
-  }, [touchMode, pauseTouchAnim, resumeTouchAnim]);
-
-  // Desktop drift loop — identical to the previous implementation, minus the
-  // touch branch (which moved out to CSS). Skipped under reduced motion or
-  // when we're in touch mode.
+  // The unified rAF loop. Reads `touchMode` via closure capture; the effect
+  // restarts whenever touchMode flips (e.g. matchMedia change), so the closure
+  // is always fresh.
   React.useEffect(() => {
     if (reducedMotion) return;
-    if (touchMode) return;
 
     const step = (ts: number) => {
       const last = lastTsRef.current;
@@ -308,12 +195,35 @@ export function PhotoStrip({
       const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
 
       if (fitsRef.current || max <= 0) {
-        // Whole strip fits the desktop viewport — pin at 0, no motion.
+        // Whole strip fits; pin at 0.
         offsetRef.current = 0;
-        const track = trackRef.current;
-        if (track) track.style.transform = "translate3d(0,0,0)";
+        if (touchMode) {
+          const v = viewportRef.current;
+          if (v && v.scrollLeft !== 0) v.scrollLeft = 0;
+        } else {
+          const track = trackRef.current;
+          if (track) track.style.transform = "translate3d(0,0,0)";
+        }
+      } else if (touchMode) {
+        // Touch path: while a finger is down, the user owns scrollLeft. We
+        // yield: don't read or write it, don't advance the offset clock —
+        // the next idle frame will re-sync from whatever the user landed on.
+        if (userTouchingRef.current) {
+          // Don't accumulate dt while touching, so resume picks up cleanly.
+        } else {
+          offsetRef.current += baseSpeed * dt * directionRef.current;
+          if (offsetRef.current >= max) {
+            offsetRef.current = max;
+            directionRef.current = -1;
+          } else if (offsetRef.current <= 0) {
+            offsetRef.current = 0;
+            directionRef.current = 1;
+          }
+          const v = viewportRef.current;
+          if (v) v.scrollLeft = offsetRef.current;
+        }
       } else if (engagedRef.current) {
-        // Mouse-driven scrub: lerp current offset toward target offset.
+        // Desktop mouse-driven scrub: lerp current offset toward target offset.
         const tgt = targetOffsetRef.current;
         offsetRef.current += (tgt - offsetRef.current) * Math.min(1, 12 * dt);
         const track = trackRef.current;
@@ -373,32 +283,58 @@ export function PhotoStrip({
     }
   }, []);
 
+  // Touch begin/end on the viewport. We listen via React for touch events —
+  // they bubble fine on iOS for overflow-x-auto containers (unlike pointer
+  // events, which sometimes get swallowed mid-pan). The user's `<button>`
+  // children get their native `click` event with zero interference from us.
+  const handleTouchStart = React.useCallback(() => {
+    if (!touchMode) return;
+    userTouchingRef.current = true;
+    if (touchResumeTimerRef.current != null) {
+      clearTimeout(touchResumeTimerRef.current);
+      touchResumeTimerRef.current = null;
+    }
+  }, [touchMode]);
+
+  const handleTouchEnd = React.useCallback(() => {
+    if (!touchMode) return;
+    // Re-sync the float accumulator to wherever the user landed, including
+    // any momentum still settling (`scrollLeft` updates over a few frames
+    // after touchend on iOS — we capture the post-momentum value lazily by
+    // resyncing inside the resume timer too).
+    const v = viewportRef.current;
+    if (v) {
+      offsetRef.current = v.scrollLeft;
+      const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
+      directionRef.current = offsetRef.current > max / 2 ? -1 : 1;
+    }
+    if (touchResumeTimerRef.current != null) {
+      clearTimeout(touchResumeTimerRef.current);
+    }
+    touchResumeTimerRef.current = setTimeout(() => {
+      touchResumeTimerRef.current = null;
+      userTouchingRef.current = false;
+      // Final resync after iOS momentum has settled.
+      const vp = viewportRef.current;
+      if (vp) offsetRef.current = vp.scrollLeft;
+    }, 2500);
+  }, [touchMode]);
+
   // Render each image exactly once; the strip bounces between edges instead of looping.
   const items = React.useMemo(
     () => images.map((it, i) => ({ ...it, _k: `${i}-${it.src}` })),
     [images],
   );
 
-  // Style for the track. Desktop: drives `transform` from rAF, leaves
-  // `animation` empty. Touch + animated: applies the CSS keyframe; the
-  // `--ps-end` variable is set imperatively inside `measure()`. Touch + fits:
-  // no animation. Reduced motion: no animation, ever.
+  // Track style. Desktop: rAF writes transform via direct DOM. Touch: we don't
+  // touch transform on the track at all — the viewport's scrollLeft is the
+  // drift channel. Reduced motion: nothing.
   const trackStyle = React.useMemo<React.CSSProperties>(() => {
-    if (touchMode && !reducedMotion && !fits) {
-      // Duration scales loosely with content width. Even with no measurement
-      // yet (first paint before measure() runs), 40s is a calm default. The
-      // browser interpolates against `--ps-end` which gets set right after.
-      return {
-        animation: "ps-drift 40s linear infinite",
-        // willChange hints the compositor; only meaningful while animating.
-        willChange: "transform",
-      };
-    }
     if (!touchMode && !reducedMotion) {
       return { willChange: "transform" };
     }
     return {};
-  }, [touchMode, reducedMotion, fits]);
+  }, [touchMode, reducedMotion]);
 
   return (
     <div
@@ -412,20 +348,9 @@ export function PhotoStrip({
         if (touchMode) return;
         setEngaged(false);
       }}
-      // Touch pause/resume + tap fallback are wired via native capture-phase
-      // pointerdown/up listeners (see useEffect above). The native path
-      // beats React's synthetic events to the punch so the animation is
-      // paused before the browser hit-tests the tap. We deliberately do NOT
-      // call preventDefault / stopPropagation anywhere — native overflow-x
-      // scroll + touch-pan-x are doing the heavy lifting.
-      onTouchCancel={() => {
-        if (!touchMode) return;
-        if (touchResumeTimerRef.current != null) {
-          clearTimeout(touchResumeTimerRef.current);
-          touchResumeTimerRef.current = null;
-        }
-        resumeTouchAnim();
-      }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       onFocusCapture={() => {
         if (touchMode) return;
         setEngaged(true);
@@ -439,12 +364,11 @@ export function PhotoStrip({
       className={cn(
         "relative w-full select-none",
         // overflow-y visible so shadows + hover-scale don't clip top/bottom.
-        // Touch: native horizontal scroll IS the swipe channel; finger swipes
-        // the viewport, the inner track meanwhile auto-drifts via CSS keyframes
-        // (paused while user is touching).
+        // Touch: native horizontal scroll IS both the swipe channel AND the
+        // drift channel (rAF writes scrollLeft when idle).
         // Desktop: we transform the inner track via JS, viewport just clips.
         touchMode
-          ? "overflow-x-auto overflow-y-visible touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [overscroll-behavior-x:contain] snap-x snap-proximity"
+          ? "overflow-x-auto overflow-y-visible touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [overscroll-behavior-x:contain]"
           : "overflow-x-hidden overflow-y-visible",
         className,
       )}
@@ -460,8 +384,7 @@ export function PhotoStrip({
       >
         {items.map((item, i) => {
           const j = pickJitter(item.src, i);
-          // Rotate twice as wide on touch (no drift hides micro-jitters there).
-          const baseW = 200; // px, the spec's "slightly varied" base
+          const baseW = 200;
           const width = baseW + j.w;
           return (
             <div
@@ -469,8 +392,7 @@ export function PhotoStrip({
               // Negative margin for the overlapping/stacked feel. `relative` +
               // `hover:z-20` lifts a hovered card above its neighbours so the
               // scaled state doesn't get clipped during animation.
-              // `snap-center` makes user finger-swipe land neatly on each card.
-              className="relative shrink-0 -mr-3 first:ml-2 last:mr-2 hover:z-20 focus-within:z-20 snap-center"
+              className="relative shrink-0 -mr-3 first:ml-2 last:mr-2 hover:z-20 focus-within:z-20"
               style={{
                 transform: `rotate(${j.rot}deg) translateY(${j.ty}px)`,
                 width: `${width}px`,
@@ -496,7 +418,6 @@ export function PhotoStrip({
                     alt={item.alt}
                     caption={item.caption}
                     imgClassName="aspect-square object-cover"
-                    // Cards past the first viewport are off-screen → lazy.
                     loading="lazy"
                   />
                 </div>
