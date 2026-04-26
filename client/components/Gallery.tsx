@@ -247,7 +247,13 @@ export function GalleryImage({
       // `appearance-none` + zero padding/border keeps tailwind sizing on the
       // outer className intact. `block w-full` so width-based utilities work.
       className={cn(
-        "appearance-none p-0 m-0 border-0 bg-transparent block w-full cursor-zoom-in touch-manipulation",
+        // Note: NO `touch-manipulation` here. When this button lives inside
+        // an overflow-x-auto scroll container (e.g. PhotoStrip), iOS treats
+        // touch-manipulation as "this element only handles taps, no
+        // panning", which blocks horizontal swipe for the parent scroll
+        // engine. Default touch-action lets iOS pick: tap if the finger
+        // doesn't move, pan if it does.
+        "appearance-none p-0 m-0 border-0 bg-transparent block w-full cursor-zoom-in",
         className,
       )}
     >

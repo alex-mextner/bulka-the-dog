@@ -395,14 +395,18 @@ export function PhotoStrip({
         }
       }}
       className={cn(
-        "relative w-full select-none",
+        "relative w-full",
         // overflow-y visible so shadows + hover-scale don't clip top/bottom.
-        // Touch: native horizontal scroll IS both the swipe channel AND the
-        // drift channel (rAF writes scrollLeft when idle).
+        // Touch: leave touch-action at the default `auto` so iOS Safari is
+        // free to handle pan as it sees fit. We previously had `touch-pan-x`
+        // here AND `touch-manipulation` on the inner GalleryImage button —
+        // that combination caused iOS to treat the whole viewport as a tap-
+        // only target, blocking horizontal panning. Stripping both restores
+        // native scroll behaviour.
         // Desktop: we transform the inner track via JS, viewport just clips.
         touchMode
-          ? "overflow-x-auto overflow-y-visible touch-pan-x [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [overscroll-behavior-x:contain]"
-          : "overflow-x-hidden overflow-y-visible",
+          ? "overflow-x-auto overflow-y-visible [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          : "select-none overflow-x-hidden overflow-y-visible",
         className,
       )}
     >
