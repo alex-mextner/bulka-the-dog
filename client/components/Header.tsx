@@ -98,16 +98,33 @@ export function Header() {
   }, []);
 
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
     setIsMenuOpen(false);
+    // Two rAFs: first lets React commit the menu-close, second lets the
+    // browser run layout/paint with the new header height before we kick
+    // off the smooth scroll. Without this the morph layer is still in
+    // transition when the scroll target gets computed.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
   };
 
   const handleNavClick = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
-      setIsMenuOpen(false);
-    }
+    setIsMenuOpen(false);
+    // Wait two animation frames for the morph layout to settle before
+    // computing the scroll target — otherwise the first tap can land off
+    // by ~the height of the morph layer's transient state.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const element = document.getElementById(id);
+        if (!element) return;
+        const headerHeight = 72; // sticky header h-[60px md:64px] + a little breathing room
+        const top =
+          element.getBoundingClientRect().top + window.scrollY - headerHeight;
+        window.scrollTo({ top, behavior: "smooth" });
+      });
+    });
   };
 
   // Hidden on mobile (header is too tight) — shows from `sm:` (640px) up.
