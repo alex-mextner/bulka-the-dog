@@ -346,7 +346,14 @@ export function PhotoStrip({
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return;
+      if (e.touches.length !== 1) {
+        // Multi-touch (pinch). Eat the default so the page doesn't zoom
+        // while one of the inner GalleryImage buttons handles the gesture
+        // start. The button's own native touchstart listener calls open()
+        // and yarl's Zoom plugin takes over inside the lightbox.
+        if (e.touches.length >= 2 && e.cancelable) e.preventDefault();
+        return;
+      }
       const t = e.touches[0];
       const dx = t.clientX - touchStartXRef.current;
       const dy = t.clientY - touchStartYRef.current;

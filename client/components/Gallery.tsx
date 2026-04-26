@@ -225,24 +225,32 @@ export function GalleryImage({
     open(idRef.current);
   }, [open, setTrigger]);
 
-  const handleTouchStart = React.useCallback(
-    (e: React.TouchEvent<HTMLButtonElement>) => {
-      // 2-finger pinch on the inline thumbnail: open the lightbox immediately.
-      // The user's continuing pinch is then handled by yarl's Zoom plugin.
+  // Native touchstart listener — REQUIRED for preventDefault to actually
+  // block iOS Safari's page-pinch-zoom on a 2-finger gesture over a
+  // thumbnail. React's synthetic onTouchStart is registered as passive at
+  // the document root, so e.preventDefault() inside it is a silent no-op.
+  // Only a non-passive native listener can prevent the default action.
+  React.useEffect(() => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const onNativeTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        e.preventDefault();
+        // Eat the default action (page pinch-zoom) and immediately open
+        // the lightbox so the user's continuing pinch lands inside yarl's
+        // Zoom plugin (it has its own native pointer handlers).
+        if (e.cancelable) e.preventDefault();
         handleOpen();
       }
-    },
-    [handleOpen],
-  );
+    };
+    btn.addEventListener("touchstart", onNativeTouchStart, { passive: false });
+    return () => btn.removeEventListener("touchstart", onNativeTouchStart);
+  }, [handleOpen]);
 
   return (
     <button
       ref={buttonRef}
       type="button"
       onClick={handleOpen}
-      onTouchStart={handleTouchStart}
       aria-label={`Открыть фото: ${caption || alt}`}
       // `appearance-none` + zero padding/border keeps tailwind sizing on the
       // outer className intact. `block w-full` so width-based utilities work.
