@@ -78,11 +78,19 @@ const PinchTransitionOverlay = React.forwardRef<PinchOverlayHandle, {}>(
         },
         close: (commit) => {
           if (commit) {
-            // Caller is opening the real lightbox right now. Just clear our
-            // overlay — yarl's portal mounts above us and visually swallows
-            // the moment.
-            setOpts(null);
-            setTransitioning(false);
+            // Caller is opening the real lightbox right now. Hold the
+            // overlay over the lightbox for ~150ms so yarl has time to
+            // mount, our useEffect-poll has time to apply the seed zoom,
+            // and React can paint the slide already at the target scale.
+            // Without this hold, the lightbox first paints at zoom=1 for
+            // a frame or two before our changeZoom lands, which the user
+            // sees as the image "jumping back, then animating forward".
+            // The overlay underneath shows the picture at the same scale,
+            // so the visual handoff is invisible.
+            window.setTimeout(() => {
+              setOpts(null);
+              setTransitioning(false);
+            }, 150);
           } else {
             // Animate back to identity (= thumbnail rect) over PINCH_CANCEL_MS,
             // then unmount.
@@ -574,34 +582,27 @@ export function GalleryLightbox() {
     // active slide; until that slide is mounted and its image started
     // decoding, `disabled` stays true and changeZoom is a no-op.
     // Yarl's ZoomState has a useLayoutEffect that resets zoom to 1 on mount
-    // and on globalIndex/currentSource changes. The reset can fire AFTER our
-    // first changeZoom(target) call (yarl performs several internal layout
-    // commits while preloading the slide AND when image source switches
-    // from preload to current after decode). On production builds the
-    // reset can land anywhere in the first ~1.5s after open. Strategy:
-    // poll every frame for 1500ms and re-issue changeZoom whenever
-    // zoomRef.zoom drifts away from target. First call is `rapid: false`
-    // so yarl plays its WebAnimations zoom-in (the visible animation).
-    // Subsequent corrections use rapid:true so they snap silently.
+    // and on globalIndex/currentSource changes. The reset can fire AFTER
+    // our first changeZoom(target) call (yarl performs several internal
+    // layout commits while preloading + decoding the slide). On production
+    // it can land anywhere in the first ~1.5s.
+    //
+    // We poll every frame for 1500ms and re-issue changeZoom whenever
+    // zoomRef.zoom drifts off target. ALL calls use rapid:true — that
+    // means yarl skips its WebAnimations zoom-in and sets state.zoom
+    // synchronously, so the next render produces inline
+    // `transform: scale(target)` with no visible animation flash from
+    // 1 → target (which the user reported as "zoom jumps back then
+    // animates forward"). Visually the lightbox simply opens already at
+    // the user's pinch scale.
     const startTs = performance.now();
     let rafId = 0;
-    let firstApply = true;
     const POLL_MS = 1500;
     const tick = () => {
       const elapsed = performance.now() - startTs;
       const z = zoomRef.current;
-      if (!z || z.disabled) {
-        if (elapsed > POLL_MS) {
-          pendingZoomRef.current = 1;
-          return;
-        }
-        rafId = requestAnimationFrame(tick);
-        return;
-      }
-      // Re-apply if drifted (yarl reset us, or initial state still 1).
-      if (Math.abs(z.zoom - target) > 0.01) {
-        z.changeZoom(target, !firstApply);
-        firstApply = false;
+      if (z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
+        z.changeZoom(target, true);
       }
       if (elapsed > POLL_MS) {
         pendingZoomRef.current = 1;
@@ -649,12 +650,6 @@ export function GalleryLightbox() {
       // image). 10vw on each side → image ~80vw wide on phones, consistent
       // across all slides regardless of which one was opened first.
       carousel={{ finite: false }}
-      animation={{
-        // Faster than the default 500ms zoom animation so the
-        // pinch-to-open seed-zoom reads as a continuation of the gesture
-        // rather than a separate "and now we zoom" beat.
-        zoom: 200,
-      }}
       styles={
         {
           container: {

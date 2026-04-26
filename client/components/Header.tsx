@@ -107,24 +107,13 @@ export function Header() {
     const element = document.getElementById(id);
     if (!element) return;
     setIsMenuOpen(false);
-    // `offsetTop` is the element's distance from its offsetParent (here,
-    // <body>) — a document-coordinate Y that doesn't depend on the current
-    // scroll position OR transient morph-layer geometry. That makes it
-    // safe to read synchronously: even if the morph close transition is
-    // still in flight, the answer is already correct. Previously we used
-    // `getBoundingClientRect().top + scrollY`, which is mathematically
-    // equivalent ONLY when layout is stable — during the 300ms morph the
-    // first tap got a viewport-relative measurement against an in-flight
-    // header height and the browser then animated toward that wrong
-    // target (always landing near FAQ on mobile). Subsequent taps re-read
-    // closer-to-truth rects, hence the "progressive correction" symptom.
-    // A modern smooth scrollTo cancels any prior smooth scroll, so back-
-    // to-back taps work without manual cancellation.
-    const headerHeight = 72; // sticky header h-[60px md:64px] + breathing room
-    window.scrollTo({
-      top: element.offsetTop - headerHeight,
-      behavior: "smooth",
-    });
+    // Use the element's own scrollIntoView. Each section has
+    // `scroll-margin-top: 72px` in global.css, so the sticky header
+    // automatically clears it without us doing offset math here. This is
+    // the right primitive: the browser computes the target relative to the
+    // CURRENT layout (post-paint, not in the middle of the burger morph
+    // transition), and a fresh smooth scroll cancels any prior one.
+    element.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   // Hidden on mobile (header is too tight) — shows from `sm:` (640px) up,

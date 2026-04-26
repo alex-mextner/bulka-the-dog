@@ -324,7 +324,14 @@ export function PhotoStrip({
     if (!v) return;
 
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return;
+      if (e.touches.length !== 1) {
+        // Multi-touch (pinch). Block iOS's default page-zoom action right at
+        // gesture inception — Safari decides "this is page pinch-zoom" at
+        // touchstart-time, before any touchmove fires. The Gallery button
+        // listener will pick up the pinch and drive the transition overlay.
+        if (e.touches.length >= 2 && e.cancelable) e.preventDefault();
+        return;
+      }
       const t = e.touches[0];
       touchStartXRef.current = t.clientX;
       touchStartYRef.current = t.clientY;
@@ -481,7 +488,11 @@ export function PhotoStrip({
       }
     };
 
-    v.addEventListener("touchstart", onTouchStart, { passive: true });
+    // touchstart MUST be passive:false — iOS Safari decides whether a 2-finger
+    // gesture is page-pinch-zoom at touchstart-time, NOT at touchmove-time.
+    // If touchstart is passive, we can't preventDefault and the page zooms
+    // before our touchmove handler ever sees the gesture.
+    v.addEventListener("touchstart", onTouchStart, { passive: false });
     v.addEventListener("touchmove", onTouchMove, { passive: false });
     v.addEventListener("touchend", onTouchEnd, { passive: true });
     v.addEventListener("touchcancel", onTouchEnd, { passive: true });

@@ -154,4 +154,11 @@
   html {
     scroll-behavior: smooth;
   }
+
+  /* Sections scroll-target offset so the sticky header doesn't cover their
+     top edge when navigated to via element.scrollIntoView() / anchor links.
+     72px = 60px sticky header + 12px breathing room (mirror of md: 64+8). */
+  section[id] {
+    scroll-margin-top: 72px;
+  }
 }
