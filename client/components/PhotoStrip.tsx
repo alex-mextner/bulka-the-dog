@@ -188,9 +188,21 @@ export function PhotoStrip({
     };
   }, []);
 
+  // Stable ref to the loop step so handleTouchStart/End can stop and restart
+  // it from outside the effect closure (the effect captures touchMode etc.,
+  // so we keep that closure alive — the ref just lets us re-arm rAF).
+  const stepRef = React.useRef<((ts: number) => void) | null>(null);
+
   // The unified rAF loop. Reads `touchMode` via closure capture; the effect
   // restarts whenever touchMode flips (e.g. matchMedia change), so the closure
   // is always fresh.
+  //
+  // CRITICAL touch-mode invariant: while a finger is on the strip, this
+  // loop is FULLY STOPPED — we don't even schedule the next rAF. Programmatic
+  // writes to scrollLeft once per frame would otherwise compete with the
+  // browser's native scroll engine on iOS, and the user's swipe gets
+  // overwritten the same frame the engine produces it. The handleTouchEnd
+  // resume timer re-arms requestAnimationFrame(stepRef.current) after rest.
   React.useEffect(() => {
     if (reducedMotion) return;
 
@@ -202,7 +214,6 @@ export function PhotoStrip({
       const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
 
       if (fitsRef.current || max <= 0) {
-        // Whole strip fits; pin at 0.
         offsetRef.current = 0;
         if (touchMode) {
           const v = viewportRef.current;
@@ -212,32 +223,25 @@ export function PhotoStrip({
           if (track) track.style.transform = "translate3d(0,0,0)";
         }
       } else if (touchMode) {
-        // Touch path: while a finger is down, the user owns scrollLeft. We
-        // yield: don't read or write it, don't advance the offset clock —
-        // the next idle frame will re-sync from whatever the user landed on.
-        if (userTouchingRef.current) {
-          // Don't accumulate dt while touching, so resume picks up cleanly.
-        } else {
-          offsetRef.current += baseSpeed * dt * directionRef.current;
-          if (offsetRef.current >= max) {
-            offsetRef.current = max;
-            directionRef.current = -1;
-          } else if (offsetRef.current <= 0) {
-            offsetRef.current = 0;
-            directionRef.current = 1;
-          }
-          const v = viewportRef.current;
-          if (v) v.scrollLeft = offsetRef.current;
+        // Loop is only running when userTouchingRef === false — handleTouchStart
+        // cancels rAF outright. So no `if (userTouching)` branch here.
+        offsetRef.current += baseSpeed * dt * directionRef.current;
+        if (offsetRef.current >= max) {
+          offsetRef.current = max;
+          directionRef.current = -1;
+        } else if (offsetRef.current <= 0) {
+          offsetRef.current = 0;
+          directionRef.current = 1;
         }
+        const v = viewportRef.current;
+        if (v) v.scrollLeft = offsetRef.current;
       } else if (engagedRef.current) {
-        // Desktop mouse-driven scrub: lerp current offset toward target offset.
         const tgt = targetOffsetRef.current;
         offsetRef.current += (tgt - offsetRef.current) * Math.min(1, 12 * dt);
         const track = trackRef.current;
         if (track)
           track.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
       } else {
-        // Desktop auto-drift, bouncing between edges via translate.
         offsetRef.current += baseSpeed * dt * directionRef.current;
         if (offsetRef.current >= max) {
           offsetRef.current = max;
@@ -251,11 +255,19 @@ export function PhotoStrip({
           track.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
       }
 
+      // Self-arm next frame — UNLESS the user is touching, in which case we
+      // simply stop. handleTouchEnd's resume timer will re-arm us.
+      if (touchMode && userTouchingRef.current) {
+        rafRef.current = null;
+        return;
+      }
       rafRef.current = requestAnimationFrame(step);
     };
 
+    stepRef.current = step;
     rafRef.current = requestAnimationFrame(step);
     return () => {
+      stepRef.current = null;
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
       lastTsRef.current = null;
@@ -294,6 +306,11 @@ export function PhotoStrip({
   // they bubble fine on iOS for overflow-x-auto containers (unlike pointer
   // events, which sometimes get swallowed mid-pan). The user's `<button>`
   // children get their native `click` event with zero interference from us.
+  //
+  // CRITICAL: handleTouchStart fully cancels rAF, not just sets a yield flag.
+  // On iOS, programmatic writes to scrollLeft once per frame compete with
+  // the native scroll engine and the user's swipe gets overwritten. The
+  // resume timer in handleTouchEnd re-arms rAF after rest.
   const handleTouchStart = React.useCallback(() => {
     if (!touchMode) return;
     userTouchingRef.current = true;
@@ -301,14 +318,17 @@ export function PhotoStrip({
       clearTimeout(touchResumeTimerRef.current);
       touchResumeTimerRef.current = null;
     }
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    lastTsRef.current = null;
   }, [touchMode]);
 
   const handleTouchEnd = React.useCallback(() => {
     if (!touchMode) return;
-    // Re-sync the float accumulator to wherever the user landed, including
-    // any momentum still settling (`scrollLeft` updates over a few frames
-    // after touchend on iOS — we capture the post-momentum value lazily by
-    // resyncing inside the resume timer too).
+    // Capture where the user (or in-flight momentum) left scrollLeft so the
+    // resumed loop continues from there.
     const v = viewportRef.current;
     if (v) {
       offsetRef.current = v.scrollLeft;
@@ -324,6 +344,12 @@ export function PhotoStrip({
       // Final resync after iOS momentum has settled.
       const vp = viewportRef.current;
       if (vp) offsetRef.current = vp.scrollLeft;
+      // Re-arm the loop. stepRef is set by the rAF effect; if it's null
+      // (effect cleanup raced), the next mount will arm it.
+      lastTsRef.current = null;
+      if (stepRef.current != null && rafRef.current == null) {
+        rafRef.current = requestAnimationFrame(stepRef.current);
+      }
     }, 2500);
   }, [touchMode]);
 
