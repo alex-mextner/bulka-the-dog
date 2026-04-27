@@ -486,7 +486,14 @@ export function GalleryImage({
     const finishGesture = () => {
       if (!active) return;
       active = false;
-      pinchActiveRef.current = false;
+      // KEEP pinchActiveRef true a little longer than the gesture itself.
+      // Why: the lightbox mounts UNDER the user's still-down finger
+      // (commit fires on the last touchend, but iOS can dispatch a fresh
+      // touchstart on the newly-mounted .yarl__container if a finger is
+      // resting in its bounds). That would trip the onUserTouch listener
+      // and release zoom-ownership before our mount-effect has time to
+      // read pendingZoomRef and apply the seed scale to yarl. The 600ms
+      // grace covers React mount + yarl ZoomRef attach + first paint.
       const commit = lastScale >= PINCH_COMMIT_SCALE;
       if (commit) {
         // Stash the scale so the lightbox's mount-effect can hand it to
@@ -497,9 +504,15 @@ export function GalleryImage({
         // own opening visuals immediately replace ours with no flash gap.
         handleOpen();
         pinchOverlayRef.current?.close(true);
+        // Release pinchActive only AFTER the mount-effect has had time to
+        // run. See note above finishGesture.
+        window.setTimeout(() => {
+          pinchActiveRef.current = false;
+        }, 600);
       } else {
         pendingZoomRef.current = 1;
         pinchOverlayRef.current?.close(false);
+        pinchActiveRef.current = false;
       }
       cleanup?.();
       cleanup = null;
@@ -685,10 +698,14 @@ export function GalleryLightbox() {
         // Don't release while the thumbnail-pinch is still in progress.
         // The same hand that started the pinch may still be on screen
         // when the lightbox finishes mounting; that's not "user touched
-        // the lightbox to do their own thing".
+        // the lightbox to do their own thing". finishGesture extends
+        // pinchActiveRef for 600ms past the actual gesture end so this
+        // window covers React mount + yarl ZoomRef attach + first paint.
         if (pinchActiveRef.current) return;
         ownsZoomRef.current = false;
-        pendingZoomRef.current = 1;
+        // Do NOT reset pendingZoomRef here — close() handles that on
+        // unmount. Resetting it during an open lightbox would clobber
+        // the seed value before the mount-effect's poll loop reads it.
         lb.removeEventListener("touchstart", onUserTouch, true);
       };
       lb.addEventListener("touchstart", onUserTouch, {
