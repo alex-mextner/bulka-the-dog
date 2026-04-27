@@ -164,7 +164,10 @@ export function PhotoStrip({
   // strip would forever stay in desktop mode on iPhones.
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    setTouchMode(isTouchDevice());
+    const t = isTouchDevice();
+    // eslint-disable-next-line no-console
+    console.log("[PhotoStrip mount-effect] isTouchDevice =", t);
+    setTouchMode(t);
     setReducedMotion(prefersReducedMotion());
 
     const mqMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
