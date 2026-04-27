@@ -107,13 +107,37 @@ export function Header() {
     const element = document.getElementById(id);
     if (!element) return;
     setIsMenuOpen(false);
-    // Use the element's own scrollIntoView. Each section has
-    // `scroll-margin-top: 72px` in global.css, so the sticky header
-    // automatically clears it without us doing offset math here. This is
-    // the right primitive: the browser computes the target relative to the
-    // CURRENT layout (post-paint, not in the middle of the burger morph
-    // transition), and a fresh smooth scroll cancels any prior one.
-    element.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Custom scroll: instant jump close to the target, then smooth
+    // deceleration over the last stretch. Pure smooth-scroll over a
+    // 5000px page distance feels sluggish; pure instant jump feels
+    // jarring. This split mirrors how iOS Safari's address-bar tap
+    // behaves — most of the distance is consumed instantly, the last
+    // bit eases in.
+    const headerHeight = 72;
+    const targetY =
+      element.getBoundingClientRect().top + window.scrollY - headerHeight;
+    const currentY = window.scrollY;
+    const distance = targetY - currentY;
+    if (Math.abs(distance) < 4) return;
+
+    // Decel zone = last 30% of the trip, capped at 600px so very long
+    // jumps still ease in over a sane distance.
+    const decelZone = Math.min(Math.abs(distance) * 0.3, 600);
+    const sign = Math.sign(distance);
+    const jumpTo = targetY - sign * decelZone;
+
+    // Phase 1: instant jump to (target - decelZone). Direct write,
+    // bypassing CSS scroll-behavior: smooth — that html-level rule
+    // would otherwise turn this into a slow scroll too.
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(0, jumpTo);
+    // Phase 2: smooth scroll the remaining decelZone. Browsers
+    // implement smooth-scroll with an ease-out curve, which is the
+    // deceleration we want.
+    requestAnimationFrame(() => {
+      document.documentElement.style.scrollBehavior = "";
+      window.scrollTo({ top: targetY, behavior: "smooth" });
+    });
   };
 
   // Hidden on mobile (header is too tight) — shows from `sm:` (640px) up,

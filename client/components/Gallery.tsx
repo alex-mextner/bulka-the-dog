@@ -191,8 +191,14 @@ type GalleryContextValue = {
   // Carry the final pinch scale from the overlay (in GalleryImage's commit
   // path) over to the lightbox's first-render effect, where we feed it to
   // yarl's ZoomRef.changeZoom so the lightbox opens already zoomed to the
-  // scale the user reached. Reset to 1 on every successful read.
+  // scale the user reached. Reset to 1 on close().
   pendingZoomRef: React.MutableRefObject<number>;
+  // True while the user is actively pinching a thumbnail. The lightbox's
+  // seed-zoom poll uses this to decide whether to keep guarding the zoom
+  // value (gesture in progress → yes, fight resets aggressively) or to
+  // wind down (gesture ended → 500ms grace then exit so we stop fighting
+  // yarl's own pinch-zoom inside the lightbox).
+  pinchActiveRef: React.MutableRefObject<boolean>;
 };
 
 const GalleryContext = React.createContext<GalleryContextValue | null>(null);
@@ -220,6 +226,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const triggerRef = React.useRef<HTMLElement | null>(null);
   const pinchOverlayRef = React.useRef<PinchOverlayHandle | null>(null);
   const pendingZoomRef = React.useRef<number>(1);
+  const pinchActiveRef = React.useRef<boolean>(false);
 
   const register = React.useCallback((entry: Omit<GalleryEntry, "id">) => {
     const id = nextIdRef.current++;
@@ -328,6 +335,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       setTrigger,
       pinchOverlayRef,
       pendingZoomRef,
+      pinchActiveRef,
     }),
     [register, update, unregister, open, entries, isOpen, index, close, setTrigger],
   );
@@ -365,8 +373,16 @@ export function GalleryImage({
   loading = "lazy",
   ...imgProps
 }: GalleryImageProps) {
-  const { register, update, unregister, open, setTrigger, pinchOverlayRef, pendingZoomRef } =
-    useGallery();
+  const {
+    register,
+    update,
+    unregister,
+    open,
+    setTrigger,
+    pinchOverlayRef,
+    pendingZoomRef,
+    pinchActiveRef,
+  } = useGallery();
   const idRef = React.useRef<number | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
 
@@ -454,6 +470,7 @@ export function GalleryImage({
     const finishGesture = () => {
       if (!active) return;
       active = false;
+      pinchActiveRef.current = false;
       const commit = lastScale >= PINCH_COMMIT_SCALE;
       if (commit) {
         // Stash the scale so the lightbox's mount-effect can hand it to
@@ -496,6 +513,7 @@ export function GalleryImage({
       initialMidY = (t1.clientY + t2.clientY) / 2;
       lastScale = 1;
       active = true;
+      pinchActiveRef.current = true;
 
       // Snapshot the button rect AND its border-radius so the overlay
       // exactly mirrors the polaroid frame visually.
@@ -535,7 +553,15 @@ export function GalleryImage({
       btn.removeEventListener("touchstart", onNativeTouchStart);
       cleanup?.();
     };
-  }, [handleOpen, pinchOverlayRef, setTrigger, src, alt, pendingZoomRef]);
+  }, [
+    handleOpen,
+    pinchOverlayRef,
+    setTrigger,
+    src,
+    alt,
+    pendingZoomRef,
+    pinchActiveRef,
+  ]);
 
   return (
     <button
@@ -574,7 +600,8 @@ export function GalleryImage({
 // ---------------------------------------------------------------------------
 
 export function GalleryLightbox() {
-  const { entries, isOpen, index, close, pendingZoomRef } = useGallery();
+  const { entries, isOpen, index, close, pendingZoomRef, pinchActiveRef } =
+    useGallery();
   // yarl exposes the active slide's zoom controls through a forwarded ref.
   // We need this to seed the initial zoom level after a pinch-to-open
   // commit, so the lightbox opens already zoomed to the scale the user
@@ -587,48 +614,33 @@ export function GalleryLightbox() {
   // on its own first render, which happens AFTER our state update commits.
   // requestAnimationFrame defers us by one frame, by which point the slide
   // is mounted, the ref is set, and `disabled` is false.
+  // The seed-zoom guard is event-driven via yarl's `on.zoom` callback —
+  // see the <Lightbox> render below. The mount-effect just records when
+  // the gesture finished, so the callback can decide whether a yarl
+  // reset is "ours to fight" or "the user's pinch inside the lightbox".
+  const gestureEndedAtRef = React.useRef<number | null>(null);
   React.useEffect(() => {
     if (!isOpen) return;
-    // CRITICAL: read pendingZoomRef LIVE inside the tick — not captured at
-    // effect-run time. Why: Chromium-emulated mobile (and possibly real
-    // iOS) fires the synthetic `click` event after the FIRST finger lifts
-    // mid-pinch. That click triggers handleOpen() → setIsOpen(true) →
-    // this effect runs while the user is STILL PINCHING with one finger.
-    // GalleryImage's window-level touchmove writes the current scale into
-    // pendingZoomRef on every frame, so reading the ref each tick keeps
-    // the seed zoom tracking the live pinch until the second finger
-    // releases.
-    //
-    // Yarl's ZoomState has a useLayoutEffect that resets zoom to 1 on
-    // mount AND on globalIndex/currentSource changes. The reset can fire
-    // after our first changeZoom (yarl swaps preload→current image
-    // source on decode and re-runs the reset). We poll for 1500ms and
-    // re-issue changeZoom whenever zoom drifts off target. rapid:true
-    // skips yarl's WebAnimations zoom-in so React's next render produces
-    // inline `transform: scale(target)` synchronously — no flash from
-    // 1 → target which the user reported as "jumps back then animates".
-    const startTs = performance.now();
+    gestureEndedAtRef.current = null;
+    // Track gesture-end via a tiny rAF that just polls pinchActiveRef
+    // for the transition true → false and stamps a timestamp. The
+    // alternative — exposing a setter through context — is more code
+    // for the same effect; this one cheap rAF that exits as soon as the
+    // gesture ends is the smaller hack.
     let rafId = 0;
-    const POLL_MS = 1500;
     const tick = () => {
-      const elapsed = performance.now() - startTs;
-      const target = Math.max(1, pendingZoomRef.current);
-      const z = zoomRef.current;
-      if (target > 1 && z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
-        z.changeZoom(target, true);
-      }
-      if (elapsed > POLL_MS) {
-        // Don't reset pendingZoomRef on timeout — finishGesture is the
-        // single source of truth for clearing it (set to 1 on cancel,
-        // left at the committed value on success). If we cleared here we
-        // could race with a still-active pinch and lose the value.
+      if (!pinchActiveRef.current && gestureEndedAtRef.current == null) {
+        gestureEndedAtRef.current = performance.now();
         return;
       }
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isOpen, pendingZoomRef]);
+  }, [isOpen, pinchActiveRef]);
+  // Window during which we still own the zoom level — anything outside
+  // is treated as user-initiated zoom inside the lightbox and ignored.
+  const GUARD_GRACE_MS = 500;
 
   const slides = React.useMemo(
     () =>
@@ -679,7 +691,7 @@ export function GalleryLightbox() {
       }
       // Pinch / wheel zoom config — keeps both touch and desktop snappy.
       // `ref: zoomRef` exposes ZoomRef.changeZoom so we can seed initial
-      // zoom from a pinch-to-open gesture (see useEffect on isOpen above).
+      // zoom from a pinch-to-open gesture (see on.zoom callback below).
       zoom={{
         ref: zoomRef,
         maxZoomPixelRatio: 3,
@@ -688,6 +700,32 @@ export function GalleryLightbox() {
         pinchZoomDistanceFactor: 100,
         doubleTapDelay: 300,
         doubleClickDelay: 300,
+      }}
+      on={{
+        // Event-driven seed-zoom guard. Yarl fires this callback every
+        // time its state.zoom changes — both from its own mount/decode
+        // resets AND from user-initiated pinch inside the lightbox. We
+        // re-apply the seed only while we still "own" the zoom: gesture
+        // is still active OR ended <500ms ago. Past that grace window
+        // any zoom change is treated as user intent and left alone.
+        // No polling loop, just a few comparisons per zoom event.
+        zoom: ({ zoom: currentZoom }) => {
+          const target = Math.max(1, pendingZoomRef.current);
+          if (target <= 1) return;
+          if (Math.abs(currentZoom - target) < 0.01) return;
+          const owned =
+            pinchActiveRef.current ||
+            (gestureEndedAtRef.current != null &&
+              performance.now() - gestureEndedAtRef.current < GUARD_GRACE_MS);
+          if (!owned) {
+            // User has touched the lightbox zoom themselves — release
+            // ownership so we don't fight them on subsequent changes.
+            pendingZoomRef.current = 1;
+            return;
+          }
+          const z = zoomRef.current;
+          if (z && !z.disabled) z.changeZoom(target, true);
+        },
       }}
       counter={{
         container: {
