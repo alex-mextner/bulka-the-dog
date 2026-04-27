@@ -107,36 +107,38 @@ export function Header() {
     const element = document.getElementById(id);
     if (!element) return;
     setIsMenuOpen(false);
-    // Custom scroll: instant jump close to the target, then smooth
-    // deceleration over the last stretch. Pure smooth-scroll over a
-    // 5000px page distance feels sluggish; pure instant jump feels
-    // jarring. This split mirrors how iOS Safari's address-bar tap
-    // behaves — most of the distance is consumed instantly, the last
-    // bit eases in.
     const headerHeight = 72;
-    const targetY =
+
+    // First-pass target estimate. May be wrong if lazy-loaded images
+    // below the fold expand the page mid-flight — that's why phase 2
+    // re-measures.
+    const initialTarget =
       element.getBoundingClientRect().top + window.scrollY - headerHeight;
     const currentY = window.scrollY;
-    const distance = targetY - currentY;
+    const distance = initialTarget - currentY;
     if (Math.abs(distance) < 4) return;
 
     // Decel zone = last 30% of the trip, capped at 600px so very long
     // jumps still ease in over a sane distance.
     const decelZone = Math.min(Math.abs(distance) * 0.3, 600);
     const sign = Math.sign(distance);
-    const jumpTo = targetY - sign * decelZone;
+    const jumpTo = initialTarget - sign * decelZone;
 
-    // Phase 1: instant jump to (target - decelZone). Direct write,
-    // bypassing CSS scroll-behavior: smooth — that html-level rule
-    // would otherwise turn this into a slow scroll too.
-    document.documentElement.style.scrollBehavior = "auto";
-    window.scrollTo(0, jumpTo);
-    // Phase 2: smooth scroll the remaining decelZone. Browsers
-    // implement smooth-scroll with an ease-out curve, which is the
-    // deceleration we want.
+    // Phase 1: instant jump to (target − decelZone). The 'instant' value
+    // is a standard ScrollBehavior — overrides any CSS
+    // scroll-behavior:smooth that the html element might be inheriting.
+    window.scrollTo({ top: jumpTo, left: 0, behavior: "instant" });
+
+    // Phase 2: re-measure the target on the next frame. Lazy-loaded
+    // images that came into the viewport during phase 1 may have
+    // expanded the page, shifting the section's true position. Reading
+    // getBoundingClientRect again now picks up the post-paint layout.
+    // Then smooth-scroll the (possibly-changed) decel distance — the
+    // browser's smooth-scroll impl already uses an ease-out curve.
     requestAnimationFrame(() => {
-      document.documentElement.style.scrollBehavior = "";
-      window.scrollTo({ top: targetY, behavior: "smooth" });
+      const settledTarget =
+        element.getBoundingClientRect().top + window.scrollY - headerHeight;
+      window.scrollTo({ top: settledTarget, behavior: "smooth" });
     });
   };
 
