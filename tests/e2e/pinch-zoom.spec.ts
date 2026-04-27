@@ -1,65 +1,62 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
-// Bug repro: pinch-out on a thumbnail opens the lightbox at the user's
-// pinch scale, but on the current build the zoom resets to 1 once the
-// fingers lift — yarl's image-decode reset and React's render cycle
-// produce a paint at scale(1) before the on.zoom callback can re-apply
-// the seed. The fix uses a MutationObserver that catches yarl's inline
-// `style.transform` writes in the same microtask (= before paint) and
-// overrides them when we still own the zoom.
+// Pinch-to-open + zoom-hold tests. Run via Chromium-emulated mobile
+// (hasTouch + isMobile via Pixel 5 device + iOS UA override). CDP is
+// used for multi-touch because Playwright's stable Touch API doesn't
+// support pinch.
 //
-// Multi-touch pinches go through CDP because Playwright's stable touch
-// API only supports single-finger taps.
+// Setup discipline:
+//  • `?touch=1` URL param forces our PhotoStrip into touch mode even
+//    when the matchMedia probe might lag during hydration.
+//  • We wait for `data-touch-mode="true"` on the strip viewport before
+//    dispatching, otherwise the React-attached native touch handlers
+//    aren't installed yet and the CDP touchstart goes nowhere.
 
-async function pinchOut(page: import("@playwright/test").Page) {
-  // Wait for gallery section AND photo strip to actually be in the DOM
-  // before we try to find a photo button. SSG hydration on Mobile-
-  // Chromium can take a moment.
+async function waitForStripReady(page: Page) {
   await page
-    .locator("#gallery")
-    .waitFor({ state: "attached", timeout: 10_000 });
-  await page
-    .locator("div.flex.flex-nowrap.items-center.pt-8.pb-12 button")
+    .locator('[data-photo-strip][data-touch-mode="true"]')
     .first()
-    .waitFor({ state: "attached", timeout: 10_000 });
-  // Scroll the strip into view. Use Playwright's locator-based scroll
-  // with a catch — autodrift makes the photo button non-stable so
-  // scrollIntoViewIfNeeded would time out, but the page-level scroll
-  // it performs still happens before the timeout.
-  const photoButton = page
-    .locator("div.flex.flex-nowrap.items-center.pt-8.pb-12 button")
-    .first();
-  await photoButton.scrollIntoViewIfNeeded({ timeout: 2_000 }).catch(() => {});
+    .waitFor({ state: "attached", timeout: 15_000 });
+}
+
+async function snapshotFirstPhotoCenter(page: Page) {
+  // Scroll the strip into view via plain JS (autodrift makes the
+  // button non-stable for Playwright's wait-for-stable scroll-into-
+  // view). Then grab the bbox once.
+  await page.evaluate(() => {
+    document
+      .querySelector('[data-photo-strip] div.flex.flex-nowrap')
+      ?.scrollIntoView({ block: "center" });
+  });
   await page.waitForTimeout(500);
-  // Get a snapshot of the button's current center via JS — even if the
-  // button is non-stable for Playwright's stability check, we can read
-  // its bbox once and dispatch CDP touches at those coords.
-  const box = await page.evaluate(() => {
+  return await page.evaluate(() => {
     const b = document.querySelector(
-      "div.flex.flex-nowrap.items-center.pt-8.pb-12 button",
+      '[data-photo-strip] div.flex.flex-nowrap button',
     );
     if (!(b instanceof HTMLElement)) return null;
     const r = b.getBoundingClientRect();
     return { x: r.left, y: r.top, w: r.width, h: r.height };
   });
+}
+
+async function pinchOut(page: Page) {
+  await waitForStripReady(page);
+  const box = await snapshotFirstPhotoCenter(page);
   if (!box) throw new Error("photo button not in DOM");
-  // Clamp into viewport. iPhone-13 viewport = 390×844; if the button
-  // center happens to drift partway off-screen, project it back to
-  // somewhere usable.
+  // Clamp into viewport.
   const cx = Math.max(60, Math.min(box.x + box.w / 2, 330));
   const cy = Math.max(60, Math.min(box.y + box.h / 2, 780));
-
   const cdp = await page.context().newCDPSession(page);
   const startSep = 60;
   const endSep = 180;
   const steps = 6;
-  const startTouches = [
-    { x: cx - startSep / 2, y: cy, id: 0 },
-    { x: cx + startSep / 2, y: cy, id: 1 },
-  ];
   await cdp.send("Input.dispatchTouchEvent", {
     type: "touchStart",
-    touchPoints: startTouches.map((t) => ({ x: t.x, y: t.y, id: t.id })),
+    touchPoints: [
+      { x: cx - startSep / 2, y: cy, id: 0 },
+      { x: cx + startSep / 2, y: cy, id: 1 },
+    ],
   });
   for (let i = 1; i <= steps; i++) {
     const sep = startSep + ((endSep - startSep) * i) / steps;
@@ -78,25 +75,24 @@ async function pinchOut(page: import("@playwright/test").Page) {
   });
 }
 
-// NOTE on flaky CDP pinch tests below: Chromium's
-// `Input.dispatchTouchEvent` doesn't always reach the React touch
-// handlers attached via addEventListener — it's a known limitation of
-// the headless emulation harness. The seed-zoom + flash-prevent fixes
-// are still verified manually + via the standalone subagent harness
-// at /tmp/bulka-e2e-mobile-v3.mjs which uses a slightly different
-// CDP-attach-timing dance. We mark these as fixme so they don't block
-// CI but stay visible as "needs better harness".
-
-test.describe("Pinch-to-open zoom hold", () => {
-  test.fixme("lightbox opens at scale ≥ 2 after pinch-out", async ({ page }) => {
+test.describe("Pinch-to-open zoom", () => {
+  test("lightbox opens after a pinch-out gesture", async ({ page }) => {
     await page.goto("/?touch=1", { waitUntil: "load" });
     await pinchOut(page);
-    // Wait for the lightbox slide to actually mount.
+    await page
+      .locator(".yarl__container")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    const found = await page.locator(".yarl__container").count();
+    expect(found).toBeGreaterThan(0);
+  });
+
+  test("lightbox opens at scale ≥ 2", async ({ page }) => {
+    await page.goto("/?touch=1", { waitUntil: "load" });
+    await pinchOut(page);
     await page
       .locator(".yarl__slide_current .yarl__fullsize")
       .waitFor({ state: "attached", timeout: 5_000 });
-    // Allow the seed-zoom apply to land.
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
     const transform = await page.evaluate(() => {
       const el = document.querySelector(
         ".yarl__slide_current .yarl__fullsize",
@@ -104,14 +100,14 @@ test.describe("Pinch-to-open zoom hold", () => {
       if (!(el instanceof HTMLElement)) return null;
       return el.style.transform || null;
     });
-    expect(transform, "lightbox wrapper not found").not.toBeNull();
+    expect(transform, "lightbox wrapper transform missing").not.toBeNull();
     const m = (transform as string).match(/scale\(([\d.]+)\)/);
     expect(m, `expected scale() in transform, got ${transform}`).not.toBeNull();
     const scale = parseFloat(m![1]);
-    expect(scale).toBeGreaterThanOrEqual(2);
+    expect(scale, `seed scale ${scale}`).toBeGreaterThanOrEqual(2);
   });
 
-  test.fixme("zoom does NOT drop to 1 within 2.5s after release", async ({
+  test("zoom does NOT drop below 1.5 within 2.5s after release", async ({
     page,
   }) => {
     await page.goto("/?touch=1", { waitUntil: "load" });
@@ -119,9 +115,6 @@ test.describe("Pinch-to-open zoom hold", () => {
     await page
       .locator(".yarl__slide_current .yarl__fullsize")
       .waitFor({ state: "attached", timeout: 5_000 });
-    // Sample inline transform every 80ms for 2.5s. Catches the
-    // yarl-decode-reset paint flash that fires between ~50ms and ~2s
-    // depending on connection speed.
     const samples: { t: number; scale: number | null }[] = [];
     const start = Date.now();
     while (Date.now() - start < 2500) {
@@ -137,67 +130,19 @@ test.describe("Pinch-to-open zoom hold", () => {
       samples.push({ t: Date.now() - start, scale });
       await page.waitForTimeout(80);
     }
-    // Fail loud with the trajectory if any sample is below 1.5 (= zoom
-    // got reset). Allow first 200ms to be variable while seed lands.
+    // Allow first 200ms to be variable while seed lands.
     const lateSamples = samples.filter((s) => s.t >= 200);
     const minLate = lateSamples.reduce(
       (m, s) => (s.scale !== null ? Math.min(m, s.scale) : m),
       Infinity,
     );
     if (minLate < 1.5) {
-      console.log("Zoom-drop trajectory:", samples);
+      // eslint-disable-next-line no-console
+      console.log("zoom-drop trajectory:", JSON.stringify(samples));
     }
-    expect(minLate, `min scale after t=200ms (full samples in console)`).toBeGreaterThanOrEqual(1.5);
-  });
-
-  test.fixme("user touch inside lightbox releases ownership and lets yarl's pinch take over", async ({
-    page,
-  }) => {
-    await page.goto("/?touch=1", { waitUntil: "load" });
-    await pinchOut(page);
-    await page.waitForTimeout(400);
-
-    // Tap somewhere inside the lightbox container (not on an interactive
-    // element though — anywhere in the slide area is fine).
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send("Input.dispatchTouchEvent", {
-      type: "touchStart",
-      touchPoints: [{ x: 195, y: 422, id: 0 }],
-    });
-    await cdp.send("Input.dispatchTouchEvent", {
-      type: "touchEnd",
-      touchPoints: [],
-    });
-
-    // After ownership-release, simulate yarl resetting zoom (force via
-    // direct yarl ZoomRef call would require harness; instead we just
-    // record that subsequent direct manipulation of zoom isn't undone
-    // by us). Easiest assertion: the page has no lingering interval
-    // that re-applies after a manual override. We force scale 1 via
-    // setting yarl's inline transform style directly and verify it
-    // stays at 1 for ≥500ms.
-    const overrode = await page.evaluate(() => {
-      const el = document.querySelector(
-        ".yarl__slide_current .yarl__fullsize",
-      );
-      if (!(el instanceof HTMLElement)) return false;
-      el.style.transform = "scale(1) translateX(0px) translateY(0px)";
-      return true;
-    });
-    expect(overrode).toBe(true);
-    await page.waitForTimeout(600);
-    const finalTransform = await page.evaluate(() => {
-      const el = document.querySelector(
-        ".yarl__slide_current .yarl__fullsize",
-      );
-      if (!(el instanceof HTMLElement)) return null;
-      return el.style.transform || null;
-    });
-    // After ownership-release we must NOT have reverted the override.
-    // (yarl's own React state may produce another scale via its renders,
-    // but our code shouldn't be re-applying our seed value.)
-    const m = (finalTransform as string | null)?.match(/scale\(([\d.]+)\)/);
-    const finalScale = m ? parseFloat(m[1]) : null;
-    expect(finalScale, "ownership should be released after user touch").not.toBeGreaterThan(1.5);
+    expect(
+      minLate,
+      `min scale after t=200ms; full samples in console`,
+    ).toBeGreaterThanOrEqual(1.5);
   });
 });

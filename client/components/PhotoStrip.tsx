@@ -563,6 +563,11 @@ export function PhotoStrip({
           setEngaged(false);
         }
       }}
+      // `data-photo-strip` is a readiness marker for e2e tests — they wait
+      // for `data-touch-mode` to flip after hydration before issuing CDP
+      // touch events.
+      data-photo-strip=""
+      data-touch-mode={touchMode ? "true" : "false"}
       // No native scroll on either branch — the viewport is just a clipping
       // rectangle. Touch handlers above own all horizontal motion. select-none
       // keeps long-press from highlighting captions. touch-action: pan-y lets
