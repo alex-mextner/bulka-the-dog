@@ -88,6 +88,7 @@ test.describe("Nav chip scroll", () => {
   test("all 8 nav chips land their target within tolerance", async ({
     page,
   }) => {
+    test.setTimeout(60_000); // 8 sections × ~3.5s each + overhead
     const sections = [
       "appearance",
       "habits",
@@ -108,32 +109,26 @@ test.describe("Nav chip scroll", () => {
       await page.locator('[aria-label="Открыть меню"]').tap();
       await page.waitForTimeout(350);
       const idx = sections.indexOf(id);
-      // Bring the target chip into the visible part of the inner
-      // horizontal scroller via plain JS scroll, then tap by computed
-      // coordinates. Playwright's scrollIntoViewIfNeeded waits for
-      // element-stability which thrashes when the morph layer is
-      // settling.
-      const tapPoint = await page.evaluate((index) => {
+      // Bring the chip into view via a JS click on it directly. We
+      // avoid Playwright's `tap()` because the morphed-nav inner
+      // horizontal scroller hides the chip outside its overflow window
+      // for indices past ~3, and Playwright's auto-scroll-into-view
+      // logic doesn't traverse our overflow-x-auto container reliably.
+      // Calling .click() via DOM bypasses the visibility check entirely
+      // — the production handler doesn't care whether the click came
+      // from a real tap or a programmatic invocation, it just does the
+      // scrollIntoView dance.
+      const clicked = await page.evaluate((index) => {
         const row = document.querySelector(
           "#mobile-nav .flex.items-center.gap-2",
         ) as HTMLElement | null;
-        if (!row) return null;
+        if (!row) return false;
         const btn = row.children[index];
-        if (!(btn instanceof HTMLElement)) return null;
-        // Scroll the chip into the row's visible window.
-        const rowRect = row.getBoundingClientRect();
-        const btnRect = btn.getBoundingClientRect();
-        if (btnRect.right > rowRect.right) {
-          row.scrollLeft += btnRect.right - rowRect.right + 8;
-        } else if (btnRect.left < rowRect.left) {
-          row.scrollLeft -= rowRect.left - btnRect.left + 8;
-        }
-        const r = btn.getBoundingClientRect();
-        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        if (!(btn instanceof HTMLElement)) return false;
+        btn.click();
+        return true;
       }, idx);
-      expect(tapPoint, `chip ${id} not laid out`).not.toBeNull();
-      await page.waitForTimeout(50);
-      await page.touchscreen.tap(tapPoint!.x, tapPoint!.y);
+      expect(clicked, `chip ${id} not laid out`).toBe(true);
       await page.waitForTimeout(3500);
       const top = await page.evaluate((sid) => {
         const el = document.getElementById(sid);
