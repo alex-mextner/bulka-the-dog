@@ -103,18 +103,26 @@
     @apply border-border;
   }
 
+  html {
+    /* iOS Safari uses <html> as the primary scrolling element. Putting
+       overflow-x: hidden ONLY on body isn't enough — Safari can still
+       give the user a horizontal pan on the document if any descendant
+       overflows. Hidden on both is the canonical pattern; sticky on the
+       header still works because we use `hidden` (not `clip`) which is
+       the Apple-tested combination. */
+    overflow-x: hidden;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: "Inter", sans-serif;
     line-height: 1.6;
-    /* Defensive horizontal-overflow clip on the body (NOT html) so a
-       sub-pixel overflow from a transformed photo-strip card can't be
-       used by iOS as an excuse to pan the document. `hidden` instead of
-       `clip` because Safari < 16 falls back to `visible` for `clip`,
-       AND because some Safari versions stop honouring `position: sticky`
-       on descendants when an ancestor uses `clip`. `hidden` on the body
-       is the canonical Apple-tested pattern that keeps sticky working. */
     overflow-x: hidden;
+    /* Lock viewport width — even with overflow-x:hidden a ~1px
+       sub-pixel rounding from a transformed card can leak into a tiny
+       horizontal scroll surface that iOS uses as permission to pan. */
+    width: 100%;
+    max-width: 100vw;
+    position: relative;
   }
 
   h1 {
