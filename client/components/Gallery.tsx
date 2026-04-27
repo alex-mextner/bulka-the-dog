@@ -687,6 +687,65 @@ export function GalleryLightbox() {
     };
   }, [isOpen, pinchActiveRef, pendingZoomRef]);
 
+  // MutationObserver — pre-paint override of yarl's inline style.transform.
+  // yarl's `useLayoutEffect(() => setZoom(1), [globalIndex, currentSource])`
+  // fires after the image source swaps from preload to current (~100–500ms
+  // after open). React commits a render with `style.transform = scale(1)`,
+  // and the on.zoom callback only fires on the NEXT effect tick — by then
+  // the browser has already painted the scale-1 frame. Result: visible
+  // flash to 1× at the moment the user releases their fingers.
+  //
+  // MutationObserver callbacks run in the same microtask checkpoint as the
+  // mutation (after DOM update, before paint), giving us a chance to
+  // overwrite the inline style before the browser repaints. We also call
+  // changeZoom to keep yarl's React state in sync with the visual.
+  React.useEffect(() => {
+    if (!isOpen) return;
+    let observer: MutationObserver | null = null;
+    let attemptRaf = 0;
+    const attach = () => {
+      const container = document.querySelector(".yarl__container");
+      if (!container) {
+        attemptRaf = requestAnimationFrame(attach);
+        return;
+      }
+      observer = new MutationObserver((mutations) => {
+        if (!ownsZoomRef.current) return;
+        const target = pendingZoomRef.current;
+        if (target <= 1) return;
+        for (const m of mutations) {
+          if (m.attributeName !== "style") continue;
+          const el = m.target;
+          if (!(el instanceof HTMLElement)) continue;
+          if (!el.classList.contains("yarl__fullsize")) continue;
+          const tr = el.style.transform;
+          if (!tr) continue;
+          const match = tr.match(/scale\(([\d.]+)\)/);
+          if (!match) continue;
+          const cur = parseFloat(match[1]);
+          if (Math.abs(cur - target) < 0.01) continue;
+          // Override inline before paint. Fires synchronously inside the
+          // microtask, so the browser's next paint sees this value.
+          el.style.transform = `scale(${target}) translateX(0px) translateY(0px)`;
+          // Reconcile yarl's React state via changeZoom so its pinch
+          // math (which reads state.zoom, not the DOM) stays consistent.
+          const z = zoomRef.current;
+          if (z && !z.disabled) z.changeZoom(target, true);
+        }
+      });
+      observer.observe(container, {
+        attributes: true,
+        attributeFilter: ["style"],
+        subtree: true,
+      });
+    };
+    attemptRaf = requestAnimationFrame(attach);
+    return () => {
+      cancelAnimationFrame(attemptRaf);
+      observer?.disconnect();
+    };
+  }, [isOpen, pendingZoomRef]);
+
   const slides = React.useMemo(
     () =>
       entries.map((e) => ({

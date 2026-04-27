@@ -28,3 +28,8 @@ dist-ssr
 !.env
 .vercel
 .env*.local
+
+# Playwright e2e artefacts
+playwright-report/
+test-results/
+.playwright-mcp/

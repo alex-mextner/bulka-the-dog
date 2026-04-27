@@ -151,9 +151,11 @@
     white-space: pre;
   }
 
-  html {
-    scroll-behavior: smooth;
-  }
+  /* No global `scroll-behavior: smooth`. Header.tsx orchestrates its own
+     three-phase nav scroll (instant jump → smooth decel → settle correction),
+     and a CSS-level smooth would override our `scrollTo(x, y)` positional
+     form (which is supposed to be instant per spec) on older Safari. Each
+     scroll call sets its own `behavior` explicitly. */
 
   /* Sections scroll-target offset so the sticky header doesn't cover their
      top edge when navigated to via element.scrollIntoView() / anchor links.

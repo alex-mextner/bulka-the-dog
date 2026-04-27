@@ -124,10 +124,16 @@ export function Header() {
     const sign = Math.sign(distance);
     const jumpTo = initialTarget - sign * decelZone;
 
-    // Phase 1: instant jump to (target − decelZone). The 'instant' value
-    // is a standard ScrollBehavior — overrides any CSS
-    // scroll-behavior:smooth that the html element might be inheriting.
-    window.scrollTo({ top: jumpTo, left: 0, behavior: "instant" });
+    // Phase 1: instant jump to (target − decelZone). We use the
+    // positional form `scrollTo(x, y)` rather than the option-bag form
+    // because the positional form is defined as instant unconditionally
+    // since CSSOM-View Module spec — older Safari versions that don't
+    // recognise `behavior: 'instant'` would otherwise fall back to
+    // `auto` which honours the html element's `scroll-behavior` CSS,
+    // turning our jump into a slow scroll. global.css no longer sets
+    // `scroll-behavior: smooth` on html, so this is also a defence in
+    // depth.
+    window.scrollTo(0, jumpTo);
 
     // Phase 2: re-measure the target on the next frame. Lazy-loaded
     // images that came into the viewport during phase 1 may have
