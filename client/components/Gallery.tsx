@@ -78,19 +78,35 @@ const PinchTransitionOverlay = React.forwardRef<PinchOverlayHandle, {}>(
         },
         close: (commit) => {
           if (commit) {
-            // Caller is opening the real lightbox right now. Hold the
-            // overlay over the lightbox for ~150ms so yarl has time to
-            // mount, our useEffect-poll has time to apply the seed zoom,
-            // and React can paint the slide already at the target scale.
-            // Without this hold, the lightbox first paints at zoom=1 for
-            // a frame or two before our changeZoom lands, which the user
-            // sees as the image "jumping back, then animating forward".
-            // The overlay underneath shows the picture at the same scale,
-            // so the visual handoff is invisible.
+            // Animate the overlay clone from "thumbnail-relative scale"
+            // to "viewport-centre with the same scale" over ~200ms so
+            // the visual handoff into the lightbox doesn't jump. The
+            // lightbox underneath is mounting and seeding its own zoom
+            // in parallel; by the time the overlay reaches viewport
+            // centre yarl has applied the same scale and we can dismiss
+            // the overlay cleanly.
+            if (imgRef.current && opts) {
+              const vw = window.innerWidth;
+              const vh = window.innerHeight;
+              const cardCenterX = opts.rect.left + opts.rect.width / 2;
+              const cardCenterY = opts.rect.top + opts.rect.height / 2;
+              const dx = vw / 2 - cardCenterX;
+              const dy = vh / 2 - cardCenterY;
+              // Read the current visible scale off the inline transform
+              // so we don't reset it.
+              const cur = imgRef.current.style.transform || "";
+              const m = cur.match(/scale\(([\d.]+)\)/);
+              const scale = m ? parseFloat(m[1]) : 1;
+              setTransitioning(true);
+              imgRef.current.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${scale})`;
+              if (dimRef.current) {
+                dimRef.current.style.backgroundColor = "rgba(0,0,0,0.92)";
+              }
+            }
             window.setTimeout(() => {
               setOpts(null);
               setTransitioning(false);
-            }, 150);
+            }, 220);
           } else {
             // Animate back to identity (= thumbnail rect) over PINCH_CANCEL_MS,
             // then unmount.
