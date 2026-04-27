@@ -131,15 +131,38 @@ export function Header() {
 
     // Phase 2: re-measure the target on the next frame. Lazy-loaded
     // images that came into the viewport during phase 1 may have
-    // expanded the page, shifting the section's true position. Reading
-    // getBoundingClientRect again now picks up the post-paint layout.
-    // Then smooth-scroll the (possibly-changed) decel distance — the
-    // browser's smooth-scroll impl already uses an ease-out curve.
+    // expanded the page, shifting the section's true position.
     requestAnimationFrame(() => {
       const settledTarget =
         element.getBoundingClientRect().top + window.scrollY - headerHeight;
       window.scrollTo({ top: settledTarget, behavior: "smooth" });
     });
+
+    // Phase 3: settle-correction loop. Some lazy-loaded images (those
+    // BELOW our scroll target initially) only start decoding after we
+    // arrive at the target, then expand the page and push our section
+    // away. We can't predict this from phase 2 alone — rAF runs ~16ms
+    // after phase 1 jump, but image decode lands ~50–500ms later. So
+    // every 250ms for ~1.5s, check the section's current viewport-
+    // relative top and nudge if it's drifted >30px from the header
+    // offset. Stops as soon as the section is parked correctly. Cheap
+    // (a few rect reads), bounded (6 iterations max).
+    let iterations = 0;
+    const settle = () => {
+      iterations++;
+      const currentTop = element.getBoundingClientRect().top;
+      const drift = currentTop - headerHeight;
+      if (Math.abs(drift) > 30) {
+        window.scrollTo({
+          top: window.scrollY + drift,
+          behavior: "smooth",
+        });
+      }
+      if (iterations < 6) {
+        window.setTimeout(settle, 250);
+      }
+    };
+    window.setTimeout(settle, 800);
   };
 
   // Hidden on mobile (header is too tight) — shows from `sm:` (640px) up,
