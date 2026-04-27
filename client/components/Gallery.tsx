@@ -614,30 +614,53 @@ export function GalleryLightbox() {
   // on its own first render, which happens AFTER our state update commits.
   // requestAnimationFrame defers us by one frame, by which point the slide
   // is mounted, the ref is set, and `disabled` is false.
-  // The seed-zoom guard is event-driven via yarl's `on.zoom` callback —
-  // see the <Lightbox> render below. The mount-effect just records when
-  // the gesture finished, so the callback can decide whether a yarl
-  // reset is "ours to fight" or "the user's pinch inside the lightbox".
+  // Seed-zoom mechanism. On open we have two jobs:
+  //   1. Initial apply — yarl mounts with zoom=1; we need to push it to
+  //      `pendingZoomRef.current` ONCE the ZoomRef is attached and not
+  //      disabled. on.zoom only fires on actual zoom CHANGES, so the
+  //      initial mount-state of 1 doesn't notify us — we have to do
+  //      this push explicitly via a short rAF wait.
+  //   2. Track when the user's thumbnail-pinch gesture ends so the
+  //      on.zoom callback (defined inline on <Lightbox> below) can tell
+  //      "yarl reset us, re-apply" from "user is pinching inside the
+  //      lightbox now, leave them alone".
+  // Both jobs run in one rAF that exits as soon as both are done.
   const gestureEndedAtRef = React.useRef<number | null>(null);
   React.useEffect(() => {
     if (!isOpen) return;
     gestureEndedAtRef.current = null;
-    // Track gesture-end via a tiny rAF that just polls pinchActiveRef
-    // for the transition true → false and stamps a timestamp. The
-    // alternative — exposing a setter through context — is more code
-    // for the same effect; this one cheap rAF that exits as soon as the
-    // gesture ends is the smaller hack.
     let rafId = 0;
+    let initialApplied = false;
+    let attempts = 0;
     const tick = () => {
+      attempts++;
+      // Stamp gesture-end timestamp on the false transition.
       if (!pinchActiveRef.current && gestureEndedAtRef.current == null) {
         gestureEndedAtRef.current = performance.now();
-        return;
       }
+      // Initial seed apply once yarl's ref is ready.
+      if (!initialApplied) {
+        const target = Math.max(1, pendingZoomRef.current);
+        const z = zoomRef.current;
+        if (z && !z.disabled && target > 1) {
+          z.changeZoom(target, true);
+          initialApplied = true;
+        } else if (target <= 1) {
+          // No seed needed at all (e.g. tap-open). Mark done.
+          initialApplied = true;
+        }
+      }
+      // Both jobs done → exit. on.zoom callback will guard subsequent
+      // resets within the grace window without polling.
+      if (initialApplied && gestureEndedAtRef.current != null) return;
+      // Bail after ~30 frames if zoomRef never attaches (shouldn't
+      // happen but keeps us from rAF-leaking on edge cases).
+      if (attempts > 30) return;
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isOpen, pinchActiveRef]);
+  }, [isOpen, pinchActiveRef, pendingZoomRef]);
   // Window during which we still own the zoom level — anything outside
   // is treated as user-initiated zoom inside the lightbox and ignored.
   const GUARD_GRACE_MS = 500;
