@@ -769,6 +769,25 @@ export function GalleryLightbox() {
     setIsCoarsePointer(window.matchMedia("(pointer: coarse)").matches);
   }, []);
 
+  // Status-bar tint: while the lightbox is open, the iOS status bar should
+  // sit on top of the photo's black backdrop, not on the orange page theme.
+  // Flip <meta name="theme-color"> to #000 on open and restore on close so
+  // the status-bar text auto-switches to a contrasting glyph color.
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    const meta = document.querySelector(
+      'meta[name="theme-color"]',
+    ) as HTMLMetaElement | null;
+    if (!meta) return;
+    const original = meta.getAttribute("content") ?? "#f97316";
+    if (isOpen) {
+      meta.setAttribute("content", "#000000");
+      return () => {
+        meta.setAttribute("content", original);
+      };
+    }
+  }, [isOpen]);
+
   return (
     <Lightbox
       open={isOpen}
@@ -787,12 +806,40 @@ export function GalleryLightbox() {
       carousel={{ finite: false }}
       styles={
         {
+          // Root = the .yarl__portal element. Force full-screen sizing
+          // including under iOS Safari's status bar and address bar.
+          // Pairs with `viewport-fit=cover` in index.html — that meta is
+          // what unlocks the large viewport on iOS; lvh/lvw here is the
+          // belt to yarl's existing `inset: 0` suspenders. We chain
+          // 100vh/100vw → 100lvh/100lvw via CSS-syntax-aware fallback by
+          // using both the `width` and `height` props twice: React strips
+          // duplicate keys but yarl renders the SlotCSSProperties through
+          // a stylesheet/inline-style merge that respects the latter
+          // declaration. To be safe on browsers that don't grok lvh/lvw,
+          // we lean on yarl's default `inset: 0` (already in styles.css)
+          // for the fallback.
+          root: {
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100lvw",
+            height: "100lvh",
+            padding: 0,
+            margin: 0,
+          },
           container: {
             backgroundColor: "rgba(0, 0, 0, 0.92)",
             // Override yarl's slide padding via CSS variable — this is
             // honoured by every slide DOM, including the first one (which
             // otherwise inherits a smaller default in some yarl versions).
             "--yarl__slide_padding": "10vw",
+            // Defeat any safe-area-inset padding that might otherwise shrink
+            // the photo away from the screen edges.
+            paddingTop: 0,
+            paddingBottom: 0,
+            paddingLeft: 0,
+            paddingRight: 0,
           },
         } as Record<string, React.CSSProperties>
       }
