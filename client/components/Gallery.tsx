@@ -244,6 +244,28 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const pendingZoomRef = React.useRef<number>(1);
   const pinchActiveRef = React.useRef<boolean>(false);
 
+  // Test hook — exposes the internal refs so e2e tests can drive the
+  // seed-zoom path without simulating real multi-touch (which Chromium's
+  // CDP touch dispatch can't reliably deliver to React-attached native
+  // listeners). Production builds keep this in too — it's a few function
+  // properties on window, ~0 cost, and lets us run TDD red/green cycles
+  // without needing a real iPhone in the loop.
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as unknown as Record<string, unknown>).__bulkaTest = {
+      setPendingZoom: (v: number) => {
+        pendingZoomRef.current = v;
+      },
+      getPendingZoom: () => pendingZoomRef.current,
+      setPinchActive: (v: boolean) => {
+        pinchActiveRef.current = v;
+      },
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__bulkaTest;
+    };
+  }, []);
+
   const register = React.useCallback((entry: Omit<GalleryEntry, "id">) => {
     const id = nextIdRef.current++;
     setEntries((prev) => [...prev, { id, ...entry }]);

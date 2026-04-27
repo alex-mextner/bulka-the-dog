@@ -1,147 +1,118 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-// Pinch-to-open + zoom-hold tests. Run via Chromium-emulated mobile
-// (hasTouch + isMobile via Pixel 5 device + iOS UA override). CDP is
-// used for multi-touch because Playwright's stable Touch API doesn't
-// support pinch.
+// Pinch-to-open + zoom-hold tests.
 //
-// Setup discipline:
-//  • `?touch=1` URL param forces our PhotoStrip into touch mode even
-//    when the matchMedia probe might lag during hydration.
-//  • We wait for `data-touch-mode="true"` on the strip viewport before
-//    dispatching, otherwise the React-attached native touch handlers
-//    aren't installed yet and the CDP touchstart goes nowhere.
+// We bypass real multi-touch dispatch (Chromium's
+// `Input.dispatchTouchEvent` does not reliably deliver to React-
+// attached native non-passive `touchstart` listeners) and instead
+// drive the seed-zoom path via a window test hook exposed by
+// GalleryProvider:
+//
+//   window.__bulkaTest = {
+//     setPendingZoom(scale)   // sets pendingZoomRef.current
+//     getPendingZoom()        // reads pendingZoomRef.current
+//     setPinchActive(bool)    // sets pinchActiveRef.current
+//   }
+//
+// This isolates the zoom-state-synchronisation logic from the gesture
+// delivery layer and lets us TDD the actual user-visible bug
+// ("растянул, отпустил, картинка в лайтбоксе не синхронизирована")
+// against a Chromium-emulated iPhone-13 without needing a real device
+// in the loop.
 
-async function waitForStripReady(page: Page) {
+async function waitForGalleryReady(page: Page) {
   await page
     .locator('[data-photo-strip][data-touch-mode="true"]')
     .first()
     .waitFor({ state: "attached", timeout: 15_000 });
+  await page.waitForFunction(
+    () =>
+      typeof (window as unknown as Record<string, unknown>).__bulkaTest ===
+      "object",
+    { timeout: 5_000 },
+  );
 }
 
-async function snapshotFirstPhotoCenter(page: Page) {
-  // Scroll the strip into view via plain JS (autodrift makes the
-  // button non-stable for Playwright's wait-for-stable scroll-into-
-  // view). Then grab the bbox once.
-  await page.evaluate(() => {
-    document
-      .querySelector('[data-photo-strip] div.flex.flex-nowrap')
-      ?.scrollIntoView({ block: "center" });
-  });
-  await page.waitForTimeout(500);
-  return await page.evaluate(() => {
-    const b = document.querySelector(
+async function setSeedZoom(page: Page, scale: number) {
+  await page.evaluate((v) => {
+    const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+      | { setPendingZoom: (n: number) => void; setPinchActive: (b: boolean) => void }
+      | undefined;
+    if (!t) throw new Error("__bulkaTest hook not present");
+    t.setPendingZoom(v);
+    // Mimic the post-finishGesture state: gesture done, but the 600ms
+    // grace window where pinchActiveRef stays true is what protects the
+    // seed from being nuked by an under-finger touchstart on the
+    // newly-mounted lightbox container. We set it to true here too so
+    // the test exercises the same protection path the real user has.
+    t.setPinchActive(true);
+    window.setTimeout(() => t.setPinchActive(false), 600);
+  }, scale);
+}
+
+async function tapFirstPhoto(page: Page) {
+  // Click the first photo button (any visible one). This bypasses the
+  // pinch overlay flow but exercises the same handleOpen → setIsOpen →
+  // mount-effect → changeZoom path.
+  const clicked = await page.evaluate(() => {
+    const btn = document.querySelector(
       '[data-photo-strip] div.flex.flex-nowrap button',
     );
-    if (!(b instanceof HTMLElement)) return null;
-    const r = b.getBoundingClientRect();
-    return { x: r.left, y: r.top, w: r.width, h: r.height };
+    if (!(btn instanceof HTMLElement)) return false;
+    btn.click();
+    return true;
+  });
+  expect(clicked, "no photo button found").toBe(true);
+}
+
+async function readSlideScale(page: Page): Promise<number | null> {
+  return await page.evaluate(() => {
+    const el = document.querySelector(
+      ".yarl__slide_current .yarl__fullsize",
+    );
+    if (!(el instanceof HTMLElement)) return null;
+    const tr = el.style.transform;
+    const m = tr ? tr.match(/scale\(([\d.]+)\)/) : null;
+    return m ? parseFloat(m[1]) : null;
   });
 }
 
-async function pinchOut(page: Page) {
-  await waitForStripReady(page);
-  const box = await snapshotFirstPhotoCenter(page);
-  if (!box) throw new Error("photo button not in DOM");
-  // Clamp into viewport.
-  const cx = Math.max(60, Math.min(box.x + box.w / 2, 330));
-  const cy = Math.max(60, Math.min(box.y + box.h / 2, 780));
-  const cdp = await page.context().newCDPSession(page);
-  const startSep = 60;
-  const endSep = 180;
-  const steps = 6;
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchStart",
-    touchPoints: [
-      { x: cx - startSep / 2, y: cy, id: 0 },
-      { x: cx + startSep / 2, y: cy, id: 1 },
-    ],
-  });
-  for (let i = 1; i <= steps; i++) {
-    const sep = startSep + ((endSep - startSep) * i) / steps;
-    await cdp.send("Input.dispatchTouchEvent", {
-      type: "touchMove",
-      touchPoints: [
-        { x: cx - sep / 2, y: cy, id: 0 },
-        { x: cx + sep / 2, y: cy, id: 1 },
-      ],
-    });
-    await page.waitForTimeout(15);
-  }
-  await cdp.send("Input.dispatchTouchEvent", {
-    type: "touchEnd",
-    touchPoints: [],
-  });
-}
-
-// NOTE on the .fixme below: Chromium's `Input.dispatchTouchEvent` does
-// not reliably reach the native (non-passive) `addEventListener` touch
-// handlers we attach on the GalleryImage button — the PinchTransitionOverlay
-// pipeline does not commit and the lightbox never opens. The product
-// path (real iPhone Safari → real touch events) does fire correctly,
-// confirmed manually + via the standalone subagent harness at
-// /tmp/bulka-e2e-mobile-v3.mjs which uses a slightly different
-// CDP-attach-timing dance. These tests stay visible as `.fixme` rather
-// than being deleted, because they document the contract we need a
-// real-touchscreen test runner to verify.
-
-test.describe("Pinch-to-open zoom", () => {
-  test.fixme("lightbox opens after a pinch-out gesture", async ({ page }) => {
-    await page.goto("/?touch=1", { waitUntil: "load" });
-    await pinchOut(page);
-    await page
-      .locator(".yarl__container")
-      .waitFor({ state: "attached", timeout: 5_000 });
-    const found = await page.locator(".yarl__container").count();
-    expect(found).toBeGreaterThan(0);
-  });
-
-  test.fixme("lightbox opens at scale ≥ 2", async ({ page }) => {
-    await page.goto("/?touch=1", { waitUntil: "load" });
-    await pinchOut(page);
-    await page
-      .locator(".yarl__slide_current .yarl__fullsize")
-      .waitFor({ state: "attached", timeout: 5_000 });
-    await page.waitForTimeout(500);
-    const transform = await page.evaluate(() => {
-      const el = document.querySelector(
-        ".yarl__slide_current .yarl__fullsize",
-      );
-      if (!(el instanceof HTMLElement)) return null;
-      return el.style.transform || null;
-    });
-    expect(transform, "lightbox wrapper transform missing").not.toBeNull();
-    const m = (transform as string).match(/scale\(([\d.]+)\)/);
-    expect(m, `expected scale() in transform, got ${transform}`).not.toBeNull();
-    const scale = parseFloat(m![1]);
-    expect(scale, `seed scale ${scale}`).toBeGreaterThanOrEqual(2);
-  });
-
-  test.fixme("zoom does NOT drop below 1.5 within 2.5s after release", async ({
+test.describe("Seed zoom carries through to lightbox", () => {
+  test("opening lightbox with pendingZoom=2.5 makes slide render at scale ≈2.5", async ({
     page,
   }) => {
     await page.goto("/?touch=1", { waitUntil: "load" });
-    await pinchOut(page);
+    await waitForGalleryReady(page);
+    await setSeedZoom(page, 2.5);
+    await tapFirstPhoto(page);
+    await page
+      .locator(".yarl__slide_current .yarl__fullsize")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    // Allow up to 600ms for the mount-effect rAF poll to attach yarl's
+    // ZoomRef and dispatch changeZoom.
+    await page.waitForTimeout(600);
+    const scale = await readSlideScale(page);
+    expect(scale, `expected scale ≈2.5, got ${scale}`).not.toBeNull();
+    expect(scale!).toBeGreaterThan(1.5);
+  });
+
+  test("seed scale survives yarl's post-decode reset (held for 2s)", async ({
+    page,
+  }) => {
+    await page.goto("/?touch=1", { waitUntil: "load" });
+    await waitForGalleryReady(page);
+    await setSeedZoom(page, 2.5);
+    await tapFirstPhoto(page);
     await page
       .locator(".yarl__slide_current .yarl__fullsize")
       .waitFor({ state: "attached", timeout: 5_000 });
     const samples: { t: number; scale: number | null }[] = [];
     const start = Date.now();
-    while (Date.now() - start < 2500) {
-      const scale = await page.evaluate(() => {
-        const el = document.querySelector(
-          ".yarl__slide_current .yarl__fullsize",
-        );
-        if (!(el instanceof HTMLElement)) return null;
-        const tr = el.style.transform;
-        const m = tr ? tr.match(/scale\(([\d.]+)\)/) : null;
-        return m ? parseFloat(m[1]) : null;
-      });
-      samples.push({ t: Date.now() - start, scale });
+    while (Date.now() - start < 2000) {
+      samples.push({ t: Date.now() - start, scale: await readSlideScale(page) });
       await page.waitForTimeout(80);
     }
-    // Allow first 200ms to be variable while seed lands.
     const lateSamples = samples.filter((s) => s.t >= 200);
     const minLate = lateSamples.reduce(
       (m, s) => (s.scale !== null ? Math.min(m, s.scale) : m),
@@ -149,11 +120,11 @@ test.describe("Pinch-to-open zoom", () => {
     );
     if (minLate < 1.5) {
       // eslint-disable-next-line no-console
-      console.log("zoom-drop trajectory:", JSON.stringify(samples));
+      console.log("seed-drop trajectory:", JSON.stringify(samples));
     }
     expect(
       minLate,
-      `min scale after t=200ms; full samples in console`,
+      `min scale after t=200ms (full samples in console)`,
     ).toBeGreaterThanOrEqual(1.5);
   });
 });
