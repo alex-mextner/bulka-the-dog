@@ -190,10 +190,10 @@ export function Header() {
   // `left-4` mirrors the parent's `px-4` so the logo doesn't kiss the edge
   // on mobile; `right-14` reserves room for the absolute burger.
   const defaultLayerCls = cn(
-    "absolute inset-y-0 left-4 right-14 flex items-center gap-3 transition-all duration-300 ease-out",
+    "absolute inset-y-0 left-4 right-14 flex items-center gap-3 transition-opacity duration-300 ease-out",
     isMenuOpen
-      ? "opacity-0 -translate-x-3 pointer-events-none nav:opacity-100 nav:translate-x-0 nav:pointer-events-auto"
-      : "opacity-100 translate-x-0",
+      ? "opacity-0 pointer-events-none nav:opacity-100 nav:pointer-events-auto"
+      : "opacity-100",
   );
   // morphedNav extends to right-0 (NOT right-14 like the default layer) so
   // chips can scroll UNDER the gradient overlay AND the burger button. If we
@@ -202,11 +202,17 @@ export function Header() {
   // solid background-coloured stripe between the last chip and the X. Burger
   // stays clickable on top via z-10 + the gradient overlay between them
   // (z-9, pointer-events-none) hides the chips visually behind the X.
+  // NOTE: closed-state translate-x must stay at 0. Earlier we used
+  // `translate-x-3` for a slide-in flourish, but the 12px right-shift
+  // pushed the morphed nav to right=402 on a 390px viewport — adding
+  // a 12px horizontal scroll surface that iOS Safari then offered to
+  // pan on. opacity alone is enough animation; the morphed nav is
+  // pointer-events-none when closed so the user never sees the diff.
   const morphedNavCls = cn(
-    "absolute inset-y-0 left-4 right-0 flex items-center transition-all duration-300 ease-out nav:hidden",
+    "absolute inset-y-0 left-4 right-0 flex items-center transition-opacity duration-300 ease-out nav:hidden",
     isMenuOpen
-      ? "opacity-100 translate-x-0 pointer-events-auto"
-      : "opacity-0 translate-x-3 pointer-events-none",
+      ? "opacity-100 pointer-events-auto"
+      : "opacity-0 pointer-events-none",
   );
 
   return (
