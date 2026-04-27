@@ -665,25 +665,39 @@ export function GalleryLightbox() {
   // on its own first render, which happens AFTER our state update commits.
   // requestAnimationFrame defers us by one frame, by which point the slide
   // is mounted, the ref is set, and `disabled` is false.
-  // Initial seed-apply on mount. yarl mounts with zoom=1 and on.zoom
-  // ONLY fires on actual changes — so the initial 1-state isn't notified
-  // and we have to push the seed value explicitly. We poll for ZoomRef
-  // attach over up to 30 frames (~500ms) and call changeZoom once the
-  // ref is alive.
+  // Seed zoom — poll every frame while we still own it. Yarl has TWO
+  // failure modes that defeat a one-shot apply:
+  //   1. Mount-time `useLayoutEffect(() => setZoom(1), [globalIndex,
+  //      currentSource])` resets zoom on the FIRST render and AGAIN
+  //      after the preload→current image-source swap (~50–500ms after
+  //      mount, depending on connection speed).
+  //   2. yarl's `on.zoom` event-callback is gated by `!disabled` — and
+  //      `disabled` is true exactly during the image-source swap. So
+  //      the reset that resets us back to 1 is fired with disabled=true,
+  //      meaning our on.zoom callback NEVER hears about it. Visible
+  //      symptom: lightbox opens at scale 1 even though pendingZoomRef
+  //      is at the user's pinch scale.
+  //
+  // Continuous poll covers both. Frame work is cheap (one ref read +
+  // one comparison) and stops as soon as we lose ownership (user
+  // touched the lightbox to drive their own zoom).
   React.useEffect(() => {
     if (!isOpen) return;
+    // Set ownership sync at effect-entry. The other useEffect that
+    // attaches the touchstart-release listener also sets this — both
+    // setters are idempotent. Doing it here too avoids ordering
+    // dependencies between the two effects.
+    ownsZoomRef.current = true;
     let rafId = 0;
-    let attempts = 0;
     const tick = () => {
-      attempts++;
+      if (!ownsZoomRef.current) return;
       const target = Math.max(1, pendingZoomRef.current);
-      if (target <= 1) return; // tap-open, nothing to seed
-      const z = zoomRef.current;
-      if (z && !z.disabled) {
-        z.changeZoom(target, true);
-        return;
+      if (target > 1) {
+        const z = zoomRef.current;
+        if (z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
+          z.changeZoom(target, true);
+        }
       }
-      if (attempts > 30) return;
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
