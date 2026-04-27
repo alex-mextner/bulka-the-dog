@@ -150,24 +150,24 @@ export function PhotoStrip({
 
   const [fits, setFits] = React.useState(false);
 
-  const [touchMode, setTouchMode] = React.useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return isTouchDevice();
-  });
-  const [reducedMotion, setReducedMotion] = React.useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return prefersReducedMotion();
-  });
+  // CRITICAL: useState init MUST return the SSG-side value (false) on
+  // both server and client. React 18 hydration calls the init function
+  // again on the client; if it returns a different value than the
+  // server-rendered DOM, React warns + keeps the SSG markup AND treats
+  // the state as the new value. Subsequent setTouchMode(true) calls
+  // from useEffect become no-ops (Object.is sees same value) and the
+  // DOM never updates — touch handlers never attach. The mount-effect
+  // below is the single source of truth for the "is this a touch
+  // device" decision.
+  const [touchMode, setTouchMode] = React.useState<boolean>(false);
+  const [reducedMotion, setReducedMotion] = React.useState<boolean>(false);
 
   // Re-sync from the real browser at mount. SSG ran the useState initializers
   // in Node where window is undefined and returned false; without this the
   // strip would forever stay in desktop mode on iPhones.
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    const t = isTouchDevice();
-    // eslint-disable-next-line no-console
-    console.log("[PhotoStrip mount-effect] isTouchDevice =", t);
-    setTouchMode(t);
+    setTouchMode(isTouchDevice());
     setReducedMotion(prefersReducedMotion());
 
     const mqMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
