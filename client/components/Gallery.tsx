@@ -56,6 +56,10 @@ const PinchTransitionOverlay = React.forwardRef<PinchOverlayHandle, {}>(
     const [transitioning, setTransitioning] = React.useState(false);
     const imgRef = React.useRef<HTMLDivElement | null>(null);
     const dimRef = React.useRef<HTMLDivElement | null>(null);
+    // Mutable ref so imperative handlers always see the latest opts value.
+    // useImperativeHandle captures closure at creation time ([] deps), so
+    // reading opts directly would always see null (stale closure bug).
+    const optsRef = React.useRef<PinchOpenOpts | null>(null);
 
     React.useImperativeHandle(
       ref,
@@ -63,6 +67,7 @@ const PinchTransitionOverlay = React.forwardRef<PinchOverlayHandle, {}>(
         open: (o) => {
           setTransitioning(false);
           setOpts(o);
+          optsRef.current = o;
         },
         update: (scale, dx, dy) => {
           // Clamp visible scale; dim still tracks the un-clamped scale so
@@ -85,11 +90,11 @@ const PinchTransitionOverlay = React.forwardRef<PinchOverlayHandle, {}>(
             // in parallel; by the time the overlay reaches viewport
             // centre yarl has applied the same scale and we can dismiss
             // the overlay cleanly.
-            if (imgRef.current && opts) {
+            if (imgRef.current && optsRef.current) {
               const vw = window.innerWidth;
               const vh = window.innerHeight;
-              const cardCenterX = opts.rect.left + opts.rect.width / 2;
-              const cardCenterY = opts.rect.top + opts.rect.height / 2;
+              const cardCenterX = optsRef.current.rect.left + optsRef.current.rect.width / 2;
+              const cardCenterY = optsRef.current.rect.top + optsRef.current.rect.height / 2;
               const dx = vw / 2 - cardCenterX;
               const dy = vh / 2 - cardCenterY;
               // Read the current visible scale off the inline transform
@@ -106,6 +111,7 @@ const PinchTransitionOverlay = React.forwardRef<PinchOverlayHandle, {}>(
             window.setTimeout(() => {
               setOpts(null);
               setTransitioning(false);
+              optsRef.current = null;
             }, 220);
           } else {
             // Animate back to identity (= thumbnail rect) over PINCH_CANCEL_MS,
@@ -121,6 +127,7 @@ const PinchTransitionOverlay = React.forwardRef<PinchOverlayHandle, {}>(
             window.setTimeout(() => {
               setOpts(null);
               setTransitioning(false);
+              optsRef.current = null;
             }, PINCH_CANCEL_MS);
           }
         },
@@ -392,6 +399,8 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
 export type GalleryImageProps = {
   src: string;
+  /** Displayed in the thumbnail; lightbox uses `src`. Defaults to `src`. */
+  thumbSrc?: string;
   alt: string;
   caption?: string;
   className?: string;
@@ -404,6 +413,7 @@ export type GalleryImageProps = {
 
 export function GalleryImage({
   src,
+  thumbSrc,
   alt,
   caption,
   className,
@@ -634,7 +644,7 @@ export function GalleryImage({
       )}
     >
       <img
-        src={src}
+        src={thumbSrc ?? src}
         alt={alt}
         loading={loading}
         decoding="async"
@@ -730,14 +740,13 @@ export function GalleryLightbox() {
         releaseRaf = requestAnimationFrame(tryAttach);
         return;
       }
-      const onUserTouch = () => {
-        // Don't release while the thumbnail-pinch is still in progress.
-        // The same hand that started the pinch may still be on screen
-        // when the lightbox finishes mounting; that's not "user touched
-        // the lightbox to do their own thing". finishGesture extends
-        // pinchActiveRef for 600ms past the actual gesture end so this
-        // window covers React mount + yarl ZoomRef attach + first paint.
-        if (pinchActiveRef.current) return;
+      const onUserTouch = (e: TouchEvent) => {
+        // Don't release while the thumbnail-pinch is still in progress,
+        // UNLESS the user starts a new 2-finger pinch inside the lightbox.
+        // Single-touch events during the 600ms window are ignored (the
+        // opening hand may still be on screen). Two-finger events mean
+        // the user has deliberately started their own zoom gesture.
+        if (pinchActiveRef.current && e.touches.length < 2) return;
         ownsZoomRef.current = false;
         // Do NOT reset pendingZoomRef here — close() handles that on
         // unmount. Resetting it during an open lightbox would clobber

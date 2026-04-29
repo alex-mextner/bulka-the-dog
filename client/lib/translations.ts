@@ -113,10 +113,10 @@ export const translations: Translations = {
     },
     hero: {
       title: "Привет! Я собака Булка",
-      intro: `Мне где-то 1–2 года, но это не точно. Ветеринар уверен, что я больше не буду расти, поэтому вы видите меня в расцвете сил.`,
+      intro: `Мне где-то 1–2 года, но это не точно. Ветеринар уверен, что я больше не буду расти — вот она я: финальная версия, 22 кг красоты.`,
       story: `Меня нашла девочка **Лена** из России, когда я попрошайничала в ресторане Александр Ски Стажа в Бановом брдо. Я чувствовала себя очень плохо из-за того, что на мне сидело больше **70 клещей**, поэтому Лена решила забрать меня и помочь мне.`,
-      current: `Сейчас Лена меня починила, отмыла, научила **всяким премудростям** и готова отдать меня хорошим хозяевам **на удочерение**. Лена плакала, когда делала этот сайт, потому что она хочет меня оставить, но она вынуждена каждый год уезжать из Белграда на всю зиму из-за проблем с воздухом. А ей хочется, чтобы **рядом со мной всегда были любящие люди ❤️**`,
-      question: "Почитайте про меня, может, вы меня полюбите и захотите забрать?",
+      current: `Сейчас Лена меня починила, отмыла, научила **всяким премудростям** и ищет мне своих людей. Лена плакала, когда делала этот сайт, потому что хочет меня оставить, но вынуждена каждый год уезжать из Белграда на всю зиму из-за проблем с воздухом. А ей хочется, чтобы **у меня каждый день были свои люди рядом ❤️**`,
+      question: "Почитайте про меня. Вдруг вы и есть мои люди?",
     },
     media: {
       hero_alt: "Я смотрю на своё отражение в зеркале лифта",
@@ -147,6 +147,32 @@ export const translations: Translations = {
         car_alt: "Я с Леной в машине, Лена улыбается на селфи",
         car_caption: "Едем в машине. Меня не укачивает — суперспособность",
       },
+      photoset: {
+        walk_alt: "Лена ведёт меня по аллее парка",
+        walk_caption: "Утренний парк — мой. Лена просто держит поводок",
+        portrait_alt: "Я смотрю в камеру",
+        portrait_caption: "Да, я красивая. Спасибо, что заметили",
+        rug_alt: "Я лежу на ковре в квартире",
+        rug_caption: "Это мой ковёр. Прописано в конституции",
+        ball_alt: "Я с теннисным мячиком",
+        ball_caption: "Мячик. На случай, если вдруг захочется поиграть",
+        paw_alt: "Я даю лапу",
+        paw_caption: "«Дай лапу» — единственная команда, с которой я полностью согласна",
+        balcony_sun_alt: "Я лежу на балконе на солнышке",
+        balcony_sun_caption: "Балкон, солнце, я. Классика",
+        lick_alt: "Я сижу и облизываюсь на балконе",
+        lick_caption: "Только что съела что-то вкусное. Не спрашивайте",
+        scratch_alt: "Меня чешут за ухом, я зажмурилась от удовольствия",
+        scratch_caption: "Лучшее изобретение человечества. Не ракеты",
+        belly_alt: "Я лежу на спине, мне делают массаж живота",
+        belly_caption: "Массаж живота по расписанию. Жёвка — бонус",
+        hug_alt: "Лена обнимает меня в парке и смеётся",
+        hug_caption: "Лена и я — взаимно",
+        family_alt: "Семейное фото: Лена, парень, два кота и я",
+        family_caption: "Все держат котов. Я лежу и наблюдаю этот театр",
+        cat_balcony_alt: "Я нюхаю кота под столиком на балконе",
+        cat_balcony_caption: "Живём вместе. Договорились",
+      },
     },
     contact_section: {
       open_map: "Открыть на карте",
@@ -157,8 +183,8 @@ export const translations: Translations = {
       email_label: "Email",
     },
     footer: {
-      tagline: "Собака ищет любящих хозяев",
-      maker: "Сделано Леной с любовью к Булке",
+      tagline: "Булка ищет своих людей",
+      maker: "Лена собрала этот сайт, пока я руководила",
     },
     appearance: {
       title: "Внешность",
@@ -181,7 +207,7 @@ export const translations: Translations = {
     },
     health: {
       title: "Здоровье",
-      intro: "На улице жилось тяжело.",
+      intro: "На улице мне досталось.",
       bullet1: `Во-первых, в меня когда-то выстрелил из пневматического пистолета плохой человек. У меня возле позвоночника застряла пуля. Она не вредит моему здоровью, и ее не нужно удалять, если она не начнет болеть.`,
       bullet2: `Во-вторых, очень давно я сломала заднюю лапку. Никто меня не лечил, поэтому она срослась неправильно, и иногда после часовой ходьбы я начинаю хромать. Доктор говорит, ничего страшного, это придает мне шарма!`,
       bullet3: `В-третьих, у меня в сердце живёт сердечный червь. Сейчас он на второй стадии — это самое начало, червяк меньше сантиметра, сердце по УЗИ и кардиограмме в полном порядке (см. отчёт ниже). Лена уже начала его выгонять: следующие полгода мы заходим к ветеринару раз в две недели, отдаём ему 4000 динаров и получаем укол с каплями. Так червь умрёт. Пока лечимся — мне нельзя бегать больше 5 минут, иначе кашляю.`,
@@ -190,9 +216,9 @@ export const translations: Translations = {
     conditions: {
       title: "Условия",
       adoption: `Лена говорит, отдаст меня и в квартиру, и в дом, но не разрешит никому держать меня на цепи.`,
-      communication: `Ещё она говорит, что хотела бы общаться или вообще дружить с моими будущими хозяевами. И она гарантированно заберёт меня назад, если мы с вами вдруг не подружимся.`,
+      communication: `Ещё она говорит, что хотела бы общаться или вообще дружить с моими новыми людьми. И она заберёт меня обратно, если не срастётся.`,
       support: `Она будет помогать с оплатой моего лечения и стерилизации. А ещё она или наша подруга Ира будут забирать меня на передержку, когда вы решите поехать в путешествие. И ещё она может возить меня на своей машине к ветеринару, чтобы вы не платили за такси.`,
-      perk: `Прикиньте, я сразу пристраиваюсь с двумя нянями и личным водителем. Вот это да!`,
+      perk: `Прикиньте, я сразу пристраиваюсь с двумя нянями и личным водителем. Нормально устроилась, да?`,
     },
     contact: {
       title: "Как познакомиться со мной?",
@@ -221,11 +247,11 @@ export const translations: Translations = {
       },
       other_pets: {
         q: "С другими собаками / котами?",
-        a: "С двумя котами живу прямо сейчас и почти не замечаю их существования. С другими собаками не лезу и не дерусь — если идёт навстречу настырный кобель, я просто отворачиваюсь. Не мой жанр.",
+        a: "С двумя котами живу прямо сейчас и почти не замечаю: ходят и ходят мимо, мне-то что. С другими собаками не лезу и не дерусь — если идёт навстречу настырный кобель, я просто отворачиваюсь. Не мой жанр.",
       },
       health: {
         q: "А ты здоровая?",
-        a: "В целом да, с поправками. Сердечный червь — лечится, курс уже идёт. Пуля у позвоночника лежит и никому не мешает. Лапа кривая — добавляет шарма, по словам доктора. Подробности — в разделе «Здоровье», там без купюр.",
+        a: "Да, но есть нюансы. Сердечный червь — лечится, курс уже идёт. Пуля у позвоночника лежит и никому не мешает. Лапа кривая — добавляет шарма, по словам доктора. Подробности — в разделе «Здоровье», там всё честно: и про пулю, и про лапу, и про червя.",
       },
       remote: {
         q: "Я не в Белграде. Можно дистанционно?",
@@ -233,7 +259,7 @@ export const translations: Translations = {
       },
       deadline: {
         q: "Когда нужно решить?",
-        a: "Лена уезжает зимой, точная дата пока плавает. Никто на вас не давит дедлайном — но чем раньше определимся, тем спокойнее всем, в первую очередь мне.",
+        a: "Лена уезжает зимой, точная дата пока плавает. Никто не стоит над душой — но чем раньше определимся, тем спокойнее всем, в первую очередь мне.",
       },
     },
   },
@@ -342,10 +368,10 @@ export const translations: Translations = {
     },
     hero: {
       title: "Zdravo! Ja sam Bulka, kuca.",
-      intro: `Imam negde 1–2 godine, ali to nije sigurno. Veterinar je siguran da više neću rasti, tako da me vidite u punoj snazi.`,
+      intro: `Imam negde 1–2 godine, ali to nije sigurno. Veterinar je siguran da više neću rasti — evo me: finalna verzija, 22 kg lepote.`,
       story: `Našla me je devojka **Lena** iz Rusije, kada sam prosila u restoranu Aleksandar Ski Staza na Banovom brdu. Osećala sam se jako loše jer je na meni bilo više od **70 krpelja**, pa je Lena odlučila da me uzme i pomogne mi.`,
-      current: `Sada me je Lena izlečila, naučila **svakojakim mudrostima** i spremna je da me da dobrim vlasnicima **na usvajanje**. Lena je plakala dok je pravila ovaj sajt, jer želi da me zadrži, ali mora svake godine da napušta Beograd na celu zimu zbog problema sa vazduhom. A želi da **pored mene uvek budu ljudi koji me vole ❤️**`,
-      question: "Pročitajte o meni — možda me zavolite i poželite da me uzmete?",
+      current: `Sada me je Lena izlečila, naučila **svakojakim mudrostima** i traži mi moje ljude. Lena je plakala dok je pravila ovaj sajt, jer želi da me zadrži, ali mora svake godine da napušta Beograd na celu zimu zbog problema sa vazduhom. A želi da **uz mene svaki dan budu moji ljudi ❤️**`,
+      question: "Pročitajte o meni. Možda ste baš vi moji ljudi?",
     },
     appearance: {
       title: "Izgled",
@@ -368,7 +394,7 @@ export const translations: Translations = {
     },
     health: {
       title: "Zdravlje",
-      intro: "Na ulici je bilo teško.",
+      intro: "Na ulici mi je palo.",
       bullet1: `Prvo, nekada je u mene pucao loš čovek iz vazdušnog pištolja. Pored kičme mi je zaglavljen metak. On mi ne šteti zdravlju i ne treba ga vaditi, osim ako ne počne da boli.`,
       bullet2: `Drugo, jako davno sam slomila zadnju šapicu. Niko me nije lečio, pa je srasla krivo, i ponekad posle sat vremena hodanja počnem da hramljem. Doktor kaže da nije strašno, to mi daje šarm!`,
       bullet3: `Treće, u srcu mi živi srčani crv. Trenutno je u drugoj fazi — to je tek početak, crvić je manji od centimetra, srce na UZ-u i EKG-u potpuno čisto (vidi izveštaj dole). Lena je već počela da ga tera napolje: narednih pola godine idemo kod veterinara jednom u dve nedelje, dajemo mu 4000 dinara i dobijam injekciju s kapima. Tako će crv umreti. Dok se lečim — ne smem da trčim duže od 5 minuta, inače kašljem.`,
@@ -377,9 +403,9 @@ export const translations: Translations = {
     conditions: {
       title: "Uslovi",
       adoption: `Lena kaže da će me dati i u stan i u kuću, ali neće dozvoliti da me iko drži na lancu.`,
-      communication: `Takođe kaže da bi volela da bude u kontaktu, pa i da se druži s mojim budućim vlasnicima. I sigurno će me vratiti natrag, ako se slučajno ne budemo slagali.`,
+      communication: `Takođe kaže da bi volela da bude u kontaktu, pa i da se druži s mojim novim ljudima. I vratiće me, ako ne ispadne.`,
       support: `Pomagaće oko plaćanja mog lečenja i sterilizacije. A pored toga, ona ili naša drugarica Ira uzimaće me na čuvanje kada odlučite da putujete. I još može da me vozi svojim autom kod veterinara, da ne biste plaćali taksi.`,
-      perk: `Zamislite, odmah se smeštam s dve dadilje i ličnim vozačem. E ovo je nešto!`,
+      perk: `Zamislite, odmah se smeštam s dve dadilje i ličnim vozačem. Snašla se, a?`,
     },
     contact: {
       title: "Kako da me upoznate?",
@@ -408,11 +434,11 @@ export const translations: Translations = {
       },
       other_pets: {
         q: "Šta s drugim psima i mačkama?",
-        a: "S dve mačke živim baš sad i skoro da i ne primećujem da postoje. S drugim psima se ne kačim i ne tučem — ako naiđe nametljivi mužjak, jednostavno se okrenem. Nije moj žanr.",
+        a: "S dve mačke živim baš sad i skoro ih i ne primećujem: hodaju tuda i hodaju, meni šta. S drugim psima se ne kačim i ne tučem — ako naiđe nametljivi mužjak, jednostavno se okrenem. Nije moj žanr.",
       },
       health: {
         q: "Jesi zdrava?",
-        a: "Uglavnom da, uz fusnote. Srčani crv — leči se, terapija već ide. Metak kod kičme leži i nikome ne smeta. Šapa kriva — dodaje šarma, kaže doktor. Detalji su u sekciji «Zdravlje», tamo bez cenzure.",
+        a: "Da, ali ima detalja. Srčani crv — leči se, terapija već ide. Metak kod kičme leži i nikome ne smeta. Šapa kriva — dodaje šarma, kaže doktor. Detalji su u sekciji «Zdravlje», tamo sve piše: i metak, i šapa, i crv.",
       },
       remote: {
         q: "Nisam u Beogradu. Može na daljinu?",
@@ -420,7 +446,7 @@ export const translations: Translations = {
       },
       deadline: {
         q: "Kad treba da se odlučim?",
-        a: "Lena odlazi zimi, tačan datum još pluta. Niko vas ne tera rokom — ali što se pre odlučimo, svima je mirnije, pre svega meni.",
+        a: "Lena odlazi zimi, tačan datum još pluta. Niko vam ne stoji nad dušom — ali što se pre odlučimo, svima je mirnije, pre svega meni.",
       },
     },
     media: {
@@ -452,6 +478,32 @@ export const translations: Translations = {
         car_alt: "Ja sa Lenom u autu, Lena se smeje na selfiju",
         car_caption: "Vozimo se u autu. Mene ne hvata mučnina — supermoć",
       },
+      photoset: {
+        walk_alt: "Lena me vodi alejom parka",
+        walk_caption: "Jutarnji park — moj. Lena samo drži povodac",
+        portrait_alt: "Gledam u kameru",
+        portrait_caption: "Da, lepa sam. Hvala što ste primetili",
+        rug_alt: "Ležim na tepihu u stanu",
+        rug_caption: "Ovo je moj tepih. Piše u ustavu",
+        ball_alt: "Ja s teniskom lopticom",
+        ball_caption: "Loptica tu stoji, za svaki slučaj",
+        paw_alt: "Dajem šapu",
+        paw_caption: "«Daj šapu» — jedina komanda s kojom se u potpunosti slažem",
+        balcony_sun_alt: "Ležim na balkonu na suncu",
+        balcony_sun_caption: "Balkon, sunce, ja. Klasika",
+        lick_alt: "Sedim i ližem se na balkonu",
+        lick_caption: "Upravo sam pojela nešto ukusno. Nemojte pitati",
+        scratch_alt: "Češu me za uhom, zažmurila sam od zadovoljstva",
+        scratch_caption: "Najveći izum čovečanstva. Ne rakete",
+        belly_alt: "Ležim na leđima, masiraju mi stomak",
+        belly_caption: "Masaža stomaka po rasporedu. Žvakalica — bonus",
+        hug_alt: "Lena me grli u parku i smeje se",
+        hug_caption: "Lena i ja — uzajamno",
+        family_alt: "Porodična fotka: Lena, momak, dve mačke i ja",
+        family_caption: "Svi drže mačke. Ja ležim i posmatram ovaj teatar",
+        cat_balcony_alt: "Njušim mačku ispod stola na balkonu",
+        cat_balcony_caption: "Živimo zajedno. Dogovorili smo se",
+      },
     },
     contact_section: {
       open_map: "Otvori na mapi",
@@ -462,8 +514,8 @@ export const translations: Translations = {
       email_label: "Email",
     },
     footer: {
-      tagline: "Pas traži vlasnike koji vole",
-      maker: "Napravila Lena s ljubavlju prema Bulki",
+      tagline: "Bulka traži svoje ljude",
+      maker: "Lena je napravila sajt dok sam ja nadgledala",
     },
   },
   en: {
@@ -571,10 +623,10 @@ export const translations: Translations = {
     },
     hero: {
       title: "Hi! I'm Bulka the dog.",
-      intro: `I'm somewhere around 1–2 years old, but that's not certain. The vet is sure I won't grow anymore, so you're seeing me in my prime.`,
+      intro: `I'm somewhere around 1–2 years old, but that's not certain. The vet is sure I won't grow anymore — here I am: final form, 22 kg of good looks.`,
       story: `I was found by a girl named **Lena** from Russia, when I was begging at the Aleksandar Ski Staza restaurant in Banovo Brdo. I was feeling really terrible because I had more than **70 ticks** on me, so Lena decided to take me in and help me.`,
-      current: `Now Lena has patched me up, taught me **all sorts of wisdom**, and is ready to give me to good owners **for adoption**. Lena cried while making this website, because she wants to keep me, but she has to leave Belgrade every year for the entire winter due to air quality problems. And she wants **loving people to always be by my side ❤️**`,
-      question: "Read about me — maybe you'll fall in love with me and want to take me in?",
+      current: `Now Lena has patched me up, taught me **all sorts of wisdom**, and is looking for my people. Lena cried while making this website, because she wants to keep me, but has to leave Belgrade every year for the entire winter due to air quality problems. And she wants **my people to be there with me every day ❤️**`,
+      question: "Read about me. Maybe you're my people?",
     },
     appearance: {
       title: "Appearance",
@@ -597,7 +649,7 @@ export const translations: Translations = {
     },
     health: {
       title: "Health",
-      intro: "Life on the streets was hard.",
+      intro: "The streets weren't kind to me.",
       bullet1: `First, a bad person once shot me with an air pistol. There's a bullet lodged near my spine. It doesn't affect my health and doesn't need to be removed unless it starts to hurt.`,
       bullet2: `Second, a long time ago I broke my back leg. Nobody treated me, so it healed crookedly, and sometimes after an hour of walking I start to limp. The doctor says it's no big deal, it adds to my charm!`,
       bullet3: `Third, I have a heartworm living in my heart. It's at stage two right now — that's the very beginning, the worm is under one centimeter, and my heart is fully clean on ultrasound and ECG (see the report below). Lena has already started driving it out: for the next six months we visit the vet once every two weeks, pay 4000 dinars, and I get an injection plus drops. That's how the worm dies. While I'm in treatment I can't run more than 5 minutes — otherwise I cough.`,
@@ -606,9 +658,9 @@ export const translations: Translations = {
     conditions: {
       title: "Conditions",
       adoption: `Lena says she'll give me to both an apartment and a house, but she won't allow anyone to keep me on a chain.`,
-      communication: `She also says she'd like to stay in touch, or even be friends, with my future owners. And she will definitely take me back if we don't end up getting along.`,
+      communication: `She also says she'd like to stay in touch, or even be friends, with my new people. And she'll take me back if it doesn't click.`,
       support: `She'll help pay for my treatment and spaying. And on top of that, either she or our friend Ira will take me for boarding whenever you decide to travel. And she can also drive me to the vet in her car, so you don't have to pay for a taxi.`,
-      perk: `Imagine that, I'm coming as a package deal with two nannies and a personal driver. Now that's something!`,
+      perk: `Imagine that, I'm coming as a package deal with two nannies and a personal driver. Not bad for a stray, right?`,
     },
     contact: {
       title: "How to meet me?",
@@ -637,11 +689,11 @@ export const translations: Translations = {
       },
       other_pets: {
         q: "What about other dogs and cats?",
-        a: "I live with two cats right now and I basically don't register their existence. I don't pick fights with other dogs — if some pushy male comes at me, I just turn away. Not my genre.",
+        a: "I live with two cats right now and barely notice them: they walk around, I carry on. I don't pick fights with other dogs — if some pushy male comes at me, I just turn away. Not my genre.",
       },
       health: {
         q: "Are you healthy?",
-        a: "Mostly yes, with footnotes. The heartworm is being treated, the course is already running. The bullet by my spine just sits there bothering nobody. The crooked leg adds character, doctor's words. Full details are in the Health section, no sugarcoating.",
+        a: "Mostly yes, but there are nuances. The heartworm is being treated, the course is already running. The bullet by my spine just sits there bothering nobody. The crooked leg adds character, doctor's words. Full details are in the Health section — it's all there: the bullet, the leg, the worm.",
       },
       remote: {
         q: "I'm not in Belgrade. Can we do this remotely?",
@@ -649,7 +701,7 @@ export const translations: Translations = {
       },
       deadline: {
         q: "When do I need to decide?",
-        a: "Lena leaves in winter, the exact date is still moving. Nobody's pushing a deadline on you — but the sooner we figure it out, the calmer it is for everyone, mostly me.",
+        a: "Lena leaves in winter, the exact date is still moving. Nobody's breathing down your neck — but the sooner we figure it out, the calmer it is for everyone, mostly me.",
       },
     },
     media: {
@@ -681,6 +733,32 @@ export const translations: Translations = {
         car_alt: "Me with Lena in the car, Lena smiling on a selfie",
         car_caption: "Riding in the car. I don't get carsick — superpower",
       },
+      photoset: {
+        walk_alt: "Lena walking me down a park path",
+        walk_caption: "Morning park — mine. Lena just holds the leash",
+        portrait_alt: "Looking at the camera",
+        portrait_caption: "Yes, I'm pretty. Thanks for noticing",
+        rug_alt: "Lying on the rug at home",
+        rug_caption: "This is my rug. It's in the constitution",
+        ball_alt: "Me with a tennis ball",
+        ball_caption: "Ball's right there, just in case",
+        paw_alt: "Giving my paw",
+        paw_caption: "'Paw' is the only command I fully agree with",
+        balcony_sun_alt: "Lying on the balcony in the sun",
+        balcony_sun_caption: "Balcony, sun, me. Classic",
+        lick_alt: "Sitting on the balcony, licking my lips",
+        lick_caption: "Just ate something good. Don't ask",
+        scratch_alt: "Getting my ear scratched, eyes squeezed shut in bliss",
+        scratch_caption: "Humanity's greatest invention. Not rockets",
+        belly_alt: "On my back getting a belly rub",
+        belly_caption: "Belly rub on schedule. Chew treat as a bonus",
+        hug_alt: "Lena hugging me in the park, laughing",
+        hug_caption: "Lena and me — mutual",
+        family_alt: "Family photo: Lena, a guy, two cats, and me",
+        family_caption: "Everyone's holding cats. I lie here and watch the show",
+        cat_balcony_alt: "Sniffing a cat under the table on the balcony",
+        cat_balcony_caption: "We live together. We worked it out",
+      },
     },
     contact_section: {
       open_map: "Open in Maps",
@@ -691,8 +769,8 @@ export const translations: Translations = {
       email_label: "Email",
     },
     footer: {
-      tagline: "A dog looking for loving owners",
-      maker: "Made by Lena with love for Bulka",
+      tagline: "Bulka's looking for her people",
+      maker: "Lena built this site while I supervised",
     },
   },
 };

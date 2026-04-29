@@ -70,6 +70,31 @@ const images = {
   bulka_face: asset("images/bulka_face.webp"),
   bulka_friends: asset("images/bulka_friends.webp"),
   bulka_tv: asset("images/bulka_tv.webp"),
+  // Photo session 2026-04-27 — full-res for lightbox, thumbs for strip display.
+  ps_walk: asset("images/photo-set/ps_walk.webp"),
+  ps_walk_thumb: asset("images/photo-set/thumbs/ps_walk.webp"),
+  ps_portrait: asset("images/photo-set/ps_portrait.webp"),
+  ps_portrait_thumb: asset("images/photo-set/thumbs/ps_portrait.webp"),
+  ps_rug: asset("images/photo-set/ps_rug.webp"),
+  ps_rug_thumb: asset("images/photo-set/thumbs/ps_rug.webp"),
+  ps_ball: asset("images/photo-set/ps_ball.webp"),
+  ps_ball_thumb: asset("images/photo-set/thumbs/ps_ball.webp"),
+  ps_paw: asset("images/photo-set/ps_paw.webp"),
+  ps_paw_thumb: asset("images/photo-set/thumbs/ps_paw.webp"),
+  ps_balcony_sun: asset("images/photo-set/ps_balcony_sun.webp"),
+  ps_balcony_sun_thumb: asset("images/photo-set/thumbs/ps_balcony_sun.webp"),
+  ps_lick: asset("images/photo-set/ps_lick.webp"),
+  ps_lick_thumb: asset("images/photo-set/thumbs/ps_lick.webp"),
+  ps_scratch: asset("images/photo-set/ps_scratch.webp"),
+  ps_scratch_thumb: asset("images/photo-set/thumbs/ps_scratch.webp"),
+  ps_belly: asset("images/photo-set/ps_belly.webp"),
+  ps_belly_thumb: asset("images/photo-set/thumbs/ps_belly.webp"),
+  ps_hug: asset("images/photo-set/ps_hug.webp"),
+  ps_hug_thumb: asset("images/photo-set/thumbs/ps_hug.webp"),
+  ps_family: asset("images/photo-set/ps_family.webp"),
+  ps_family_thumb: asset("images/photo-set/thumbs/ps_family.webp"),
+  ps_cat_balcony: asset("images/photo-set/ps_cat_balcony.webp"),
+  ps_cat_balcony_thumb: asset("images/photo-set/thumbs/ps_cat_balcony.webp"),
 };
 
 function scrollToId(id: string) {
@@ -92,7 +117,7 @@ export default function Index() {
     id: string;
     title: string;
     children: React.ReactNode;
-    image?: { src: string; alt: string; caption?: string };
+    image?: { src: string; thumbSrc?: string; alt: string; caption?: string };
     imagePosition?: "left" | "right";
     /**
      * On desktop, glue the image so it stays in view while the text column
@@ -113,6 +138,7 @@ export default function Index() {
     const imgEl = image ? (
       <GalleryImage
         src={image.src}
+        thumbSrc={image.thumbSrc}
         alt={image.alt}
         caption={image.caption}
         className={SECTION_IMG_CLS + stickyCls}
@@ -212,9 +238,10 @@ export default function Index() {
                   than the text column — height is purely text-driven. */}
               <div className="order-1 md:order-2 mx-auto md:mx-0 w-full max-w-[280px] md:max-w-none aspect-[4/5] md:aspect-auto md:h-full md:relative">
                 <GalleryImage
-                  src={images.dog_vet2}
-                  alt={t("media.hero_alt")}
-                  caption={t("media.hero_caption")}
+                  src={images.ps_portrait}
+                  thumbSrc={images.ps_portrait_thumb}
+                  alt={t("media.photoset.portrait_alt")}
+                  caption={t("media.photoset.portrait_caption")}
                   className="rounded-2xl overflow-hidden shadow-xl h-full md:absolute md:inset-0"
                   imgClassName="rounded-2xl object-cover h-full w-full brightness-105 contrast-[1.03] saturate-[1.05]"
                   loading="eager"
@@ -264,9 +291,10 @@ export default function Index() {
           id="appearance"
           title={t("appearance.title")}
           image={{
-            src: images.dog_car,
-            alt: t("media.habits_alt"),
-            caption: t("media.habits_caption"),
+            src: images.ps_rug,
+            thumbSrc: images.ps_rug_thumb,
+            alt: t("media.photoset.rug_alt"),
+            caption: t("media.photoset.rug_caption"),
           }}
           imagePosition="right"
         >
@@ -348,9 +376,10 @@ export default function Index() {
           id="habits"
           title={t("habits.title")}
           image={{
-            src: images.bulka_face,
-            alt: t("media.appearance_alt"),
-            caption: t("media.appearance_caption"),
+            src: images.ps_ball,
+            thumbSrc: images.ps_ball_thumb,
+            alt: t("media.photoset.ball_alt"),
+            caption: t("media.photoset.ball_caption"),
           }}
           imagePosition="left"
           stickyImage
@@ -406,9 +435,10 @@ export default function Index() {
           id="skills"
           title={t("skills.title")}
           image={{
-            src: images.bulka_tv,
-            alt: t("media.skills_alt"),
-            caption: t("media.skills_caption"),
+            src: images.ps_paw,
+            thumbSrc: images.ps_paw_thumb,
+            alt: t("media.photoset.paw_alt"),
+            caption: t("media.photoset.paw_caption"),
           }}
         >
           <div className="space-y-6">
@@ -560,9 +590,10 @@ export default function Index() {
           id="conditions"
           title={t("conditions.title")}
           image={{
-            src: images.bulka_friends,
-            alt: t("media.story_alt"),
-            caption: t("media.story_caption"),
+            src: images.ps_family,
+            thumbSrc: images.ps_family_thumb,
+            alt: t("media.photoset.family_alt"),
+            caption: t("media.photoset.family_caption"),
           }}
           imagePosition="left"
         >
@@ -737,9 +768,10 @@ export default function Index() {
                   the grid row taller than the left column of cards. */}
               <div className="md:relative md:h-full">
                 <GalleryImage
-                  src={images.person_dog}
-                  alt={t("media.contact_alt")}
-                  caption={t("media.contact_caption")}
+                  src={images.ps_hug}
+                  thumbSrc={images.ps_hug_thumb}
+                  alt={t("media.photoset.hug_alt")}
+                  caption={t("media.photoset.hug_caption")}
                   className="rounded-2xl overflow-hidden shadow-xl h-full md:absolute md:inset-0"
                   imgClassName="rounded-2xl object-cover w-full h-full brightness-105 contrast-[1.03] saturate-[1.05]"
                 />
@@ -765,6 +797,78 @@ export default function Index() {
           <PhotoStrip
             images={[
               {
+                src: images.ps_portrait,
+                thumbSrc: images.ps_portrait_thumb,
+                alt: t("media.photoset.portrait_alt"),
+                caption: t("media.photoset.portrait_caption"),
+              },
+              {
+                src: images.ps_walk,
+                thumbSrc: images.ps_walk_thumb,
+                alt: t("media.photoset.walk_alt"),
+                caption: t("media.photoset.walk_caption"),
+              },
+              {
+                src: images.ps_scratch,
+                thumbSrc: images.ps_scratch_thumb,
+                alt: t("media.photoset.scratch_alt"),
+                caption: t("media.photoset.scratch_caption"),
+              },
+              {
+                src: images.ps_ball,
+                thumbSrc: images.ps_ball_thumb,
+                alt: t("media.photoset.ball_alt"),
+                caption: t("media.photoset.ball_caption"),
+              },
+              {
+                src: images.ps_hug,
+                thumbSrc: images.ps_hug_thumb,
+                alt: t("media.photoset.hug_alt"),
+                caption: t("media.photoset.hug_caption"),
+              },
+              {
+                src: images.ps_rug,
+                thumbSrc: images.ps_rug_thumb,
+                alt: t("media.photoset.rug_alt"),
+                caption: t("media.photoset.rug_caption"),
+              },
+              {
+                src: images.ps_paw,
+                thumbSrc: images.ps_paw_thumb,
+                alt: t("media.photoset.paw_alt"),
+                caption: t("media.photoset.paw_caption"),
+              },
+              {
+                src: images.ps_balcony_sun,
+                thumbSrc: images.ps_balcony_sun_thumb,
+                alt: t("media.photoset.balcony_sun_alt"),
+                caption: t("media.photoset.balcony_sun_caption"),
+              },
+              {
+                src: images.ps_lick,
+                thumbSrc: images.ps_lick_thumb,
+                alt: t("media.photoset.lick_alt"),
+                caption: t("media.photoset.lick_caption"),
+              },
+              {
+                src: images.ps_belly,
+                thumbSrc: images.ps_belly_thumb,
+                alt: t("media.photoset.belly_alt"),
+                caption: t("media.photoset.belly_caption"),
+              },
+              {
+                src: images.ps_cat_balcony,
+                thumbSrc: images.ps_cat_balcony_thumb,
+                alt: t("media.photoset.cat_balcony_alt"),
+                caption: t("media.photoset.cat_balcony_caption"),
+              },
+              {
+                src: images.ps_family,
+                thumbSrc: images.ps_family_thumb,
+                alt: t("media.photoset.family_alt"),
+                caption: t("media.photoset.family_caption"),
+              },
+              {
                 src: images.dog_home,
                 alt: t("media.strip.home_alt"),
                 caption: t("media.strip.home_caption"),
@@ -783,6 +887,26 @@ export default function Index() {
                 src: images.lena_dogs,
                 alt: t("media.strip.car_alt"),
                 caption: t("media.strip.car_caption"),
+              },
+              {
+                src: images.dog_car,
+                alt: t("media.habits_alt"),
+                caption: t("media.habits_caption"),
+              },
+              {
+                src: images.bulka_tv,
+                alt: t("media.skills_alt"),
+                caption: t("media.skills_caption"),
+              },
+              {
+                src: images.bulka_friends,
+                alt: t("media.story_alt"),
+                caption: t("media.story_caption"),
+              },
+              {
+                src: images.person_dog,
+                alt: t("media.contact_alt"),
+                caption: t("media.contact_caption"),
               },
             ]}
           />

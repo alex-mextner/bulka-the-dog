@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 
 export type PhotoStripItem = {
   src: string;
+  /** Small thumbnail shown in the strip; lightbox uses `src`. */
+  thumbSrc?: string;
   alt: string;
   caption?: string;
 };
@@ -614,6 +616,7 @@ export function PhotoStrip({
                 <div className="overflow-hidden bg-neutral-100">
                   <GalleryImage
                     src={item.src}
+                    thumbSrc={item.thumbSrc}
                     alt={item.alt}
                     caption={item.caption}
                     imgClassName="aspect-square object-cover"
