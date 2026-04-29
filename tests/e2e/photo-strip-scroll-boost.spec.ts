@@ -84,12 +84,28 @@ test.describe("PhotoStrip scroll-boost", () => {
   test("slow scroll produces smaller displacement than fast scroll", async ({
     page,
   }) => {
-    // Fast run.
-    await simulatePageScroll(page, 800, 8, 20); // ~500px/s
-    await page.waitForTimeout(500);
-    const fastDisplacement = (await getOffset(page)) - 0; // starts near 0
+    // The scroll-boost mechanism is velocity-driven (px/s from a 150ms sliding
+    // window). Fast scroll at ~4000px/s → boost ~2000px/s; slow scroll at
+    // ~500px/s → boost ~250px/s. Both runs use the SAME wall-clock duration
+    // (~200ms of active scroll) so the only variable is page velocity.
+    //
+    // Root cause of original flakiness: after scrollIntoView the gallery is at
+    // the very bottom of the page (gallery is the last section), so
+    // window.scrollBy(0, +N) is a no-op and generates zero scroll events —
+    // boost never fires. Fix: scroll UP by 500px before each run to open
+    // headroom for the downward burst while keeping the strip inside the
+    // viewport (IO threshold 0.1 is still satisfied; empirically verified
+    // down to -500px offset from scrollIntoView position).
 
-    // Re-load to reset strip.
+    // Fast run: 800px in 8 × 25ms ≈ 200ms at ~4000px/s page velocity.
+    await page.evaluate(() => window.scrollBy(0, -500));
+    await page.waitForTimeout(200); // let IntersectionObserver re-confirm visible
+    const beforeFast = await getOffset(page);
+    await simulatePageScroll(page, 800, 8, 25); // ~4000px/s
+    await page.waitForTimeout(500);
+    const fastDisplacement = (await getOffset(page)) - beforeFast;
+
+    // Re-load to reset strip to offset ≈ 0.
     await page.goto("/?touch=1", { waitUntil: "load" });
     await page.waitForSelector('[data-photo-strip][data-touch-mode="true"]', { timeout: 8_000 });
     await page.evaluate(() => {
@@ -97,12 +113,15 @@ test.describe("PhotoStrip scroll-boost", () => {
     });
     await page.waitForTimeout(300);
 
-    // Slow run: same total distance but 10× slower.
-    await simulatePageScroll(page, 800, 8, 200); // ~100px/s
+    // Slow run: 100px in 8 × 25ms ≈ 200ms at ~500px/s page velocity.
+    await page.evaluate(() => window.scrollBy(0, -500));
+    await page.waitForTimeout(200);
+    const beforeSlow = await getOffset(page);
+    await simulatePageScroll(page, 100, 8, 25); // ~500px/s
     await page.waitForTimeout(500);
-    const slowDisplacement = await getOffset(page);
+    const slowDisplacement = (await getOffset(page)) - beforeSlow;
 
-    // Fast scroll must produce strictly more displacement.
+    // Fast scroll (8× higher velocity) must produce strictly more displacement.
     expect(fastDisplacement).toBeGreaterThan(slowDisplacement);
   });
 
