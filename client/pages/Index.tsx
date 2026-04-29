@@ -102,7 +102,7 @@ const HABITS_PHOTOS = [
   images.ps_portrait,    // bathroom
   images.ps_walk,        // walks
   images.dogs_public,    // behavior
-  images.dog_car,        // car
+  images.lena_dogs,      // car — Lena + Bulka selfie in back seat
   images.bulka_tv,       // home
   images.ps_rug,         // food
   images.ps_cat_balcony, // cats
