@@ -103,6 +103,14 @@
     @apply border-border;
   }
 
+  :root {
+    /* iOS safe-area insets — used by Header (top) and footer (bottom).
+       Defined as vars so we can reference them in calc() without
+       repeating the env() call at every use-site. */
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   html {
     /* iOS Safari uses <html> as the primary scrolling element. Putting
        overflow-x: hidden ONLY on body isn't enough — Safari can still
@@ -167,8 +175,10 @@
 
   /* Sections scroll-target offset so the sticky header doesn't cover their
      top edge when navigated to via element.scrollIntoView() / anchor links.
-     72px = 60px sticky header + 12px breathing room (mirror of md: 64+8). */
+     72px = 60px sticky header + 12px breathing room (mirror of md: 64+8).
+     On notch/Dynamic Island devices the header is taller by --safe-area-top,
+     so we add it here so anchor links don't land behind the nub. */
   section[id] {
-    scroll-margin-top: 72px;
+    scroll-margin-top: calc(72px + var(--safe-area-top));
   }
 }

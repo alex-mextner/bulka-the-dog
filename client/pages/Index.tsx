@@ -914,7 +914,10 @@ export default function Index() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-primary/10 border-t border-border py-12 px-4 mt-0">
+      <footer
+        className="bg-primary/10 border-t border-border py-12 px-4 mt-0"
+        style={{ paddingBottom: "calc(3rem + var(--safe-area-bottom))" }}
+      >
         <div className="max-w-6xl mx-auto text-center space-y-2">
           <p className="text-2xl font-bold text-primary">
             🐾 {t("brand.name")}

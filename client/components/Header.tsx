@@ -33,6 +33,9 @@ export function Header() {
   // Collapsed lang dropdown open/closed (rendered when isScrolled).
   const [isLangOpen, setIsLangOpen] = useState(false);
   const langWrapRef = useRef<HTMLDivElement | null>(null);
+  // Ref to the <header> element so handleNavClick can read its actual
+  // offsetHeight (which grows by safe-area-inset-top on notch iPhones).
+  const headerRef = useRef<HTMLElement | null>(null);
   // The hero CTA is "primary" and bright. When it scrolls out of view we
   // surface a compact sticky CTA in the header so the action is always
   // reachable without rolling back to top.
@@ -107,7 +110,9 @@ export function Header() {
     const element = document.getElementById(id);
     if (!element) return;
     setIsMenuOpen(false);
-    const headerHeight = 72;
+    // Read real header height from DOM — on notch/Dynamic Island devices
+    // the header is taller than 72px because of safe-area-inset-top padding.
+    const headerHeight = headerRef.current?.offsetHeight ?? 72;
 
     // First-pass target estimate. May be wrong if lazy-loaded images
     // below the fold expand the page mid-flight — that's why phase 2
@@ -216,13 +221,21 @@ export function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border"
+      style={{ paddingTop: "var(--safe-area-top)" }}
+    >
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-primary focus:text-primary-foreground focus:px-3 focus:py-2 focus:rounded-md focus:z-50"
       >
         Перейти к содержимому
       </a>
+      {/* h-[60px]/h-[64px] is the nav bar height only. The header element itself
+          grows by --safe-area-top (padding-top above) to cover the notch zone.
+          The inner div stays at the fixed nav height so layout children don't
+          need to know about safe-area at all. */}
       <div className="max-w-6xl mx-auto py-4 relative h-[60px] md:h-[64px]">
         {/* Default layer: logo + (desktop) inline nav + sticky CTA + lang */}
         <div className={defaultLayerCls}>

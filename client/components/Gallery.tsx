@@ -216,6 +216,11 @@ type GalleryContextValue = {
   // yarl's ZoomRef.changeZoom so the lightbox opens already zoomed to the
   // scale the user reached. Reset to 1 on close().
   pendingZoomRef: React.MutableRefObject<number>;
+  // Pinch midpoint (viewport px, relative to screen center) at the moment
+  // the user started the gesture. Passed as the focal point to changeZoom
+  // so the lightbox zooms into the same region the user was pinching, rather
+  // than always zooming from the image center. { dx: 0, dy: 0 } = center.
+  pendingPanRef: React.MutableRefObject<{ dx: number; dy: number }>;
   // True while the user is actively pinching a thumbnail. The lightbox's
   // seed-zoom poll uses this to decide whether to keep guarding the zoom
   // value (gesture in progress → yes, fight resets aggressively) or to
@@ -249,6 +254,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const triggerRef = React.useRef<HTMLElement | null>(null);
   const pinchOverlayRef = React.useRef<PinchOverlayHandle | null>(null);
   const pendingZoomRef = React.useRef<number>(1);
+  const pendingPanRef = React.useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const pinchActiveRef = React.useRef<boolean>(false);
 
   // Test hook — exposes the internal refs so e2e tests can drive the
@@ -264,6 +270,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         pendingZoomRef.current = v;
       },
       getPendingZoom: () => pendingZoomRef.current,
+      setPendingPan: (dx: number, dy: number) => {
+        pendingPanRef.current = { dx, dy };
+      },
+      getPendingPan: () => pendingPanRef.current,
       setPinchActive: (v: boolean) => {
         pinchActiveRef.current = v;
       },
@@ -320,10 +330,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
   const close = React.useCallback(() => {
     setIsOpen(false);
-    // Reset the seed zoom so a subsequent open via tap (no pinch) starts
-    // at scale 1. Without this reset, the value left by a successful
-    // pinch-commit would carry over to the next open.
+    // Reset seed zoom and pan so a subsequent open via tap (no pinch)
+    // starts at scale 1 centered.
     pendingZoomRef.current = 1;
+    pendingPanRef.current = { dx: 0, dy: 0 };
     // If we still own the pushed entry (close came from X / backdrop / ESC,
     // not from popstate), pop it so the URL/history stays clean. popstate
     // resets the flag before invoking close, so we don't double-pop.
@@ -380,6 +390,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       setTrigger,
       pinchOverlayRef,
       pendingZoomRef,
+      pendingPanRef,
       pinchActiveRef,
     }),
     [register, update, unregister, open, entries, isOpen, index, close, setTrigger],
@@ -429,6 +440,7 @@ export function GalleryImage({
     setTrigger,
     pinchOverlayRef,
     pendingZoomRef,
+    pendingPanRef,
     pinchActiveRef,
   } = useGallery();
   const idRef = React.useRef<number | null>(null);
@@ -532,6 +544,15 @@ export function GalleryImage({
         // yarl's ZoomRef, opening already zoomed to where the user got to.
         // The 1 → max clamp matches yarl's own maxZoom (3 × by default).
         pendingZoomRef.current = Math.min(3, Math.max(1, lastScale));
+        // Stash the pinch midpoint (relative to screen center) as the focal
+        // point for the lightbox zoom. changeZoom(target, rapid, dx, dy)
+        // treats dx/dy as the viewport-relative focal point: the image
+        // zooms around that point rather than the screen center. YARL
+        // clamps the resulting pan to valid bounds automatically.
+        pendingPanRef.current = {
+          dx: initialMidX - window.innerWidth / 2,
+          dy: initialMidY - window.innerHeight / 2,
+        };
         // Open the real lightbox first, then dismiss the overlay so yarl's
         // own opening visuals immediately replace ours with no flash gap.
         handleOpen();
@@ -543,6 +564,7 @@ export function GalleryImage({
         }, 600);
       } else {
         pendingZoomRef.current = 1;
+        pendingPanRef.current = { dx: 0, dy: 0 };
         pinchOverlayRef.current?.close(false);
         pinchActiveRef.current = false;
       }
@@ -581,7 +603,7 @@ export function GalleryImage({
       const rect = btn.getBoundingClientRect();
       const cs = window.getComputedStyle(btn);
       pinchOverlayRef.current?.open({
-        src,
+        src: thumbSrc ?? src,
         alt,
         rect: {
           left: rect.left,
@@ -619,8 +641,10 @@ export function GalleryImage({
     pinchOverlayRef,
     setTrigger,
     src,
+    thumbSrc,
     alt,
     pendingZoomRef,
+    pendingPanRef,
     pinchActiveRef,
   ]);
 
@@ -661,7 +685,7 @@ export function GalleryImage({
 // ---------------------------------------------------------------------------
 
 export function GalleryLightbox() {
-  const { entries, isOpen, index, close, pendingZoomRef, pinchActiveRef } =
+  const { entries, isOpen, index, close, pendingZoomRef, pendingPanRef, pinchActiveRef } =
     useGallery();
   // yarl exposes the active slide's zoom controls through a forwarded ref.
   // We need this to seed the initial zoom level after a pinch-to-open
@@ -705,14 +729,15 @@ export function GalleryLightbox() {
       if (target > 1) {
         const z = zoomRef.current;
         if (z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
-          z.changeZoom(target, true);
+          const pan = pendingPanRef.current;
+          z.changeZoom(target, true, pan.dx, pan.dy);
         }
       }
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isOpen, pendingZoomRef]);
+  }, [isOpen, pendingZoomRef, pendingPanRef]);
   // After mount we hold ownership of the zoom level (= keep re-applying
   // pendingZoomRef on every yarl reset) until either:
   //   • the user touches anywhere inside the lightbox container — that's
@@ -850,6 +875,7 @@ export function GalleryLightbox() {
             height: "100lvh",
             padding: 0,
             margin: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.92)",
           },
           container: {
             backgroundColor: "rgba(0, 0, 0, 0.92)",
@@ -891,7 +917,10 @@ export function GalleryLightbox() {
           if (target <= 1) return;
           if (Math.abs(currentZoom - target) < 0.01) return;
           const z = zoomRef.current;
-          if (z && !z.disabled) z.changeZoom(target, true);
+          if (z && !z.disabled) {
+            const pan = pendingPanRef.current;
+            z.changeZoom(target, true, pan.dx, pan.dy);
+          }
         },
       }}
       counter={{
