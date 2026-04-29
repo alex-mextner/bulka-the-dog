@@ -188,16 +188,9 @@
     scroll-margin-top: calc(72px + var(--safe-area-top));
   }
 
-  /* iOS Safari lightbox height fix: `position:fixed; inset:0` alone is not
-     sufficient to guarantee full-screen height when the address bar is visible.
-     The visual viewport is shorter than 100vh in that state, and fixed elements
-     sized only via inset may not stretch to cover it.
-     `height: 100dvh` (dynamic viewport height — iOS 15.4+) explicitly sizes the
-     portal to the current visual viewport, so the lightbox fills the screen
-     regardless of address-bar state.
-     Applied via CSS (not inline style) to avoid interfering with yarl's internal
-     DOM measurement of fit_width (getBoundingClientRect timing issue). */
-  .yarl__portal {
-    height: 100dvh;
-  }
+  /* On viewport-fit=cover the portal's `position:fixed; inset:0` already
+     stretches to the physical screen edges including safe-area zones.
+     Do NOT set height:100dvh here — dvh equals the visual viewport
+     (safe-area excluded), which would leave a 47px gap at top (Dynamic
+     Island) and 34px at bottom (home indicator). */
 }
