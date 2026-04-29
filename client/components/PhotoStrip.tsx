@@ -91,6 +91,12 @@ const FRICTION = 3.0;
 // default deceleration spring on iOS.
 const SPRING_BACK_K = 14;
 
+// When the page is scrolled vertically and the strip is visible, this fraction
+// of the page-scroll velocity (px/s) is injected into the strip's inertia.
+const SCROLL_BOOST_FACTOR = 0.5;
+// Sliding-window for page-scroll velocity estimation (ms).
+const SCROLL_SAMPLE_WINDOW_MS = 150;
+
 // Apple-style rubber-band displacement: as the user drags past a boundary,
 // the actual displacement asymptotes to `dimension`. f(d, w) = d*w/(d+w).
 // At d = w, displacement = w/2; at d = 5w, displacement = 5w/6. The further
@@ -149,6 +155,10 @@ export function PhotoStrip({
   );
   // Target offset for the spring phase (always 0 or max).
   const springTargetRef = React.useRef(0);
+  // Whether the strip viewport is currently intersecting the page viewport.
+  const isVisibleRef = React.useRef(false);
+  // Sliding-window of recent scroll events for velocity estimation.
+  const scrollSamplesRef = React.useRef<{ t: number; y: number }[]>([]);
 
   const [fits, setFits] = React.useState(false);
 
@@ -302,7 +312,10 @@ export function PhotoStrip({
           track.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
       }
 
-      if (touchMode && userTouchingRef.current) {
+      // Only halt the loop for deliberate horizontal strip-pan. Vertical page
+      // scroll (touchDirRef='v') must let the RAF continue so the scroll-boost
+      // listener can inject velocity and see it animated.
+      if (touchMode && userTouchingRef.current && touchDirRef.current === "h") {
         rafRef.current = null;
         return;
       }
@@ -508,6 +521,81 @@ export function PhotoStrip({
       v.removeEventListener("touchcancel", onTouchEnd);
     };
   }, [touchMode]);
+
+  // Vertical-page-scroll → strip-drift boost (touch mode only).
+  // When the user swipes the page downward past the gallery, the strip
+  // accelerates in the same direction so it feels physically coupled to the
+  // page motion. IntersectionObserver guards against boosting while the strip
+  // is fully off-screen.
+  React.useEffect(() => {
+    if (!touchMode || reducedMotion) return;
+    const vp = viewportRef.current;
+    if (!vp) return;
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        isVisibleRef.current = entry.isIntersecting;
+        vp.setAttribute(
+          "data-strip-visible",
+          entry.isIntersecting ? "true" : "false",
+        );
+      },
+      { threshold: 0.1 },
+    );
+    io.observe(vp);
+
+    const onScroll = () => {
+      if (!isVisibleRef.current) return;
+      if (fitsRef.current) return;
+      // User is doing a horizontal pan on the strip — don't interfere.
+      if (userTouchingRef.current && touchDirRef.current === "h") return;
+
+      const now = performance.now();
+      const currentY = window.scrollY;
+      const s = scrollSamplesRef.current;
+      s.push({ t: now, y: currentY });
+      const cutoff = now - SCROLL_SAMPLE_WINDOW_MS;
+      while (s.length > 1 && s[0].t < cutoff) s.shift();
+      if (s.length < 2) return;
+
+      const newest = s[s.length - 1];
+      const oldest = s[0];
+      const dtSec = (newest.t - oldest.t) / 1000;
+      if (dtSec <= 0) return;
+
+      const pageVelPx = (newest.y - oldest.y) / dtSec; // px/s, +down
+      const boostVel = pageVelPx * SCROLL_BOOST_FACTOR;
+      if (Math.abs(boostVel) <= baseSpeed) return;
+
+      const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
+      // Skip boost if already at the boundary in the boost direction.
+      if (boostVel > 0 && offsetRef.current >= max) return;
+      if (boostVel < 0 && offsetRef.current <= 0) return;
+
+      // Don't clobber an active spring-back — let it finish.
+      if (phaseRef.current === "spring") return;
+
+      // Replace only if boost is stronger than current inertia; otherwise the
+      // existing flick already dominates and we'd slow the strip down.
+      if (Math.abs(boostVel) > Math.abs(inertiaVelocityRef.current)) {
+        inertiaVelocityRef.current = boostVel;
+        phaseRef.current = "inertia";
+      }
+
+      if (stepRef.current != null && rafRef.current == null) {
+        lastTsRef.current = null;
+        rafRef.current = requestAnimationFrame(stepRef.current);
+      }
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      io.disconnect();
+      isVisibleRef.current = false;
+      scrollSamplesRef.current = [];
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [touchMode, reducedMotion, baseSpeed]);
 
   // Mouse-driven scrubbing. Desktop only.
   const onPointerMove = React.useCallback(
