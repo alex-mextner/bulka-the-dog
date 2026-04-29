@@ -97,6 +97,42 @@ const images = {
   ps_cat_balcony_thumb: asset("images/photo-set/thumbs/ps_cat_balcony.webp"),
 };
 
+// Photos for the Habits scrollytelling section — one per habit item, in order.
+const HABITS_PHOTOS = [
+  images.ps_portrait,    // bathroom
+  images.ps_walk,        // walks
+  images.dogs_public,    // behavior
+  images.dog_car,        // car
+  images.bulka_tv,       // home
+  images.ps_rug,         // food
+  images.ps_cat_balcony, // cats
+];
+
+// Crossfading photo container: all photos are in the DOM with opacity 0/1.
+// CSS transition handles the fade — no JS animation needed.
+function PhotoFader({ activeIdx, className }: { activeIdx: number; className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        "relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg bg-neutral-200",
+        className,
+      )}
+    >
+      {HABITS_PHOTOS.map((src, i) => (
+        <img
+          key={src}
+          src={src}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 w-full h-full object-cover brightness-105 contrast-[1.03] saturate-[1.05] transition-opacity duration-500 ease-in-out"
+          style={{ opacity: i === activeIdx ? 1 : 0 }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function scrollToId(id: string) {
   const el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -112,6 +148,46 @@ const SECTION_IMG_INNER_CLS =
 
 export default function Index() {
   const { t } = useLanguage();
+
+  // Habits scrollytelling: track which habit item is most visible.
+  const [habitsActiveIdx, setHabitsActiveIdx] = React.useState(0);
+  const habitsSectionRef = React.useRef<HTMLElement | null>(null);
+  const habitsRafPendingRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const section = habitsSectionRef.current;
+    if (!section) return;
+    const handleScroll = () => {
+      if (habitsRafPendingRef.current) return;
+      habitsRafPendingRef.current = true;
+      requestAnimationFrame(() => {
+        habitsRafPendingRef.current = false;
+        const items = section.querySelectorAll<HTMLElement>("[data-habit-item]");
+        let bestIdx = 0;
+        let bestVis = -1;
+        const vh = window.innerHeight;
+        // On mobile, the sticky photo covers the top of the viewport — don't
+        // count pixels hidden under it as "visible" to the user.
+        const stickyEl = section.querySelector<HTMLElement>("[data-mobile-photo-stick]");
+        const topClip = stickyEl ? Math.max(0, stickyEl.getBoundingClientRect().bottom) : 0;
+        items.forEach((item, i) => {
+          const rect = item.getBoundingClientRect();
+          const visTop = Math.max(topClip, Math.min(vh, rect.top));
+          const visBot = Math.max(topClip, Math.min(vh, rect.bottom));
+          const vis = visBot - visTop;
+          if (vis > bestVis) {
+            bestVis = vis;
+            bestIdx = i;
+          }
+        });
+        setHabitsActiveIdx(bestIdx);
+      });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    // Seed initial state — handles direct navigation to #habits.
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   type SectionProps = {
     id: string;
@@ -370,65 +446,83 @@ export default function Index() {
           </div>
         </Section>
 
-        {/* Habits Section — image is sticky on desktop so it stays glued
-            to the viewport while the long list of habits scrolls past. */}
-        <Section
+        {/* Habits Section — scrollytelling with crossfading photos.
+            Mobile: one sticky photo at top changes as user scrolls through items.
+            Desktop: two stacked sticky photos on the left, text column on the right. */}
+        <section
           id="habits"
-          title={t("habits.title")}
-          image={{
-            src: images.ps_ball,
-            thumbSrc: images.ps_ball_thumb,
-            alt: t("media.photoset.ball_alt"),
-            caption: t("media.photoset.ball_caption"),
-          }}
-          imagePosition="left"
-          stickyImage
+          ref={habitsSectionRef}
+          aria-labelledby="habits-title"
+          className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30"
         >
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-bold text-lg mb-2">
-                <span aria-hidden="true">🚽</span> {t("ui.habits.bathroom_title")}
-              </h3>
-              <p className="text-foreground/80">{t("habits.bathroom")}</p>
+          <div className="max-w-6xl mx-auto">
+            <h2
+              id="habits-title"
+              className="text-4xl md:text-5xl font-bold mb-8 text-foreground"
+            >
+              {t("habits.title")}
+            </h2>
+
+            {/* Mobile: sticky photo above the scrolling habit items */}
+            <div data-mobile-photo-stick="" className="sticky top-[calc(4.5rem+var(--safe-area-top))] md:hidden mb-6 z-10">
+              <PhotoFader activeIdx={habitsActiveIdx} />
             </div>
-            <div>
-              <h3 className="font-bold text-lg mb-2">
-                <span aria-hidden="true">🚶</span> {t("ui.habits.walks_title")}
-              </h3>
-              <p className="text-foreground/80">{t("habits.walks")}</p>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-2">
-                <span aria-hidden="true">🐕</span> {t("ui.habits.behavior_title")}
-              </h3>
-              <p className="text-foreground/80">{t("habits.behavior")}</p>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-2">
-                <span aria-hidden="true">🚗</span> {t("ui.habits.car_title")}
-              </h3>
-              <p className="text-foreground/80">{t("habits.car")}</p>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-2">
-                <span aria-hidden="true">🏠</span> {t("ui.habits.home_title")}
-              </h3>
-              <p className="text-foreground/80">{t("habits.home")}</p>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-2">
-                <span aria-hidden="true">🍖</span> {t("ui.habits.food_title")}
-              </h3>
-              <p className="text-foreground/80">{t("habits.food")}</p>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg mb-2">
-                <span aria-hidden="true">🐱</span> {t("ui.habits.cats_title")}
-              </h3>
-              <p className="text-foreground/80">{t("habits.cats")}</p>
+
+            <div className="md:grid md:grid-cols-2 md:gap-8 md:items-start">
+              {/* Desktop: sticky photo column — two photos stacked */}
+              <div className="hidden md:flex md:sticky md:top-24 md:self-start flex-col gap-4">
+                <PhotoFader activeIdx={habitsActiveIdx} />
+                <PhotoFader activeIdx={(habitsActiveIdx + 3) % HABITS_PHOTOS.length} />
+              </div>
+
+              {/* Habit items — single source for both mobile and desktop */}
+              <div className="space-y-2">
+                <div data-habit-item="" className="py-6">
+                  <h3 className="font-bold text-lg mb-2">
+                    <span aria-hidden="true">🚽</span> {t("ui.habits.bathroom_title")}
+                  </h3>
+                  <p className="text-foreground/80">{t("habits.bathroom")}</p>
+                </div>
+                <div data-habit-item="" className="py-6">
+                  <h3 className="font-bold text-lg mb-2">
+                    <span aria-hidden="true">🚶</span> {t("ui.habits.walks_title")}
+                  </h3>
+                  <p className="text-foreground/80">{t("habits.walks")}</p>
+                </div>
+                <div data-habit-item="" className="py-6">
+                  <h3 className="font-bold text-lg mb-2">
+                    <span aria-hidden="true">🐕</span> {t("ui.habits.behavior_title")}
+                  </h3>
+                  <p className="text-foreground/80">{t("habits.behavior")}</p>
+                </div>
+                <div data-habit-item="" className="py-6">
+                  <h3 className="font-bold text-lg mb-2">
+                    <span aria-hidden="true">🚗</span> {t("ui.habits.car_title")}
+                  </h3>
+                  <p className="text-foreground/80">{t("habits.car")}</p>
+                </div>
+                <div data-habit-item="" className="py-6">
+                  <h3 className="font-bold text-lg mb-2">
+                    <span aria-hidden="true">🏠</span> {t("ui.habits.home_title")}
+                  </h3>
+                  <p className="text-foreground/80">{t("habits.home")}</p>
+                </div>
+                <div data-habit-item="" className="py-6">
+                  <h3 className="font-bold text-lg mb-2">
+                    <span aria-hidden="true">🍖</span> {t("ui.habits.food_title")}
+                  </h3>
+                  <p className="text-foreground/80">{t("habits.food")}</p>
+                </div>
+                <div data-habit-item="" className="py-6">
+                  <h3 className="font-bold text-lg mb-2">
+                    <span aria-hidden="true">🐱</span> {t("ui.habits.cats_title")}
+                  </h3>
+                  <p className="text-foreground/80">{t("habits.cats")}</p>
+                </div>
+              </div>
             </div>
           </div>
-        </Section>
+        </section>
 
         {/* Skills Section */}
         <Section

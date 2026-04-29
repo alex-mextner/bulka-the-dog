@@ -21,7 +21,14 @@ pnpm test:e2e:prod # Playwright против https://www.bulka.rs
 
 Запустить один e2e-тест:
 ```bash
-npx playwright test tests/e2e/gallery-lightbox-fixes.spec.ts --reporter=line
+timeout 90 npx playwright test tests/e2e/gallery-lightbox-fixes.spec.ts --reporter=line
+```
+
+**Таймауты обязательны.** Playwright-команды без `timeout N` висят вечно при зависшем dev-сервере:
+```bash
+# Правильно
+timeout 90 npx playwright test <file> --reporter=line
+# Bash tool — всегда передавай timeout: 100000
 ```
 
 Vercel читает `vercel.json`: `buildCommand: pnpm build:client`, `outputDirectory: dist/spa`. Никаких API-роутов в продакшне — чистый SSG.

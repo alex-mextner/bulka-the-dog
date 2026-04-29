@@ -753,9 +753,15 @@ export function GalleryLightbox() {
   // from ~50ms to ~2s after open depending on network; a 500ms grace
   // window gambled wrong on slow connections and we lost the seed.
   const ownsZoomRef = React.useRef(false);
+  // True while we should skip the next on.view event. Initialised to true so
+  // the first on.view (which yarl fires synchronously on mount for the initial
+  // slide) is a no-op and doesn't prematurely release ownership. Reset to true
+  // in the close-cleanup so every subsequent open also gets one skip.
+  const skipNextViewRef = React.useRef(true);
   React.useEffect(() => {
     if (!isOpen) {
       ownsZoomRef.current = false;
+      skipNextViewRef.current = true; // arm the skip for the next open
       return;
     }
     ownsZoomRef.current = true;
@@ -897,6 +903,19 @@ export function GalleryLightbox() {
         doubleClickDelay: 300,
       }}
       on={{
+        // Release zoom ownership when the user navigates to a different slide.
+        // Without this, the rAF seed-zoom poll keeps re-applying pendingZoomRef
+        // to every subsequent slide (opened at scale 2.5, swipe to next slide →
+        // next slide should start at 1, not 2.5).
+        // skipNextViewRef guard: yarl fires one synthetic `view` for the initial
+        // slide on mount — we skip it so the seed has time to apply.
+        view: () => {
+          if (skipNextViewRef.current) {
+            skipNextViewRef.current = false;
+            return;
+          }
+          ownsZoomRef.current = false;
+        },
         // Event-driven seed-zoom guard. Yarl fires this callback on every
         // state.zoom change — both its own mount/decode resets AND
         // user-initiated pinch inside the lightbox. We re-apply the seed

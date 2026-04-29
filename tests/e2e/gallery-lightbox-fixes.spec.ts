@@ -145,7 +145,58 @@ test.describe("Gallery lightbox fixes", () => {
     expect(Math.abs(transform!.tx), `expected near-zero tx, got ${transform!.tx}`).toBeLessThan(15);
   });
 
-  // ── Fix 3: pendingPan resets to {0,0} after lightbox closes ────────────────
+  // ── Fix 3 (Bug 2): zoom seed does not carry over to next slide ─────────────
+  //
+  // Scenario: user pinch-opens the lightbox (pendingZoom=2.5, pinchActive grace
+  // 600ms running). Within that grace window they swipe/navigate to the next
+  // slide. The rAF poll and on.zoom callback must NOT re-apply pendingZoom to
+  // the new slide — the new slide should appear at scale ≈ 1.
+  //
+  // Root cause before fix: ownsZoomRef is never released on slide change.
+  // onUserTouch only fires on touchstart (keyboard nav doesn't trigger it),
+  // and the pinchActive guard blocks release for single-touch swipes too.
+  // → rAF keeps re-applying 2.5 on whatever slide is current.
+  //
+  // RED: fails because rAF poll re-applies seed zoom to the new slide.
+  test("zoom seed does not apply to next slide after navigation", async ({ page }) => {
+    await setSeedZoom(page, 2.5);
+    await tapFirstPhoto(page);
+    await page.locator(".yarl__slide_current .yarl__fullsize").waitFor({ state: "attached", timeout: 5_000 });
+    // Navigate to the next slide while pinchActive grace window is still running
+    // (setSeedZoom keeps it active for 600ms).
+    await page.waitForTimeout(100);
+    await page.keyboard.press("ArrowRight");
+    // Give rAF poll + yarl time to settle.
+    await page.waitForTimeout(800);
+
+    const transform = await readSlideTransform(page);
+    expect(transform, "slide transform not found after navigation").not.toBeNull();
+    // New slide should be at scale ≈ 1, not at the pinch seed scale.
+    expect(
+      transform!.scale,
+      `new slide should be at scale ≈ 1 after navigation, got ${transform!.scale}`,
+    ).toBeLessThan(1.2);
+  });
+
+  // ── Fix 4 (Bug 2b): zoom scale on pinch-opened slide is still seeded ────────
+  // Regression guard: the on.view fix for Bug 2 must NOT break the seed zoom
+  // on the initially-opened slide.
+  test("zoom seed still applies to the opening slide (regression guard)", async ({ page }) => {
+    await setSeedZoom(page, 2.5);
+    await tapFirstPhoto(page);
+    await page.locator(".yarl__slide_current .yarl__fullsize").waitFor({ state: "attached", timeout: 5_000 });
+    await page.waitForTimeout(800);
+
+    const transform = await readSlideTransform(page);
+    expect(transform, "slide transform not found on opening slide").not.toBeNull();
+    // Opening slide should be zoomed to ~2.5 (seed applied).
+    expect(
+      transform!.scale,
+      `opening slide should be at seed scale ≈ 2.5, got ${transform!.scale}`,
+    ).toBeGreaterThan(1.8);
+  });
+
+  // ── Fix 5: pendingPan resets to {0,0} after lightbox closes ────────────────
   test("pendingPan resets to zero after lightbox closes", async ({ page }) => {
     await setSeedZoom(page, 2.0);
     await setSeedPan(page, 150, -80);
