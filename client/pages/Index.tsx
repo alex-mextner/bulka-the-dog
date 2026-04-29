@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Header } from "@/components/Header";
-import { GalleryImage } from "@/components/Gallery";
+import { GalleryImage, useGallery } from "@/components/Gallery";
 import BulkaDay from "@/components/BulkaDay";
 import DonationsPanel from "@/components/DonationsPanel";
 import FAQ from "@/components/FAQ";
@@ -110,12 +110,26 @@ const HABITS_PHOTOS = [
 
 // Crossfading photo container: all photos are in the DOM with opacity 0/1.
 // CSS transition handles the fade — no JS animation needed.
+// On click, opens the active photo in the gallery lightbox by looking up the
+// src in the shared GalleryContext entries registry (PhotoStrip registers all
+// HABITS_PHOTOS below, so they're present by the time any click fires).
 function PhotoFader({ activeIdx, className }: { activeIdx: number; className?: string }) {
+  const { entries, open } = useGallery();
+  const activeSrc = HABITS_PHOTOS[activeIdx];
+
+  const handleClick = React.useCallback(() => {
+    const entry = entries.find((e) => e.src === activeSrc);
+    if (entry) open(entry.id);
+  }, [entries, open, activeSrc]);
+
   return (
-    <div
-      aria-hidden="true"
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-label="Открыть фото"
       className={cn(
         "relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg bg-neutral-200",
+        "appearance-none p-0 m-0 border-0 block w-full cursor-zoom-in",
         className,
       )}
     >
@@ -129,7 +143,7 @@ function PhotoFader({ activeIdx, className }: { activeIdx: number; className?: s
           style={{ opacity: i === activeIdx ? 1 : 0 }}
         />
       ))}
-    </div>
+    </button>
   );
 }
 
@@ -469,10 +483,15 @@ export default function Index() {
             </div>
 
             <div className="md:grid md:grid-cols-2 md:gap-8 md:items-start">
-              {/* Desktop: sticky photo column — two photos stacked */}
-              <div className="hidden md:flex md:sticky md:top-24 md:self-start flex-col gap-4">
-                <PhotoFader activeIdx={habitsActiveIdx} />
-                <PhotoFader activeIdx={(habitsActiveIdx + 3) % HABITS_PHOTOS.length} />
+              {/* Desktop: sticky photo column — two photos stacked.
+                  Max-height per photo keeps the left column clearly shorter
+                  than the right text column, giving sticky meaningful travel. */}
+              <div
+                data-desktop-photo-stick=""
+                className="hidden md:flex md:sticky md:top-24 md:self-start flex-col gap-4"
+              >
+                <PhotoFader activeIdx={habitsActiveIdx} className="max-h-[260px]" />
+                <PhotoFader activeIdx={(habitsActiveIdx + 3) % HABITS_PHOTOS.length} className="max-h-[260px]" />
               </div>
 
               {/* Habit items — single source for both mobile and desktop */}

@@ -112,20 +112,23 @@
   }
 
   html {
-    /* iOS Safari uses <html> as the primary scrolling element. Putting
-       overflow-x: hidden ONLY on body isn't enough — Safari can still
-       give the user a horizontal pan on the document if any descendant
-       overflows. Hidden on both is the canonical pattern; sticky on the
-       header still works because we use `hidden` (not `clip`) which is
-       the Apple-tested combination. */
-    overflow-x: hidden;
+    /* overflow-x: clip prevents horizontal page-pan on iOS Safari without
+       creating a scroll container (unlike overflow: hidden which makes html
+       a scroll container and breaks position:sticky on all descendants).
+       clip is supported in all modern browsers (Safari 16+, Chrome 90+,
+       Firefox 102+). */
+    overflow-x: clip;
   }
   body {
     @apply bg-background text-foreground;
     font-family: "Inter", sans-serif;
     line-height: 1.6;
-    overflow-x: hidden;
-    /* Lock viewport width — even with overflow-x:hidden a ~1px
+    /* overflow-x: clip instead of hidden — same reasoning as html above.
+       hidden makes body a scroll container (Chrome resolves it to
+       overflow: hidden auto) which breaks position:sticky. clip clips
+       without establishing a scroll context. */
+    overflow-x: clip;
+    /* Lock viewport width — even with overflow-x:clip a ~1px
        sub-pixel rounding from a transformed card can leak into a tiny
        horizontal scroll surface that iOS uses as permission to pan. */
     width: 100%;
