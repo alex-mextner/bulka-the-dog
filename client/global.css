@@ -118,39 +118,25 @@
        clip is supported in all modern browsers (Safari 16+, Chrome 90+,
        Firefox 102+). */
     overflow-x: clip;
-    /* Explicit background-color on <html> so the iOS safe-area zone (home
-       indicator strip) inherits the page colour instead of showing a bare
-       white/system UA default. Without this, a thin stripe of the UA
-       background is visible at the very bottom edge on viewport-fit=cover
-       devices when the address bar collapses and content falls short.
-       Also sets min-height to dvh (dynamic viewport) so the canvas always
-       fills the current visual viewport even when the address bar collapses. */
     background-color: hsl(var(--background));
     min-height: 100dvh;
+    /* Prevent overscroll-bounce from revealing the UA background behind the
+       page. On iOS Safari, rubber-band scroll past the bottom (or top) briefly
+       shows whatever is "behind" the document — either white (light UA) or the
+       raw html background. overscroll-behavior:none removes the bounce entirely
+       so no strip can appear regardless of scroll direction or speed. */
+    overscroll-behavior: none;
   }
   body {
     @apply bg-background text-foreground;
     font-family: "Inter", sans-serif;
     line-height: 1.6;
-    /* overflow-x: clip instead of hidden — same reasoning as html above.
-       hidden makes body a scroll container (Chrome resolves it to
-       overflow: hidden auto) which breaks position:sticky. clip clips
-       without establishing a scroll context. */
     overflow-x: clip;
-    /* Lock viewport width — even with overflow-x:clip a ~1px
-       sub-pixel rounding from a transformed card can leak into a tiny
-       horizontal scroll surface that iOS uses as permission to pan. */
     width: 100%;
     max-width: 100vw;
     position: relative;
-    /* Safari white-strip fix: `100vh` resolves to the "large viewport"
-       (address-bar-included) height. When the address bar is visible the
-       visual viewport is shorter, so the body can fall short of the
-       viewport bottom and leave the raw <html> background exposed as a
-       thin stripe. `min-height: 100dvh` (dynamic viewport height,
-       iOS 15.4+) always matches the current visual viewport height,
-       whether the address bar is shown or hidden. */
     min-height: 100dvh;
+    overscroll-behavior: none;
   }
 
   h1 {
