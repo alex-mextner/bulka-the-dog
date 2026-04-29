@@ -215,7 +215,19 @@ type GalleryContextValue = {
   // path) over to the lightbox's first-render effect, where we feed it to
   // yarl's ZoomRef.changeZoom so the lightbox opens already zoomed to the
   // scale the user reached. Reset to 1 on close().
+  //
+  // Semantics depend on pendingThumbWidthRef:
+  //   - pendingThumbWidthRef > 0 → pendingZoomRef holds "target CSS pixels"
+  //     (= thumb_width × pinch_scale). The rAF poll converts to yarl zoom
+  //     by dividing by the actual fit_width read from the DOM (at zoom=1).
+  //   - pendingThumbWidthRef = 0 → legacy path: pendingZoomRef is used as a
+  //     direct yarl zoom multiplier (backward-compat for tests that don't
+  //     set a thumb width).
   pendingZoomRef: React.MutableRefObject<number>;
+  // Width of the thumbnail element in CSS pixels at the moment the pinch
+  // gesture started. Zero when the lightbox was opened via tap (no pinch),
+  // or when using the legacy test hook path.
+  pendingThumbWidthRef: React.MutableRefObject<number>;
   // Pinch midpoint (viewport px, relative to screen center) at the moment
   // the user started the gesture. Passed as the focal point to changeZoom
   // so the lightbox zooms into the same region the user was pinching, rather
@@ -265,6 +277,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const triggerRef = React.useRef<HTMLElement | null>(null);
   const pinchOverlayRef = React.useRef<PinchOverlayHandle | null>(null);
   const pendingZoomRef = React.useRef<number>(1);
+  const pendingThumbWidthRef = React.useRef<number>(0);
   const pendingPanRef = React.useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const pinchActiveRef = React.useRef<boolean>(false);
   const holdPinchOverlayRef = React.useRef<boolean>(false);
@@ -285,6 +298,14 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         pendingZoomRef.current = v;
       },
       getPendingZoom: () => pendingZoomRef.current,
+      // Set thumb width in CSS pixels for the pixel-based zoom conversion path.
+      // When non-zero, the rAF poll treats pendingZoomRef as "target CSS pixels"
+      // and divides by the actual fit_width from DOM to get yarl zoom.
+      // When zero (default), pendingZoomRef is used as direct yarl zoom (legacy).
+      setThumbWidth: (v: number) => {
+        pendingThumbWidthRef.current = v;
+      },
+      getThumbWidth: () => pendingThumbWidthRef.current,
       setPendingPan: (dx: number, dy: number) => {
         pendingPanRef.current = { dx, dy };
       },
@@ -341,7 +362,13 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // Only populate if there's an active pinch gesture (pendingZoomRef > 1).
     // For plain tap-opens we don't need the hold overlay.
     if (pendingZoomRef.current > 1) {
-      const thumbEl = triggerRef.current?.querySelector("img") as HTMLImageElement | null;
+      // Prefer img[data-pinch-thumb] if present (PhotoFader marks its active
+      // image with this attribute so we grab the right frame out of the stack).
+      // Fall back to the first <img> for single-image triggers (GalleryImage).
+      const thumbEl = (
+        triggerRef.current?.querySelector("img[data-pinch-thumb]") ??
+        triggerRef.current?.querySelector("img")
+      ) as HTMLImageElement | null;
       const src = thumbEl?.currentSrc ?? thumbEl?.src ?? null;
       setPinchThumbSrc(src);
     } else {
@@ -369,9 +396,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const close = React.useCallback(() => {
     setIsOpen(false);
     setPinchThumbSrc(null);
-    // Reset seed zoom and pan so a subsequent open via tap (no pinch)
-    // starts at scale 1 centered.
+    // Reset seed zoom, thumb width, and pan so a subsequent open via tap
+    // (no pinch) starts at scale 1 centered.
     pendingZoomRef.current = 1;
+    pendingThumbWidthRef.current = 0;
     pendingPanRef.current = { dx: 0, dy: 0 };
     // If we still own the pushed entry (close came from X / backdrop / ESC,
     // not from popstate), pop it so the URL/history stays clean. popstate
@@ -429,6 +457,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       setTrigger,
       pinchOverlayRef,
       pendingZoomRef,
+      pendingThumbWidthRef,
       pendingPanRef,
       pinchActiveRef,
       holdPinchOverlayRef,
@@ -448,6 +477,236 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 // ---------------------------------------------------------------------------
 // Thumbnail trigger
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// usePinchToOpen — reusable pinch-to-open hook
+//
+// Attaches a non-passive native touchstart listener to the given element ref
+// and drives the pinch-to-open transition overlay. Call `onCommit` when the
+// gesture reaches PINCH_COMMIT_SCALE (the caller is expected to open the
+// lightbox). The element is also registered as the focus-restore trigger in
+// GalleryContext on touchstart.
+//
+// `meta` is read from a ref internally so the touchstart listener does NOT
+// need to be re-attached when src/alt change — important for PhotoFader
+// where activeIdx changes on every scroll step.
+// ---------------------------------------------------------------------------
+
+export type PinchToOpenMeta = {
+  src: string;
+  alt: string;
+  thumbSrc?: string;
+};
+
+export function usePinchToOpen(
+  elementRef: React.RefObject<HTMLElement | null>,
+  meta: PinchToOpenMeta,
+  onCommit: () => void,
+) {
+  const {
+    setTrigger,
+    pinchOverlayRef,
+    pendingZoomRef,
+    pendingThumbWidthRef,
+    pendingPanRef,
+    pinchActiveRef,
+  } = useGallery();
+
+  // Store latest meta and callback in refs so the touchstart listener
+  // (attached once) always reads the current values without being
+  // re-attached on every render / activeIdx change.
+  const metaRef = React.useRef<PinchToOpenMeta>(meta);
+  const onCommitRef = React.useRef<() => void>(onCommit);
+  React.useEffect(() => {
+    metaRef.current = meta;
+  });
+  React.useEffect(() => {
+    onCommitRef.current = onCommit;
+  });
+
+  React.useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+
+    let active = false;
+    let initialDist = 0;
+    let initialMidX = 0;
+    let initialMidY = 0;
+    let lastScale = 1;
+    // Width of the thumbnail element at gesture start (CSS pixels).
+    // Snapshotted in onNativeTouchStart so it's stable throughout the gesture.
+    let thumbWidthPx = 0;
+    let cleanup: (() => void) | null = null;
+
+    const distance = (t1: Touch, t2: Touch) =>
+      Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+    const onWindowTouchMove = (e: TouchEvent) => {
+      if (!active) return;
+      if (e.touches.length < 2) return;
+      // Block page-zoom and page-pan throughout the gesture.
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = distance(t1, t2);
+      if (initialDist <= 0) return;
+      const scale = dist / initialDist;
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+      lastScale = scale;
+      // Update the seed-zoom ref LIVE during the gesture, not only on
+      // touchend. Why: Chromium-emulated mobile (and possibly real iOS)
+      // fires the synthetic `click` event after the FIRST finger lifts,
+      // not after the last. That click triggers handleOpen() via the
+      // button's onClick, which mounts the lightbox and starts its
+      // useEffect-poll for pendingZoomRef BEFORE finishGesture has a
+      // chance to set it. By writing it on every move we guarantee the
+      // lightbox sees the current pinch scale whenever it opens.
+      //
+      // Store as "target CSS pixels" = thumbWidth × scale so the lightbox's
+      // rAF poll can divide by the actual fit_width and get the correct yarl
+      // zoom. (pendingThumbWidthRef > 0 signals this pixel-based path.)
+      const clamped = Math.min(3, Math.max(1, scale));
+      pendingZoomRef.current = thumbWidthPx * clamped;
+      pinchOverlayRef.current?.update(
+        scale,
+        midX - initialMidX,
+        midY - initialMidY,
+      );
+    };
+
+    const finishGesture = () => {
+      if (!active) return;
+      active = false;
+      // KEEP pinchActiveRef true a little longer than the gesture itself.
+      // Why: the lightbox mounts UNDER the user's still-down finger
+      // (commit fires on the last touchend, but iOS can dispatch a fresh
+      // touchstart on the newly-mounted .yarl__container if a finger is
+      // resting in its bounds). That would trip the onUserTouch listener
+      // and release zoom-ownership before our mount-effect has time to
+      // read pendingZoomRef and apply the seed scale to yarl. The 600ms
+      // grace covers React mount + yarl ZoomRef attach + first paint.
+      const commit = lastScale >= PINCH_COMMIT_SCALE;
+      if (commit) {
+        // Stash the target width (thumb × scale, CSS pixels) so the lightbox's
+        // rAF poll can compute the correct yarl zoom by dividing by fit_width.
+        // Clamp to PINCH_MAX_SCALE for consistency with the overlay clamp.
+        const clampedScale = Math.min(PINCH_MAX_SCALE, Math.max(1, lastScale));
+        pendingZoomRef.current = thumbWidthPx * clampedScale;
+        pendingThumbWidthRef.current = thumbWidthPx;
+        // Stash the pinch midpoint (relative to screen center) as the focal
+        // point for the lightbox zoom. changeZoom(target, rapid, dx, dy)
+        // treats dx/dy as the viewport-relative focal point: the image
+        // zooms around that point rather than the screen center. YARL
+        // clamps the resulting pan to valid bounds automatically.
+        pendingPanRef.current = {
+          dx: initialMidX - window.innerWidth / 2,
+          dy: initialMidY - window.innerHeight / 2,
+        };
+        // Open the real lightbox first, then dismiss the overlay so yarl's
+        // own opening visuals immediately replace ours with no flash gap.
+        onCommitRef.current();
+        pinchOverlayRef.current?.close(true);
+        // Release pinchActive only AFTER the mount-effect has had time to
+        // run. See note above finishGesture.
+        window.setTimeout(() => {
+          pinchActiveRef.current = false;
+        }, 600);
+      } else {
+        pendingZoomRef.current = 1;
+        pendingThumbWidthRef.current = 0;
+        pendingPanRef.current = { dx: 0, dy: 0 };
+        pinchOverlayRef.current?.close(false);
+        pinchActiveRef.current = false;
+      }
+      cleanup?.();
+      cleanup = null;
+    };
+
+    const onWindowTouchEnd = (e: TouchEvent) => {
+      if (!active) return;
+      // Commit only when BOTH fingers are off — otherwise wait (finger
+      // adjustments mid-pinch shouldn't trigger commit).
+      if (e.touches.length >= 1) return;
+      finishGesture();
+    };
+
+    const onWindowTouchCancel = () => {
+      if (!active) return;
+      finishGesture();
+    };
+
+    const onNativeTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      if (active) return;
+      if (e.cancelable) e.preventDefault();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      initialDist = distance(t1, t2);
+      initialMidX = (t1.clientX + t2.clientX) / 2;
+      initialMidY = (t1.clientY + t2.clientY) / 2;
+      lastScale = 1;
+      active = true;
+      pinchActiveRef.current = true;
+
+      const { src, thumbSrc, alt } = metaRef.current;
+
+      // Start decoding the full-res image while the user is still pinching
+      // so the lightbox doesn't flash a black frame on commit.
+      const preload = new Image();
+      preload.decode?.().catch(() => {});
+      preload.src = src;
+
+      // Snapshot the element rect AND its border-radius so the overlay
+      // exactly mirrors the thumbnail frame visually.
+      const rect = el.getBoundingClientRect();
+      // Capture thumb width for the zoom-scale conversion in GalleryLightbox.
+      // The rAF poll divides pendingZoomRef (target CSS px) by the fit_width
+      // read from yarl's DOM to get the correct yarl zoom multiplier.
+      thumbWidthPx = rect.width;
+      pendingThumbWidthRef.current = rect.width;
+      const cs = window.getComputedStyle(el);
+      pinchOverlayRef.current?.open({
+        src: thumbSrc ?? src,
+        alt,
+        rect: {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        },
+        borderRadius: cs.borderRadius,
+      });
+      // Remember the original trigger so close()-after-commit returns focus
+      // here, not to whatever else might steal it during the gesture.
+      setTrigger(el as HTMLElement);
+
+      window.addEventListener("touchmove", onWindowTouchMove, {
+        passive: false,
+      });
+      window.addEventListener("touchend", onWindowTouchEnd, { passive: false });
+      window.addEventListener("touchcancel", onWindowTouchCancel, {
+        passive: false,
+      });
+      cleanup = () => {
+        window.removeEventListener("touchmove", onWindowTouchMove);
+        window.removeEventListener("touchend", onWindowTouchEnd);
+        window.removeEventListener("touchcancel", onWindowTouchCancel);
+      };
+    };
+
+    el.addEventListener("touchstart", onNativeTouchStart, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", onNativeTouchStart);
+      cleanup?.();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    // elementRef is stable (useRef), pinch*Refs are stable context refs.
+    // Re-attach only if the element itself changes (e.g. conditional render).
+    // meta and onCommit are tracked via their own refs above.
+  ]);
+}
 
 export type GalleryImageProps = {
   src: string;
@@ -479,10 +738,6 @@ export function GalleryImage({
     unregister,
     open,
     setTrigger,
-    pinchOverlayRef,
-    pendingZoomRef,
-    pendingPanRef,
-    pinchActiveRef,
   } = useGallery();
   const idRef = React.useRef<number | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -524,176 +779,7 @@ export function GalleryImage({
   // passive) so we keep tracking even if a finger leaves the button rect.
   // Per-frame updates push directly into the overlay's imperative API —
   // no React rerenders during the gesture.
-  React.useEffect(() => {
-    const btn = buttonRef.current;
-    if (!btn) return;
-
-    let active = false;
-    let initialDist = 0;
-    let initialMidX = 0;
-    let initialMidY = 0;
-    let lastScale = 1;
-    let cleanup: (() => void) | null = null;
-
-    const distance = (t1: Touch, t2: Touch) =>
-      Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-
-    const onWindowTouchMove = (e: TouchEvent) => {
-      if (!active) return;
-      if (e.touches.length < 2) return;
-      // Block page-zoom and page-pan throughout the gesture.
-      if (e.cancelable) e.preventDefault();
-      const t1 = e.touches[0];
-      const t2 = e.touches[1];
-      const dist = distance(t1, t2);
-      if (initialDist <= 0) return;
-      const scale = dist / initialDist;
-      const midX = (t1.clientX + t2.clientX) / 2;
-      const midY = (t1.clientY + t2.clientY) / 2;
-      lastScale = scale;
-      // Update the seed-zoom ref LIVE during the gesture, not only on
-      // touchend. Why: Chromium-emulated mobile (and possibly real iOS)
-      // fires the synthetic `click` event after the FIRST finger lifts,
-      // not after the last. That click triggers handleOpen() via the
-      // button's onClick, which mounts the lightbox and starts its
-      // useEffect-poll for pendingZoomRef BEFORE finishGesture has a
-      // chance to set it. By writing it on every move we guarantee the
-      // lightbox sees the current pinch scale whenever it opens.
-      const clamped = Math.min(3, Math.max(1, scale));
-      pendingZoomRef.current = clamped;
-      pinchOverlayRef.current?.update(
-        scale,
-        midX - initialMidX,
-        midY - initialMidY,
-      );
-    };
-
-    const finishGesture = () => {
-      if (!active) return;
-      active = false;
-      // KEEP pinchActiveRef true a little longer than the gesture itself.
-      // Why: the lightbox mounts UNDER the user's still-down finger
-      // (commit fires on the last touchend, but iOS can dispatch a fresh
-      // touchstart on the newly-mounted .yarl__container if a finger is
-      // resting in its bounds). That would trip the onUserTouch listener
-      // and release zoom-ownership before our mount-effect has time to
-      // read pendingZoomRef and apply the seed scale to yarl. The 600ms
-      // grace covers React mount + yarl ZoomRef attach + first paint.
-      const commit = lastScale >= PINCH_COMMIT_SCALE;
-      if (commit) {
-        // Stash the scale so the lightbox's mount-effect can hand it to
-        // yarl's ZoomRef, opening already zoomed to where the user got to.
-        // The 1 → max clamp matches yarl's own maxZoom (3 × by default).
-        pendingZoomRef.current = Math.min(3, Math.max(1, lastScale));
-        // Stash the pinch midpoint (relative to screen center) as the focal
-        // point for the lightbox zoom. changeZoom(target, rapid, dx, dy)
-        // treats dx/dy as the viewport-relative focal point: the image
-        // zooms around that point rather than the screen center. YARL
-        // clamps the resulting pan to valid bounds automatically.
-        pendingPanRef.current = {
-          dx: initialMidX - window.innerWidth / 2,
-          dy: initialMidY - window.innerHeight / 2,
-        };
-        // Open the real lightbox first, then dismiss the overlay so yarl's
-        // own opening visuals immediately replace ours with no flash gap.
-        handleOpen();
-        pinchOverlayRef.current?.close(true);
-        // Release pinchActive only AFTER the mount-effect has had time to
-        // run. See note above finishGesture.
-        window.setTimeout(() => {
-          pinchActiveRef.current = false;
-        }, 600);
-      } else {
-        pendingZoomRef.current = 1;
-        pendingPanRef.current = { dx: 0, dy: 0 };
-        pinchOverlayRef.current?.close(false);
-        pinchActiveRef.current = false;
-      }
-      cleanup?.();
-      cleanup = null;
-    };
-
-    const onWindowTouchEnd = (e: TouchEvent) => {
-      if (!active) return;
-      // Commit only when BOTH fingers are off — otherwise wait (finger
-      // adjustments mid-pinch shouldn't trigger commit).
-      if (e.touches.length >= 1) return;
-      finishGesture();
-    };
-
-    const onWindowTouchCancel = () => {
-      if (!active) return;
-      finishGesture();
-    };
-
-    const onNativeTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
-      if (active) return;
-      if (e.cancelable) e.preventDefault();
-      const t1 = e.touches[0];
-      const t2 = e.touches[1];
-      initialDist = distance(t1, t2);
-      initialMidX = (t1.clientX + t2.clientX) / 2;
-      initialMidY = (t1.clientY + t2.clientY) / 2;
-      lastScale = 1;
-      active = true;
-      pinchActiveRef.current = true;
-
-      // Start decoding the full-res image while the user is still pinching
-      // so the lightbox doesn't flash a black frame on commit.
-      const preload = new Image();
-      preload.decode?.().catch(() => {});
-      preload.src = src;
-
-      // Snapshot the button rect AND its border-radius so the overlay
-      // exactly mirrors the polaroid frame visually.
-      const rect = btn.getBoundingClientRect();
-      const cs = window.getComputedStyle(btn);
-      pinchOverlayRef.current?.open({
-        src: thumbSrc ?? src,
-        alt,
-        rect: {
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
-        },
-        borderRadius: cs.borderRadius,
-      });
-      // Remember the original trigger so close()-after-commit returns focus
-      // here, not to whatever else might steal it during the gesture.
-      setTrigger(btn);
-
-      window.addEventListener("touchmove", onWindowTouchMove, {
-        passive: false,
-      });
-      window.addEventListener("touchend", onWindowTouchEnd, { passive: false });
-      window.addEventListener("touchcancel", onWindowTouchCancel, {
-        passive: false,
-      });
-      cleanup = () => {
-        window.removeEventListener("touchmove", onWindowTouchMove);
-        window.removeEventListener("touchend", onWindowTouchEnd);
-        window.removeEventListener("touchcancel", onWindowTouchCancel);
-      };
-    };
-
-    btn.addEventListener("touchstart", onNativeTouchStart, { passive: false });
-    return () => {
-      btn.removeEventListener("touchstart", onNativeTouchStart);
-      cleanup?.();
-    };
-  }, [
-    handleOpen,
-    pinchOverlayRef,
-    setTrigger,
-    src,
-    thumbSrc,
-    alt,
-    pendingZoomRef,
-    pendingPanRef,
-    pinchActiveRef,
-  ]);
+  usePinchToOpen(buttonRef, { src, thumbSrc, alt }, handleOpen);
 
   return (
     <button
@@ -732,13 +818,18 @@ export function GalleryImage({
 // ---------------------------------------------------------------------------
 
 export function GalleryLightbox() {
-  const { entries, isOpen, index, close, pendingZoomRef, pendingPanRef, pinchActiveRef, holdPinchOverlayRef, pinchThumbSrc } =
+  const { entries, isOpen, index, close, pendingZoomRef, pendingThumbWidthRef, pendingPanRef, pinchActiveRef, holdPinchOverlayRef, pinchThumbSrc } =
     useGallery();
   // yarl exposes the active slide's zoom controls through a forwarded ref.
   // We need this to seed the initial zoom level after a pinch-to-open
   // commit, so the lightbox opens already zoomed to the scale the user
   // reached on the thumbnail (instead of resetting to fit-the-screen).
   const zoomRef = React.useRef<ZoomRef | null>(null);
+  // Cached fit_width (CSS px) of the current slide image at yarl zoom=1.
+  // Read once per open from the DOM when z.zoom is still 1 (before the seed
+  // is applied). Used to convert "target CSS pixels" → yarl zoom multiplier.
+  // Reset to 0 on close so the next open re-reads a fresh value.
+  const fitWidthCacheRef = React.useRef<number>(0);
 
   // After the lightbox opens, if there's a pending zoom from a pinch gesture
   // (set by GalleryImage's commit path), feed it to yarl. We can't do this
@@ -769,12 +860,55 @@ export function GalleryLightbox() {
     // setters are idempotent. Doing it here too avoids ordering
     // dependencies between the two effects.
     ownsZoomRef.current = true;
+    fitWidthCacheRef.current = 0; // reset cache on each open
     let rafId = 0;
     const tick = () => {
       if (!ownsZoomRef.current) return;
-      const target = Math.max(1, pendingZoomRef.current);
+      const z = zoomRef.current;
+
+      // Resolve the target yarl zoom from pendingZoomRef.
+      // Two paths depending on whether thumbWidth was provided:
+      //
+      //   pendingThumbWidthRef > 0 → "pixel-based path":
+      //     pendingZoomRef holds (thumb_width × pinch_scale) in CSS px.
+      //     We need fit_width (image size at yarl zoom=1) to convert.
+      //     Read it once from the DOM while z.zoom is still 1.
+      //     target_yarl = clamp(1, maxZoom, targetPx / fit_width)
+      //
+      //   pendingThumbWidthRef = 0 → "legacy path":
+      //     pendingZoomRef is used directly as yarl zoom (backward-compat
+      //     for tests and programmatic callers that don't set thumbWidth).
+      let target: number;
+      if (pendingThumbWidthRef.current > 0) {
+        const targetPx = pendingZoomRef.current;
+        // Lazily read fit_width from DOM. Only sample when yarl zoom is
+        // still 1 (i.e. before we've applied any seed zoom). After the
+        // first changeZoom the image will be scaled, so we must not
+        // re-read — just use the cached value.
+        if (fitWidthCacheRef.current <= 0 && z && z.zoom <= 1.01) {
+          const img = document.querySelector(
+            ".yarl__slide_current .yarl__fullsize img",
+          ) as HTMLImageElement | null;
+          if (img) {
+            const w = img.getBoundingClientRect().width;
+            if (w > 0) fitWidthCacheRef.current = w;
+          }
+        }
+        const fitWidth = fitWidthCacheRef.current;
+        if (fitWidth > 0) {
+          const maxZoom = z ? z.maxZoom : 3;
+          target = Math.min(maxZoom, Math.max(1, targetPx / fitWidth));
+        } else {
+          // fit_width not yet readable (image not in DOM yet) — skip this tick.
+          rafId = requestAnimationFrame(tick);
+          return;
+        }
+      } else {
+        // Legacy path: pendingZoomRef is a direct yarl zoom value.
+        target = Math.max(1, pendingZoomRef.current);
+      }
+
       if (target > 1) {
-        const z = zoomRef.current;
         if (z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
           const pan = pendingPanRef.current;
           z.changeZoom(target, true, pan.dx, pan.dy);
@@ -784,7 +918,7 @@ export function GalleryLightbox() {
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isOpen, pendingZoomRef, pendingPanRef]);
+  }, [isOpen, pendingZoomRef, pendingThumbWidthRef, pendingPanRef]);
   // After mount we hold ownership of the zoom level (= keep re-applying
   // pendingZoomRef on every yarl reset) until either:
   //   • the user touches anywhere inside the lightbox container — that's
@@ -803,6 +937,7 @@ export function GalleryLightbox() {
     if (!isOpen) {
       ownsZoomRef.current = false;
       skipNextViewRef.current = true; // arm the skip for the next open
+      fitWidthCacheRef.current = 0;   // reset fit_width cache for next open
       return;
     }
     ownsZoomRef.current = true;
@@ -1050,6 +1185,12 @@ export function GalleryLightbox() {
           // even on devices where the portal doesn't extend to the absolute
           // screen edge. Semi-transparent (#000 at 0.92) was enough for the
           // overlay look but let the cream page bg tint through by 8%.
+          //
+          // iOS Safari height fix is applied via global.css (.yarl__portal rule)
+          // rather than here via inline styles — inline height on portal breaks
+          // yarl's internal fit-width DOM measurement (getBoundingClientRect on
+          // the fullsize img reads wrong when height is set inline in the same
+          // render cycle that the portal mounts).
           root: {
             backgroundColor: "#000",
           },
@@ -1105,7 +1246,16 @@ export function GalleryLightbox() {
         // (see the touchstart-listener effect above).
         zoom: ({ zoom: currentZoom }) => {
           if (!ownsZoomRef.current) return;
-          const target = Math.max(1, pendingZoomRef.current);
+          // Convert pendingZoomRef to a yarl zoom target using the same
+          // pixel-based path as the rAF tick (fitWidthCacheRef is shared).
+          let target: number;
+          if (pendingThumbWidthRef.current > 0 && fitWidthCacheRef.current > 0) {
+            const z = zoomRef.current;
+            const maxZoom = z ? z.maxZoom : 3;
+            target = Math.min(maxZoom, Math.max(1, pendingZoomRef.current / fitWidthCacheRef.current));
+          } else {
+            target = Math.max(1, pendingZoomRef.current);
+          }
           if (target <= 1) return;
           if (Math.abs(currentZoom - target) < 0.01) return;
           const z = zoomRef.current;

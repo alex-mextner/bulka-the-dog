@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Header } from "@/components/Header";
-import { GalleryImage, useGallery } from "@/components/Gallery";
+import { GalleryImage, useGallery, usePinchToOpen } from "@/components/Gallery";
 import BulkaDay from "@/components/BulkaDay";
 import DonationsPanel from "@/components/DonationsPanel";
 import FAQ from "@/components/FAQ";
@@ -110,20 +110,36 @@ const HABITS_PHOTOS = [
 
 // Crossfading photo container: all photos are in the DOM with opacity 0/1.
 // CSS transition handles the fade — no JS animation needed.
-// On click, opens the active photo in the gallery lightbox by looking up the
-// src in the shared GalleryContext entries registry (PhotoStrip registers all
-// HABITS_PHOTOS below, so they're present by the time any click fires).
+// On click OR pinch-to-open, opens the active photo in the gallery lightbox
+// by looking up the src in the shared GalleryContext entries registry
+// (PhotoStrip registers all HABITS_PHOTOS below, so they're present by the
+// time any click fires).
+//
+// Pinch-to-open is enabled via `usePinchToOpen` — the same hook used by
+// GalleryImage. The active img carries `data-pinch-thumb` so
+// GalleryProvider.open() grabs the right thumbnail src for the hold-overlay.
 function PhotoFader({ activeIdx, className }: { activeIdx: number; className?: string }) {
-  const { entries, open } = useGallery();
+  const { entries, open, setTrigger } = useGallery();
   const activeSrc = HABITS_PHOTOS[activeIdx];
+  const buttonRef = React.useRef<HTMLButtonElement | null>(null);
 
   const handleClick = React.useCallback(() => {
     const entry = entries.find((e) => e.src === activeSrc);
-    if (entry) open(entry.id);
-  }, [entries, open, activeSrc]);
+    if (entry) {
+      setTrigger(buttonRef.current);
+      open(entry.id);
+    }
+  }, [entries, open, activeSrc, setTrigger]);
+
+  // Pinch-to-open: attach non-passive touchstart to detect 2-finger gesture
+  // and drive the same overlay+seed-zoom path as GalleryImage. Meta is read
+  // from a ref inside usePinchToOpen, so it updates with activeIdx without
+  // re-attaching the listener (important: sticky photo changes every scroll).
+  usePinchToOpen(buttonRef, { src: activeSrc, alt: "" }, handleClick);
 
   return (
     <button
+      ref={buttonRef}
       type="button"
       onClick={handleClick}
       aria-label="Открыть фото"
@@ -139,6 +155,10 @@ function PhotoFader({ activeIdx, className }: { activeIdx: number; className?: s
           src={src}
           alt=""
           loading="lazy"
+          // data-pinch-thumb marks the currently visible image so
+          // GalleryProvider.open() picks the right src for the pinch-hold
+          // overlay when opened from PhotoFader (which has 7 stacked imgs).
+          {...(i === activeIdx ? { "data-pinch-thumb": "" } : {})}
           className="absolute inset-0 w-full h-full object-cover brightness-105 contrast-[1.03] saturate-[1.05] transition-opacity duration-500 ease-in-out"
           style={{ opacity: i === activeIdx ? 1 : 0 }}
         />
@@ -177,20 +197,24 @@ export default function Index() {
       requestAnimationFrame(() => {
         habitsRafPendingRef.current = false;
         const items = section.querySelectorAll<HTMLElement>("[data-habit-item]");
-        let bestIdx = 0;
-        let bestVis = -1;
         const vh = window.innerHeight;
         // On mobile, the sticky photo covers the top of the viewport — don't
         // count pixels hidden under it as "visible" to the user.
         const stickyEl = section.querySelector<HTMLElement>("[data-mobile-photo-stick]");
         const topClip = stickyEl ? Math.max(0, stickyEl.getBoundingClientRect().bottom) : 0;
+        // Reading-line threshold: just below the sticky photo (or near the top
+        // of the viewport on desktop where there is no sticky photo). The active
+        // item is the last one whose top edge has scrolled above this line.
+        // We intentionally include items that are partially hidden behind the
+        // sticky photo — the photo IS the feedback that tells the user which
+        // item they scrolled to.
+        const readingLine = topClip + 24;
+        let bestIdx = 0;
         items.forEach((item, i) => {
           const rect = item.getBoundingClientRect();
-          const visTop = Math.max(topClip, Math.min(vh, rect.top));
-          const visBot = Math.max(topClip, Math.min(vh, rect.bottom));
-          const vis = visBot - visTop;
-          if (vis > bestVis) {
-            bestVis = vis;
+          // Item is active when its top has passed the reading line AND it
+          // hasn't scrolled completely off the top of the viewport (bottom > 0).
+          if (rect.top <= readingLine && rect.bottom > 0) {
             bestIdx = i;
           }
         });
@@ -478,15 +502,15 @@ export default function Index() {
             </h2>
 
             {/* Mobile: sticky photo above the scrolling habit items.
-                Header height = h-[60px] inner div + 1px border-b = 61px (+ safe-area-top
-                which is 0 on non-notch devices). The Tailwind arbitrary-value form
-                `top-[calc(4.5rem+var(--safe-area-top))]` emits calc without spaces around
-                `+` which is invalid CSS. Use inline style to get correct syntax AND the
-                right value (61px, not 72px = 4.5rem which left an 11px gap). */}
+                top:0 + paddingTop = header height so bg-background covers the full
+                zone from the very top of the viewport down to the photo content.
+                Without this, the gap between 0 and the photo top was transparent and
+                habit-item text from previous items scrolled through visibly.
+                Header height = safe-area-top + 60px inner div + 1px border-b. */}
             <div
               data-mobile-photo-stick=""
-              className="sticky md:hidden mb-6 z-20 bg-background"
-              style={{ top: "calc(61px + var(--safe-area-top, 0px))" }}
+              className="sticky top-0 md:hidden mb-6 z-20 bg-background"
+              style={{ paddingTop: "calc(61px + var(--safe-area-top, 0px))" }}
             >
               <PhotoFader activeIdx={habitsActiveIdx} />
             </div>
