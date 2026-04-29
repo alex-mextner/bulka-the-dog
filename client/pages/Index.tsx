@@ -478,7 +478,7 @@ export default function Index() {
             </h2>
 
             {/* Mobile: sticky photo above the scrolling habit items */}
-            <div data-mobile-photo-stick="" className="sticky top-[calc(4.5rem+var(--safe-area-top))] md:hidden mb-6 z-10">
+            <div data-mobile-photo-stick="" className="sticky top-[calc(4.5rem+var(--safe-area-top))] md:hidden mb-6 z-20 bg-background">
               <PhotoFader activeIdx={habitsActiveIdx} />
             </div>
 

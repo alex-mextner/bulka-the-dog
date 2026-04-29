@@ -116,6 +116,30 @@ test.describe("Habits sticky photo — mobile", () => {
     const px = parseFloat(topValue!);
     expect(px, `top should be ≥ 60px (header height), got ${px}px`).toBeGreaterThanOrEqual(60);
   });
+
+  // ── RED: sticky photo container must have an opaque background ──────────────
+  // Without a background, scrolling content (h3 titles from habit items above)
+  // bleeds through the transparent container and is visible on top of the photo.
+  test("mobile sticky photo container has opaque background (no text bleed-through)", async ({
+    page,
+  }) => {
+    const bg = await page.evaluate(() => {
+      const el = document.querySelector(
+        "[data-mobile-photo-stick]",
+      ) as HTMLElement | null;
+      if (!el) return null;
+      return window.getComputedStyle(el).backgroundColor;
+    });
+    expect(bg, "element not found").not.toBeNull();
+    // transparent / rgba(0,0,0,0) means content from behind will bleed through
+    expect(
+      bg,
+      `sticky container background is transparent ('${bg}') — scrolling content bleeds through`,
+    ).not.toBe("rgba(0, 0, 0, 0)");
+    expect(bg, "sticky container background must not be 'transparent'").not.toBe(
+      "transparent",
+    );
+  });
 });
 
 test.describe("Habits sticky photo — desktop", () => {
