@@ -118,6 +118,15 @@
        clip is supported in all modern browsers (Safari 16+, Chrome 90+,
        Firefox 102+). */
     overflow-x: clip;
+    /* Explicit background-color on <html> so the iOS safe-area zone (home
+       indicator strip) inherits the page colour instead of showing a bare
+       white/system UA default. Without this, a thin stripe of the UA
+       background is visible at the very bottom edge on viewport-fit=cover
+       devices when the address bar collapses and content falls short.
+       Also sets min-height to dvh (dynamic viewport) so the canvas always
+       fills the current visual viewport even when the address bar collapses. */
+    background-color: hsl(var(--background));
+    min-height: 100dvh;
   }
   body {
     @apply bg-background text-foreground;
