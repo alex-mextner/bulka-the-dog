@@ -306,6 +306,11 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         pendingThumbWidthRef.current = v;
       },
       getThumbWidth: () => pendingThumbWidthRef.current,
+      // Set the thumbnail centre relative to viewport centre (CSS px).
+      // This is the new semantics: dx/dy is the thumb-centre offset, not a
+      // raw yarl focal point. The rAF poll converts to yarl focal point via
+      //   dx_focal = -dx / (yarlZoom - 1)
+      // For the legacy direct-focal-point path, leave pendingThumbWidthRef=0.
       setPendingPan: (dx: number, dy: number) => {
         pendingPanRef.current = { dx, dy };
       },
@@ -536,6 +541,11 @@ export function usePinchToOpen(
     // Width of the thumbnail element at gesture start (CSS pixels).
     // Snapshotted in onNativeTouchStart so it's stable throughout the gesture.
     let thumbWidthPx = 0;
+    // Center of the thumbnail element in viewport coordinates at gesture start.
+    // Used to compute the correct yarl focal-point offset so the lightbox opens
+    // with the image centred on the same pixel as the thumbnail.
+    let thumbCenterX = 0;
+    let thumbCenterY = 0;
     let cleanup: (() => void) | null = null;
 
     const distance = (t1: Touch, t2: Touch) =>
@@ -594,14 +604,20 @@ export function usePinchToOpen(
         const clampedScale = Math.min(PINCH_MAX_SCALE, Math.max(1, lastScale));
         pendingZoomRef.current = thumbWidthPx * clampedScale;
         pendingThumbWidthRef.current = thumbWidthPx;
-        // Stash the pinch midpoint (relative to screen center) as the focal
-        // point for the lightbox zoom. changeZoom(target, rapid, dx, dy)
-        // treats dx/dy as the viewport-relative focal point: the image
-        // zooms around that point rather than the screen center. YARL
-        // clamps the resulting pan to valid bounds automatically.
+        // Stash the thumbnail centre (relative to viewport centre) so the
+        // lightbox's rAF poll can compute the exact focal-point argument for
+        // yarl's changeZoom, placing the image centre over the same pixel as
+        // the thumbnail centre on screen.
+        //
+        // NOTE: pendingPanRef now stores the THUMB CENTRE (not the pinch
+        // midpoint). The rAF poll converts it to a yarl focal-point offset
+        // using: dx_focal = -thumbCenterDx / (yarlZoom - 1). This is derived
+        // from the yarl changeZoom formula which applies
+        //   changeOffsets(dx * (1/zoom - 1/newZoom), …)
+        // so that the resulting screenOffset = offsetX * newZoom = thumbCenterDx.
         pendingPanRef.current = {
-          dx: initialMidX - window.innerWidth / 2,
-          dy: initialMidY - window.innerHeight / 2,
+          dx: thumbCenterX - window.innerWidth / 2,
+          dy: thumbCenterY - window.innerHeight / 2,
         };
         // Open the real lightbox first, then dismiss the overlay so yarl's
         // own opening visuals immediately replace ours with no flash gap.
@@ -665,6 +681,11 @@ export function usePinchToOpen(
       // read from yarl's DOM to get the correct yarl zoom multiplier.
       thumbWidthPx = rect.width;
       pendingThumbWidthRef.current = rect.width;
+      // Capture thumb center for the focal-point pan calculation.
+      // The rAF poll uses this to compute the yarl offset that places the
+      // lightbox image centre over the same viewport pixel as the thumbnail.
+      thumbCenterX = rect.left + rect.width / 2;
+      thumbCenterY = rect.top + rect.height / 2;
       const cs = window.getComputedStyle(el);
       pinchOverlayRef.current?.open({
         src: thumbSrc ?? src,
@@ -911,7 +932,25 @@ export function GalleryLightbox() {
       if (target > 1) {
         if (z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
           const pan = pendingPanRef.current;
-          z.changeZoom(target, true, pan.dx, pan.dy);
+          // Convert thumb-centre coords to yarl focal-point offset.
+          // When pendingThumbWidthRef > 0 (pixel-based path), pan.dx/dy is the
+          // thumbnail centre relative to viewport centre (not the pinch midpoint).
+          // yarl's changeZoom(Z, rapid, dx, dy) applies:
+          //   newOffset = currentOffset - dx * (1/currentZoom - 1/Z)
+          // Starting from zoom=1, offsetX=0 we need newOffset * Z = pan.dx, so:
+          //   dx_focal = -pan.dx / (Z - 1)
+          // For the legacy path (pendingThumbWidthRef=0) pan.dx is already the
+          // raw focal point as before.
+          let focalDx: number;
+          let focalDy: number;
+          if (pendingThumbWidthRef.current > 0 && target > 1) {
+            focalDx = -pan.dx / (target - 1);
+            focalDy = -pan.dy / (target - 1);
+          } else {
+            focalDx = pan.dx;
+            focalDy = pan.dy;
+          }
+          z.changeZoom(target, true, focalDx, focalDy);
         }
       }
       rafId = requestAnimationFrame(tick);
@@ -1261,7 +1300,19 @@ export function GalleryLightbox() {
           const z = zoomRef.current;
           if (z && !z.disabled) {
             const pan = pendingPanRef.current;
-            z.changeZoom(target, true, pan.dx, pan.dy);
+            // Same focal-point conversion as the rAF tick: pan.dx/dy is the
+            // thumbnail centre offset (not a raw focal point) when
+            // pendingThumbWidthRef > 0.
+            let focalDx: number;
+            let focalDy: number;
+            if (pendingThumbWidthRef.current > 0 && target > 1) {
+              focalDx = -pan.dx / (target - 1);
+              focalDy = -pan.dy / (target - 1);
+            } else {
+              focalDx = pan.dx;
+              focalDy = pan.dy;
+            }
+            z.changeZoom(target, true, focalDx, focalDy);
           }
         },
       }}
