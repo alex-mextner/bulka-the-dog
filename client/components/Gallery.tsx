@@ -236,7 +236,7 @@ type GalleryContextValue = {
 
 const GalleryContext = React.createContext<GalleryContextValue | null>(null);
 
-function useGallery(): GalleryContextValue {
+export function useGallery(): GalleryContextValue {
   const ctx = React.useContext(GalleryContext);
   if (!ctx) {
     throw new Error("Gallery components must be used inside <GalleryProvider>");
@@ -878,7 +878,102 @@ export function GalleryLightbox() {
     };
   }, [isOpen]);
 
+  // ── Pinch-to-open: hold thumbnail overlay until full image loads ────────────
+  //
+  // After fingers release and the lightbox opens, the full-resolution image
+  // may take anywhere from 50ms to 2s+ to decode. During that gap yarl shows
+  // a black background. We fill it with a fixed overlay that mirrors the
+  // thumbnail and fades out once yarl's <img> reports complete + loaded.
+  //
+  // Independent of PinchTransitionOverlay (gesture-driven). Both can coexist
+  // for the brief 220ms commit animation — same thumb image, no visible duplication.
+  const [pinchHoldThumb, setPinchHoldThumb] = React.useState<string | null>(null);
+  const [pinchHoldVisible, setPinchHoldVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isOpen || pendingZoomRef.current <= 1) {
+      // Plain tap-open or lightbox closed — clear any leftover overlay.
+      setPinchHoldVisible(false);
+      setPinchHoldThumb(null);
+      return;
+    }
+
+    // Pinch-committed open: grab the thumbnail src from the triggering button.
+    // triggerRef was set by setTrigger(btn) in onNativeTouchStart — it points
+    // at the exact GalleryImage button the user was pinching.
+    const thumbEl = triggerRef.current?.querySelector("img") as HTMLImageElement | null;
+    const thumbSrc = thumbEl?.currentSrc ?? thumbEl?.src ?? null;
+
+    if (!thumbSrc) {
+      // No thumb available — nothing to hold.
+      return;
+    }
+
+    setPinchHoldThumb(thumbSrc);
+    setPinchHoldVisible(true);
+
+    // Poll every rAF until yarl's current-slide img is fully loaded.
+    // holdPinchOverlayRef allows e2e tests to block dismissal so they can
+    // assert visibility before releasing (images may be browser-cached).
+    let rafId = 0;
+    let frameCount = 0;
+    const MAX_FRAMES = 300; // ~5s at 60fps — safety exit
+    const pollImageLoad = () => {
+      frameCount++;
+      if (frameCount > MAX_FRAMES) {
+        // Give up — release overlay so user is never stuck behind it.
+        setPinchHoldVisible(false);
+        window.setTimeout(() => setPinchHoldThumb(null), 300);
+        return;
+      }
+      // Test hook: allow tests to hold the overlay regardless of load state.
+      if (holdPinchOverlayRef.current) {
+        rafId = requestAnimationFrame(pollImageLoad);
+        return;
+      }
+      const img = document.querySelector(
+        ".yarl__slide_current .yarl__fullsize img",
+      ) as HTMLImageElement | null;
+      if (img && img.complete && img.naturalWidth > 0) {
+        // Full image decoded — fade out the hold overlay.
+        setPinchHoldVisible(false);
+        window.setTimeout(() => setPinchHoldThumb(null), 300);
+        return;
+      }
+      rafId = requestAnimationFrame(pollImageLoad);
+    };
+    rafId = requestAnimationFrame(pollImageLoad);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+  // ────────────────────────────────────────────────────────────────────────────
+
   return (
+    <>
+    {/* Pinch-hold thumbnail overlay — keeps thumb visible over yarl's black
+        background until the full image finishes loading. Fades out on load.
+        Only renders during a pinch-committed open (pendingZoom > 1). */}
+    {pinchHoldThumb && typeof document !== "undefined" && createPortal(
+      <div
+        data-testid="pinch-thumb-overlay"
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10000,
+          pointerEvents: "none",
+          backgroundImage: `url("${pinchHoldThumb}")`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          opacity: pinchHoldVisible ? 1 : 0,
+          transition: "opacity 300ms ease-out",
+        }}
+      />,
+      document.body,
+    )}
     <Lightbox
       open={isOpen}
       close={close}
@@ -992,5 +1087,6 @@ export function GalleryLightbox() {
         ...(isCoarsePointer ? { buttonZoom: () => null } : {}),
       }}
     />
+    </>
   );
 }
