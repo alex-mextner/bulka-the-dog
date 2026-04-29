@@ -232,6 +232,12 @@ type GalleryContextValue = {
   // __bulkaTest.setHoldPinchOverlay(true) before opening the lightbox so
   // the e2e test can assert visibility before releasing.
   holdPinchOverlayRef: React.MutableRefObject<boolean>;
+  // Thumbnail src captured synchronously at open()-time (before the first
+  // paint with isOpen=true). Consumed by GalleryLightbox to render the
+  // pinch-hold overlay on the SAME paint cycle that the lightbox mounts,
+  // preventing the 1-frame black flash between gesture-overlay fade and
+  // full-image decode. Null when opened via tap (no pinch).
+  pinchThumbSrc: string | null;
 };
 
 const GalleryContext = React.createContext<GalleryContextValue | null>(null);
@@ -262,6 +268,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const pendingPanRef = React.useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const pinchActiveRef = React.useRef<boolean>(false);
   const holdPinchOverlayRef = React.useRef<boolean>(false);
+  // Thumbnail src captured synchronously in open() so the hold-overlay renders
+  // on the SAME paint cycle as isOpen=true (not one frame later via useEffect).
+  const [pinchThumbSrc, setPinchThumbSrc] = React.useState<string | null>(null);
 
   // Test hook — exposes the internal refs so e2e tests can drive the
   // seed-zoom path without simulating real multi-touch (which Chromium's
@@ -324,6 +333,20 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       setIndex(idx >= 0 ? idx : 0);
       return prev;
     });
+    // Capture thumbnail src synchronously, BEFORE setIsOpen(true) so that
+    // when React batches all these setState calls into a single paint, the
+    // hold-overlay is already in the DOM on the first frame. Doing this in a
+    // useEffect would be one paint too late and cause the black flash.
+    //
+    // Only populate if there's an active pinch gesture (pendingZoomRef > 1).
+    // For plain tap-opens we don't need the hold overlay.
+    if (pendingZoomRef.current > 1) {
+      const thumbEl = triggerRef.current?.querySelector("img") as HTMLImageElement | null;
+      const src = thumbEl?.currentSrc ?? thumbEl?.src ?? null;
+      setPinchThumbSrc(src);
+    } else {
+      setPinchThumbSrc(null);
+    }
     setIsOpen(true);
     // Push exactly one history entry for the whole lightbox session — slide
     // changes inside the lightbox stay invisible to history. The Android
@@ -337,10 +360,15 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         ownsHistoryEntryRef.current = false;
       }
     }
-  }, []);
+  // pendingZoomRef and triggerRef are stable refs (never change identity);
+  // setPinchThumbSrc is a stable useState setter. Empty eslint-disable would
+  // be stricter but these truly don't need to be in the dep array.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setPinchThumbSrc]);
 
   const close = React.useCallback(() => {
     setIsOpen(false);
+    setPinchThumbSrc(null);
     // Reset seed zoom and pan so a subsequent open via tap (no pinch)
     // starts at scale 1 centered.
     pendingZoomRef.current = 1;
@@ -404,8 +432,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       pendingPanRef,
       pinchActiveRef,
       holdPinchOverlayRef,
+      pinchThumbSrc,
     }),
-    [register, update, unregister, open, entries, isOpen, index, close, setTrigger],
+    [register, update, unregister, open, entries, isOpen, index, close, setTrigger, pinchThumbSrc],
   );
 
   return (
@@ -703,7 +732,7 @@ export function GalleryImage({
 // ---------------------------------------------------------------------------
 
 export function GalleryLightbox() {
-  const { entries, isOpen, index, close, pendingZoomRef, pendingPanRef, pinchActiveRef, triggerRef, holdPinchOverlayRef } =
+  const { entries, isOpen, index, close, pendingZoomRef, pendingPanRef, pinchActiveRef, holdPinchOverlayRef, pinchThumbSrc } =
     useGallery();
   // yarl exposes the active slide's zoom controls through a forwarded ref.
   // We need this to seed the initial zoom level after a pinch-to-open
@@ -883,38 +912,49 @@ export function GalleryLightbox() {
   // After fingers release and the lightbox opens, the full-resolution image
   // may take anywhere from 50ms to 2s+ to decode. During that gap yarl shows
   // a black background. We fill it with a fixed overlay that mirrors the
-  // thumbnail and fades out once yarl's <img> reports complete + loaded.
+  // thumbnail and fades out once yarl's <img> reports complete AND the pinch
+  // grace period (600ms) has elapsed.
+  //
+  // `pinchThumbSrc` is captured synchronously inside GalleryProvider.open()
+  // (before setIsOpen(true)) so the overlay is in the DOM on the SAME paint
+  // cycle that the lightbox mounts — no 1-frame black flash.
+  //
+  // CRITICAL: the overlay must appear at opacity:1 on the very first paint.
+  // Using `useState(false)` + `useEffect → setPinchHoldVisible(true)` causes
+  // a one-render cycle where opacity=0 is painted (useEffect runs after paint),
+  // then the CSS transition animates 0→1 over 300ms — that IS the black flash.
+  //
+  // Fix: track only the dismissal phase. Overlay renders at opacity:1 as soon
+  // as pinchThumbSrc is non-null (no effect needed for show). `pinchHoldDismissing`
+  // is set to true when the AND-gate fires, which triggers the fade-out
+  // transition. The overlay stays in DOM until GalleryProvider.close() clears
+  // pinchThumbSrc.
   //
   // Independent of PinchTransitionOverlay (gesture-driven). Both can coexist
   // for the brief 220ms commit animation — same thumb image, no visible duplication.
-  const [pinchHoldThumb, setPinchHoldThumb] = React.useState<string | null>(null);
-  const [pinchHoldVisible, setPinchHoldVisible] = React.useState(false);
+  const [pinchHoldDismissing, setPinchHoldDismissing] = React.useState(false);
+
+  // True once the full-resolution image in the current slide has finished
+  // decoding. Reset on slide navigation and on lightbox open. Used as part
+  // of the AND-gate dismissal condition together with !pinchActiveRef.
+  const imageLoadedRef = React.useRef(false);
 
   React.useEffect(() => {
-    if (!isOpen || pendingZoomRef.current <= 1) {
-      // Plain tap-open or lightbox closed — clear any leftover overlay.
-      setPinchHoldVisible(false);
-      setPinchHoldThumb(null);
+    if (!isOpen || !pinchThumbSrc) {
+      // Plain tap-open or lightbox closed — reset dismissal state.
+      setPinchHoldDismissing(false);
+      imageLoadedRef.current = false;
       return;
     }
 
-    // Pinch-committed open: grab the thumbnail src from the triggering button.
-    // triggerRef was set by setTrigger(btn) in onNativeTouchStart — it points
-    // at the exact GalleryImage button the user was pinching.
-    const thumbEl = triggerRef.current?.querySelector("img") as HTMLImageElement | null;
-    const thumbSrc = thumbEl?.currentSrc ?? thumbEl?.src ?? null;
+    // Pinch-committed open: reset dismissing flag (overlay is already at
+    // opacity:1 from the first render — no setState needed to show it).
+    setPinchHoldDismissing(false);
+    imageLoadedRef.current = false;
 
-    if (!thumbSrc) {
-      // No thumb available — nothing to hold.
-      return;
-    }
-
-    setPinchHoldThumb(thumbSrc);
-    setPinchHoldVisible(true);
-
-    // Poll every rAF until yarl's current-slide img is fully loaded.
-    // holdPinchOverlayRef allows e2e tests to block dismissal so they can
-    // assert visibility before releasing (images may be browser-cached).
+    // Poll every rAF until yarl's current-slide img is fully loaded AND the
+    // pinch grace period has elapsed (both must be true to avoid premature
+    // dismiss on browser-cached images).
     let rafId = 0;
     let frameCount = 0;
     const MAX_FRAMES = 300; // ~5s at 60fps — safety exit
@@ -922,8 +962,7 @@ export function GalleryLightbox() {
       frameCount++;
       if (frameCount > MAX_FRAMES) {
         // Give up — release overlay so user is never stuck behind it.
-        setPinchHoldVisible(false);
-        window.setTimeout(() => setPinchHoldThumb(null), 300);
+        setPinchHoldDismissing(true);
         return;
       }
       // Test hook: allow tests to hold the overlay regardless of load state.
@@ -931,13 +970,23 @@ export function GalleryLightbox() {
         rafId = requestAnimationFrame(pollImageLoad);
         return;
       }
-      const img = document.querySelector(
-        ".yarl__slide_current .yarl__fullsize img",
-      ) as HTMLImageElement | null;
-      if (img && img.complete && img.naturalWidth > 0) {
-        // Full image decoded — fade out the hold overlay.
-        setPinchHoldVisible(false);
-        window.setTimeout(() => setPinchHoldThumb(null), 300);
+      // Check image load state.
+      if (!imageLoadedRef.current) {
+        const img = document.querySelector(
+          ".yarl__slide_current .yarl__fullsize img",
+        ) as HTMLImageElement | null;
+        if (img && img.complete && img.naturalWidth > 0) {
+          imageLoadedRef.current = true;
+        }
+      }
+      // AND-gate: dismiss only when BOTH conditions are met:
+      //   1. Full image is loaded (imageLoadedRef.current = true)
+      //   2. Pinch grace period has elapsed (!pinchActiveRef.current)
+      // This prevents black flash on cached images (condition 1 immediate)
+      // and ensures the gesture animation finishes before we dismiss (cond 2).
+      if (imageLoadedRef.current && !pinchActiveRef.current) {
+        // Full image decoded AND pinch grace elapsed — fade out the hold overlay.
+        setPinchHoldDismissing(true);
         return;
       }
       rafId = requestAnimationFrame(pollImageLoad);
@@ -948,15 +997,15 @@ export function GalleryLightbox() {
       cancelAnimationFrame(rafId);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, pinchThumbSrc]);
   // ────────────────────────────────────────────────────────────────────────────
 
   return (
     <>
     {/* Pinch-hold thumbnail overlay — keeps thumb visible over yarl's black
-        background until the full image finishes loading. Fades out on load.
-        Only renders during a pinch-committed open (pendingZoom > 1). */}
-    {pinchHoldThumb && typeof document !== "undefined" && createPortal(
+        background until the full image finishes loading AND pinch grace ends.
+        pinchThumbSrc is null for plain tap opens — overlay not rendered. */}
+    {pinchThumbSrc && typeof document !== "undefined" && createPortal(
       <div
         data-testid="pinch-thumb-overlay"
         aria-hidden="true"
@@ -965,11 +1014,15 @@ export function GalleryLightbox() {
           inset: 0,
           zIndex: 10000,
           pointerEvents: "none",
-          backgroundImage: `url("${pinchHoldThumb}")`,
+          backgroundImage: `url("${pinchThumbSrc}")`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          opacity: pinchHoldVisible ? 1 : 0,
-          transition: "opacity 300ms ease-out",
+          // Overlay appears at opacity:1 immediately on the first paint (no
+          // useEffect delay) — pinchThumbSrc is set synchronously in open().
+          // Transition applies only on the way OUT (pinchHoldDismissing=true)
+          // so there is no 0→1 fade-in that would produce a black flash.
+          opacity: pinchHoldDismissing ? 0 : 1,
+          transition: pinchHoldDismissing ? "opacity 300ms ease-out" : "none",
         }}
       />,
       document.body,
@@ -1040,6 +1093,9 @@ export function GalleryLightbox() {
             return;
           }
           ownsZoomRef.current = false;
+          // Reset image-loaded flag when the user navigates to a new slide so
+          // the hold-overlay poll re-checks load state for the new image.
+          imageLoadedRef.current = false;
         },
         // Event-driven seed-zoom guard. Yarl fires this callback on every
         // state.zoom change — both its own mount/decode resets AND

@@ -3,13 +3,22 @@ import type { Page } from "@playwright/test";
 
 // Test for pinch-to-open black-screen fix:
 //   When user releases pinch fingers before the full-resolution image has
-//   loaded, the PinchTransitionOverlay (thumbnail clone) must remain visible
-//   until the full image finishes loading — preventing a black flash.
+//   loaded, the pinch-hold overlay (thumbnail clone) must remain visible
+//   until BOTH conditions are met:
+//     1. The full image has finished loading (img.complete)
+//     2. The pinch grace period (600ms) has elapsed (pinchActiveRef = false)
 //
-// Strategy: drive through window.__bulkaTest hook (same pattern as
-// gallery-lightbox-fixes.spec.ts). We can't intercept real network requests
-// here but we CAN verify that the overlay element stays in the DOM and visible
-// immediately after the lightbox portal mounts, before any 800ms wait.
+//   Key constraint the test must check: overlay is at opacity:1 on the FIRST
+//   PAINT — no fade-in from 0. A `useState(false)` → `useEffect → setState(true)`
+//   pattern would cause a 300ms 0→1 fade that is indistinguishable from the
+//   black flash we're fixing. We verify by reading getComputedStyle().opacity
+//   within one rAF of the click that triggers open().
+//
+//   Strategy: drive through window.__bulkaTest hook (same pattern as
+//   gallery-lightbox-fixes.spec.ts). We simulate the pinch state by calling
+//   setPendingZoom(>1) and setPinchActive(true). On localhost, images are
+//   browser-cached so img.complete=true immediately — the AND-gate must still
+//   hold because pinchActive is true.
 
 async function waitForGalleryReady(page: Page) {
   await page
@@ -24,19 +33,6 @@ async function waitForGalleryReady(page: Page) {
   );
 }
 
-async function setSeedZoom(page: Page, scale: number) {
-  await page.evaluate((v) => {
-    const t = (window as unknown as Record<string, unknown>).__bulkaTest as
-      | { setPendingZoom: (n: number) => void; setPinchActive: (b: boolean) => void }
-      | undefined;
-    if (!t) throw new Error("__bulkaTest hook not present");
-    t.setPendingZoom(v);
-    t.setPinchActive(true);
-    // Keep pinchActive true for 600ms (same as real gesture commit path).
-    window.setTimeout(() => t.setPinchActive(false), 600);
-  }, scale);
-}
-
 async function tapFirstPhoto(page: Page) {
   const clicked = await page.evaluate(() => {
     const btn = document.querySelector(
@@ -49,34 +45,26 @@ async function tapFirstPhoto(page: Page) {
   expect(clicked, "no photo button found").toBe(true);
 }
 
-// Check whether a pinch-loading overlay is visible in the DOM right now.
-// We look for the fixed overlay that PinchTransitionOverlay renders — it
-// has aria-hidden="true", position:fixed, z-index:9999, and contains the
-// background-image div. We also accept a dedicated data-testid attribute
-// that the implementation may choose to add.
-async function isPinchOverlayVisible(page: Page): Promise<boolean> {
+// Read computed opacity of the overlay at the current moment.
+async function getOverlayOpacity(page: Page): Promise<number | null> {
   return page.evaluate(() => {
-    // Primary: data-testid (implementation may add this)
-    const byTestId = document.querySelector(
+    const el = document.querySelector(
       '[data-testid="pinch-thumb-overlay"]',
     ) as HTMLElement | null;
-    if (byTestId) {
-      const style = window.getComputedStyle(byTestId);
-      return style.display !== "none" && style.opacity !== "0" && style.visibility !== "hidden";
-    }
+    if (!el) return null;
+    return parseFloat(window.getComputedStyle(el).opacity);
+  });
+}
 
-    // Fallback: the portal div rendered by PinchTransitionOverlay has
-    // aria-hidden="true", position:fixed, z-index:9999. Match it.
-    const portals = Array.from(
-      document.querySelectorAll<HTMLElement>('[aria-hidden="true"]'),
-    ).filter((el) => {
-      const s = window.getComputedStyle(el);
-      return s.position === "fixed" && parseInt(s.zIndex, 10) >= 9999;
-    });
-    if (portals.length === 0) return false;
-    const el = portals[0];
-    const st = window.getComputedStyle(el);
-    return st.display !== "none" && st.opacity !== "0" && st.visibility !== "hidden";
+// Check whether the pinch-hold overlay is visible right now.
+async function isPinchOverlayVisible(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const el = document.querySelector(
+      '[data-testid="pinch-thumb-overlay"]',
+    ) as HTMLElement | null;
+    if (!el) return false;
+    const style = window.getComputedStyle(el);
+    return style.display !== "none" && style.opacity !== "0" && style.visibility !== "hidden";
   });
 }
 
@@ -86,25 +74,82 @@ test.describe("Pinch thumb overlay persists until full image loads", () => {
     await waitForGalleryReady(page);
   });
 
-  // After fingers are released (simulated via setSeedZoom + tap), the
-  // thumbnail overlay must be visible immediately after the lightbox portal
-  // appears. We use the test-hook holdPinchOverlay to prevent auto-dismiss
-  // on browser-cached images (where img.complete fires before we can check).
-  test("overlay stays visible right after lightbox opens (before full img loads)", async ({
+  // Regression: overlay must be at opacity:1 on the FIRST PAINT after open,
+  // not fade-in from 0. This is the root cause of the black flash on iPhone.
+  // We check computed opacity within one rAF of the click.
+  test("overlay is at opacity:1 on first paint (no fade-in black flash)", async ({
     page,
   }) => {
-    // Tell the polling loop not to auto-dismiss the overlay — simulates the
-    // real case where the full image is still loading (not yet in cache).
+    // Set up the pinch state so open() captures pinchThumbSrc.
     await page.evaluate(() => {
       const t = (window as unknown as Record<string, unknown>).__bulkaTest as
-        | { setHoldPinchOverlay: (v: boolean) => void }
+        | {
+            setPendingZoom: (n: number) => void;
+            setPinchActive: (b: boolean) => void;
+            setHoldPinchOverlay: (b: boolean) => void;
+          }
         | undefined;
       if (!t) throw new Error("__bulkaTest hook not present");
+      t.setPendingZoom(2.5);
+      t.setPinchActive(true);
+      // Hold the overlay so the poll doesn't dismiss it before we can read opacity.
       t.setHoldPinchOverlay(true);
     });
 
-    // Simulate pinch-commit state: scale 2.5, pinchActive grace 600ms.
-    await setSeedZoom(page, 2.5);
+    // Open the lightbox (simulates commit from pinch release).
+    await tapFirstPhoto(page);
+
+    // Wait for lightbox portal to appear.
+    await page.locator(".yarl__portal").waitFor({ state: "attached", timeout: 5_000 });
+
+    // Read computed opacity within one rAF — this is the critical check.
+    // If overlay used useState(false)+useEffect to show itself, we'd see
+    // opacity < 1 here because the useEffect fires AFTER paint.
+    const opacityOnMount = await page.evaluate((): Promise<number | null> => {
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          const el = document.querySelector(
+            '[data-testid="pinch-thumb-overlay"]',
+          ) as HTMLElement | null;
+          if (!el) { resolve(null); return; }
+          resolve(parseFloat(window.getComputedStyle(el).opacity));
+        });
+      });
+    });
+
+    expect(
+      opacityOnMount,
+      "pinch-thumb-overlay must be in DOM on first rAF after lightbox mounts",
+    ).not.toBeNull();
+    expect(
+      opacityOnMount,
+      "Overlay must be at opacity:1 on first paint — no fade-in from 0",
+    ).toBe(1);
+  });
+
+  // Core behaviour: overlay stays visible while pinchActive=true, even if
+  // the image is already browser-cached (img.complete=true immediately).
+  // This directly tests the AND-gate: overlay hides only when BOTH
+  // imageLoaded AND !pinchActive.
+  test("overlay stays visible while pinchActive=true (cached image case)", async ({
+    page,
+  }) => {
+    // Set up the pinch state: scale > 1 triggers the hold-overlay path,
+    // and pinchActive=true keeps the AND-gate from dismissing it.
+    await page.evaluate(() => {
+      const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+        | {
+            setPendingZoom: (n: number) => void;
+            setPinchActive: (b: boolean) => void;
+            setHoldPinchOverlay: (b: boolean) => void;
+          }
+        | undefined;
+      if (!t) throw new Error("__bulkaTest hook not present");
+      t.setPendingZoom(2.5);
+      t.setPinchActive(true);
+      // Do NOT hold the overlay via test hook here — we want the real poll
+      // to run, held only by pinchActive=true (the production AND-gate).
+    });
 
     // Open the lightbox (simulates finger release → commit → open).
     await tapFirstPhoto(page);
@@ -112,38 +157,46 @@ test.describe("Pinch thumb overlay persists until full image loads", () => {
     // Wait for lightbox portal to appear.
     await page.locator(".yarl__portal").waitFor({ state: "attached", timeout: 5_000 });
 
-    // Immediately after portal mount — the thumbnail overlay should be visible.
-    const overlayVisibleImmediately = await isPinchOverlayVisible(page);
+    // The overlay must be visible immediately — pinchActive still true.
+    const visibleAtMount = await isPinchOverlayVisible(page);
     expect(
-      overlayVisibleImmediately,
-      "PinchTransitionOverlay should still be visible right after lightbox opens (full img not yet loaded)",
+      visibleAtMount,
+      "Overlay must be visible right after lightbox mounts (pinch still active)",
     ).toBe(true);
 
-    // Release the hold — simulates image finishing load.
+    // After 300ms the overlay must still be visible — pinchActive still true.
+    await page.waitForTimeout(300);
+    const visibleAt300 = await isPinchOverlayVisible(page);
+    expect(
+      visibleAt300,
+      "Overlay must still be visible at 300ms (pinch grace has not elapsed)",
+    ).toBe(true);
+
+    // Release the pinch grace — simulates the 600ms timer firing.
     await page.evaluate(() => {
       const t = (window as unknown as Record<string, unknown>).__bulkaTest as
-        | { setHoldPinchOverlay: (v: boolean) => void }
+        | { setPinchActive: (b: boolean) => void }
         | undefined;
       if (!t) throw new Error("__bulkaTest hook not present");
-      t.setHoldPinchOverlay(false);
+      t.setPinchActive(false);
     });
 
-    // Wait for poll to fire and overlay to fade + unmount (300ms fade + buffer).
-    await page.waitForTimeout(600);
+    // Give the rAF poll a few frames to detect the release and call setState,
+    // plus the 300ms fade-out transition to complete.
+    await page.waitForTimeout(500);
 
-    const overlayVisibleAfterLoad = await isPinchOverlayVisible(page);
+    const visibleAfterRelease = await isPinchOverlayVisible(page);
     expect(
-      overlayVisibleAfterLoad,
-      "PinchTransitionOverlay should be hidden after image load is released",
+      visibleAfterRelease,
+      "Overlay must be hidden after pinch grace is released",
     ).toBe(false);
   });
 
-  // Regression guard: a normal tap (no pinch) must NOT leave the overlay
-  // hanging around.
+  // Regression guard: a normal tap (no pinch) must NOT show the overlay at all.
   test("no pinch seed → overlay not present after lightbox opens", async ({
     page,
   }) => {
-    // No setSeedZoom call — pendingZoom stays at 1.
+    // No setPendingZoom call — pendingZoom stays at 1 → pinchThumbSrc = null.
     await tapFirstPhoto(page);
     await page.locator(".yarl__portal").waitFor({ state: "attached", timeout: 5_000 });
     await page.waitForTimeout(300);
