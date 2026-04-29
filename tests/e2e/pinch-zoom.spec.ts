@@ -79,6 +79,84 @@ async function readSlideScale(page: Page): Promise<number | null> {
 }
 
 test.describe("Seed zoom carries through to lightbox", () => {
+  // ── Bug fix: thumbnail/full-image ratio must be factored in ──────────────────
+  //
+  // PROBLEM: Before the fix, pendingZoomRef held the raw pinch scale relative
+  // to the THUMBNAIL, but changeZoom() interprets its argument as scale relative
+  // to the FIT-TO-SCREEN image. If the thumbnail is 120px wide and the fit-width
+  // is 390px, a 2× pinch on the thumbnail = 0.62× in yarl units — not 2×.
+  // The old code passed the raw 2 to changeZoom, producing ~3× more zoom than
+  // the user actually performed.
+  //
+  // FIX: pendingZoomRef now stores thumb_width × pinch_scale (target CSS pixels).
+  // The rAF poll reads the actual fit_width from the DOM and computes:
+  //   yarl_zoom = clamp(1, maxZoom, target_px / fit_width)
+  //
+  // setThumbWidth(px) sets pendingThumbWidthRef — when non-zero it signals the
+  // rAF poll to use the new pixel-based path. When zero (legacy/unit-test path)
+  // the ref value is used directly as yarl zoom (backward compat).
+  //
+  // Regression guard: verifies the pixel-based thumb/fit-width conversion end-to-end.
+  test("pinch scale on thumbnail maps to correct zoom in lightbox (thumb/fit ratio)", async ({
+    page,
+  }) => {
+    await page.goto("/?touch=1", { waitUntil: "load" });
+    await waitForGalleryReady(page);
+
+    // Read the actual rendered width of the first thumbnail from the DOM.
+    const thumbWidth = await page.evaluate(() => {
+      const img = document.querySelector(
+        '[data-photo-strip] div.flex.flex-nowrap button img',
+      ) as HTMLImageElement | null;
+      return img ? img.getBoundingClientRect().width : 0;
+    });
+    expect(thumbWidth, "could not read thumb width").toBeGreaterThan(0);
+
+    // Simulate: user pinches thumbnail to 2× its size.
+    const pinchScale = 2.0;
+    // Set pendingZoomRef = thumbWidth × pinchScale (new "target px" semantics).
+    await page.evaluate(({ scale, width }) => {
+      const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+        | { setPendingZoom: (n: number) => void; setPinchActive: (b: boolean) => void; setThumbWidth: (n: number) => void }
+        | undefined;
+      if (!t) throw new Error("__bulkaTest hook not present");
+      // setThumbWidth signals the rAF poll to use pixel-based conversion.
+      t.setThumbWidth(width);
+      t.setPendingZoom(scale * width);  // target width in CSS px
+      t.setPinchActive(true);
+      window.setTimeout(() => t.setPinchActive(false), 600);
+    }, { scale: pinchScale, width: thumbWidth });
+
+    await tapFirstPhoto(page);
+    await page
+      .locator(".yarl__slide_current .yarl__fullsize")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    await page.waitForTimeout(800);
+
+    // Read the rendered pixel width of the full image in the lightbox.
+    const renderedWidth = await page.evaluate(() => {
+      const img = document.querySelector(
+        ".yarl__slide_current .yarl__fullsize img",
+      ) as HTMLImageElement | null;
+      if (!img) return null;
+      return img.getBoundingClientRect().width;
+    });
+    expect(renderedWidth, "could not read rendered image width").not.toBeNull();
+
+    // Expected: rendered image ≈ thumbWidth × pinchScale (±30% tolerance).
+    // Before fix: rendered image ≈ fitWidth × pinchScale (much larger).
+    const expected = thumbWidth * pinchScale;
+    const tolerance = 0.30;
+    expect(
+      renderedWidth!,
+      `expected rendered width ≈ ${expected.toFixed(0)}px (thumb×scale), got ${renderedWidth!.toFixed(0)}px`,
+    ).toBeGreaterThan(expected * (1 - tolerance));
+    expect(
+      renderedWidth!,
+      `expected rendered width ≈ ${expected.toFixed(0)}px (thumb×scale), got ${renderedWidth!.toFixed(0)}px`,
+    ).toBeLessThan(expected * (1 + tolerance));
+  });
+
   test("opening lightbox with pendingZoom=2.5 makes slide render at scale ≈2.5", async ({
     page,
   }) => {
