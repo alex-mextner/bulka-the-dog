@@ -160,6 +160,16 @@ export function PhotoStrip({
   // Sliding-window of recent scroll events for velocity estimation.
   const scrollSamplesRef = React.useRef<{ t: number; y: number }[]>([]);
 
+  // Mouse-entry X anchor (Bug B+C). Set on first pointerMove after mouseEnter,
+  // cleared on mouseLeave. Null = mouse is outside the strip.
+  const mouseEntryXRef = React.useRef<number | null>(null);
+  // Current mouse-driven velocity (px/s, signed). Positive = offset increasing
+  // (track moves left = scroll right). Computed in onPointerMove.
+  const mouseVelocityRef = React.useRef(0);
+  // Timestamp (performance.now) until which mouse-drift is blocked after a
+  // wheel event. 0 = no cooldown active. (Bug A)
+  const mouseDriftBlockedUntilRef = React.useRef(0);
+
   const [fits, setFits] = React.useState(false);
 
   // CRITICAL: useState init MUST return the SSG-side value (false) on
@@ -173,6 +183,21 @@ export function PhotoStrip({
   // device" decision.
   const [touchMode, setTouchMode] = React.useState<boolean>(false);
   const [reducedMotion, setReducedMotion] = React.useState<boolean>(false);
+
+  // Debug hook for e2e tests. Installed only in non-production builds.
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (process.env.NODE_ENV === "production") return;
+    (window as unknown as Record<string, unknown>).__photoStripDebug = {
+      getOffset: () => offsetRef.current,
+      getEntryX: () => mouseEntryXRef.current,
+      getMouseVelocity: () => mouseVelocityRef.current,
+      getMouseBlocked: () => performance.now() < mouseDriftBlockedUntilRef.current,
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__photoStripDebug;
+    };
+  }, []);
 
   // Re-sync from the real browser at mount. SSG ran the useState initializers
   // in Node where window is undefined and returned false; without this the
@@ -248,9 +273,26 @@ export function PhotoStrip({
         offsetRef.current = 0;
         if (track) track.style.transform = "translate3d(0,0,0)";
       } else if (!touchMode && engagedRef.current) {
-        // Desktop mouse scrub.
-        const tgt = targetOffsetRef.current;
-        offsetRef.current += (tgt - offsetRef.current) * Math.min(1, 12 * dt);
+        // Desktop mouse scrub — velocity-based (Bug B+C).
+        // Bug A: skip mouse velocity while cooldown is active; let strip drift.
+        const mouseBlocked = performance.now() < mouseDriftBlockedUntilRef.current;
+        const vel = mouseBlocked ? 0 : mouseVelocityRef.current;
+        if (vel !== 0) {
+          offsetRef.current += vel * dt;
+          offsetRef.current = Math.max(0, Math.min(max, offsetRef.current));
+          if (offsetRef.current >= max) directionRef.current = -1;
+          else if (offsetRef.current <= 0) directionRef.current = 1;
+        } else {
+          // No mouse velocity — auto-drift continues (keeps strip moving).
+          offsetRef.current += baseSpeed * dt * directionRef.current;
+          if (offsetRef.current >= max) {
+            offsetRef.current = max;
+            directionRef.current = -1;
+          } else if (offsetRef.current <= 0) {
+            offsetRef.current = 0;
+            directionRef.current = 1;
+          }
+        }
         if (track)
           track.style.transform = `translate3d(${-offsetRef.current}px, 0, 0)`;
       } else if (touchMode && phaseRef.current === "spring") {
@@ -598,6 +640,8 @@ export function PhotoStrip({
   }, [touchMode, reducedMotion, baseSpeed]);
 
   // Mouse-driven scrubbing. Desktop only.
+  // Bug B: first move after mouseEnter seeds entryX, velocity = 0 that frame.
+  // Bug C: velocity = asymmetric formula based on distance to the nearest edge.
   const onPointerMove = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (touchMode || reducedMotion) return;
@@ -606,11 +650,40 @@ export function PhotoStrip({
       const el = viewportRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / Math.max(1, rect.width);
-      const clamped = Math.max(0, Math.min(1, x));
-      const max = Math.max(0, trackWidthRef.current - viewportWidthRef.current);
-      targetOffsetRef.current = clamped * max;
-      void maxBoost;
+
+      // Bug B: seed entryX on first move inside the strip.
+      if (mouseEntryXRef.current === null) {
+        mouseEntryXRef.current = e.clientX;
+        mouseVelocityRef.current = 0;
+        return; // velocity = 0 this frame → no jump
+      }
+
+      const entryX = mouseEntryXRef.current;
+      const dx = e.clientX - entryX; // positive = cursor moved right from entry
+
+      if (dx === 0) {
+        mouseVelocityRef.current = 0;
+        return;
+      }
+
+      // Bug C: asymmetric velocity — normalise by distance to the edge in
+      // the direction of movement.
+      // entryX is in client coords; rect.left / rect.right bound the strip.
+      const distToLeftEdge = Math.max(1, entryX - rect.left);
+      const distToRightEdge = Math.max(1, rect.right - entryX);
+
+      let vel: number;
+      if (dx < 0) {
+        // Cursor moved left → offset should decrease (scroll left).
+        // Normalise by distance to left edge: the closer to the left edge
+        // entryX was, the smaller distToLeftEdge and the faster vel becomes.
+        vel = -(Math.abs(dx) / distToLeftEdge) * maxBoost;
+      } else {
+        // Cursor moved right → offset increases (scroll right).
+        vel = (dx / distToRightEdge) * maxBoost;
+      }
+
+      mouseVelocityRef.current = vel;
     },
     [touchMode, reducedMotion, maxBoost],
   );
@@ -638,12 +711,18 @@ export function PhotoStrip({
     <div
       ref={viewportRef}
       onPointerMove={onPointerMove}
-      onMouseEnter={() => {
+      onMouseEnter={(e) => {
         if (touchMode) return;
+        // Seed entryX so the first pointerMove fires velocity = 0 (Bug B).
+        mouseEntryXRef.current = e.clientX;
+        mouseVelocityRef.current = 0;
         setEngaged(true);
       }}
       onMouseLeave={() => {
         if (touchMode) return;
+        // Clear entryX so re-entry reseeds cleanly (Bug B+C).
+        mouseEntryXRef.current = null;
+        mouseVelocityRef.current = 0;
         setEngaged(false);
       }}
       onFocusCapture={() => {
@@ -654,6 +733,14 @@ export function PhotoStrip({
         if (touchMode) return;
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
           setEngaged(false);
+        }
+      }}
+      // Bug A: after a trackpad wheel event, block mouse-drift for 1500ms so
+      // incidental mousemove while lifting fingers doesn't jerk the strip.
+      onWheel={(e) => {
+        if (touchMode) return;
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+          mouseDriftBlockedUntilRef.current = performance.now() + 1500;
         }
       }}
       // `data-photo-strip` is a readiness marker for e2e tests — they wait
