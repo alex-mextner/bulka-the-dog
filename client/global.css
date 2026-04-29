@@ -143,6 +143,14 @@
     width: 100%;
     max-width: 100vw;
     position: relative;
+    /* Safari white-strip fix: `100vh` resolves to the "large viewport"
+       (address-bar-included) height. When the address bar is visible the
+       visual viewport is shorter, so the body can fall short of the
+       viewport bottom and leave the raw <html> background exposed as a
+       thin stripe. `min-height: 100dvh` (dynamic viewport height,
+       iOS 15.4+) always matches the current visual viewport height,
+       whether the address bar is shown or hidden. */
+    min-height: 100dvh;
   }
 
   h1 {
@@ -192,5 +200,18 @@
      so we add it here so anchor links don't land behind the nub. */
   section[id] {
     scroll-margin-top: calc(72px + var(--safe-area-top));
+  }
+
+  /* iOS Safari lightbox height fix: `position:fixed; inset:0` alone is not
+     sufficient to guarantee full-screen height when the address bar is visible.
+     The visual viewport is shorter than 100vh in that state, and fixed elements
+     sized only via inset may not stretch to cover it.
+     `height: 100dvh` (dynamic viewport height — iOS 15.4+) explicitly sizes the
+     portal to the current visual viewport, so the lightbox fills the screen
+     regardless of address-bar state.
+     Applied via CSS (not inline style) to avoid interfering with yarl's internal
+     DOM measurement of fit_width (getBoundingClientRect timing issue). */
+  .yarl__portal {
+    height: 100dvh;
   }
 }
