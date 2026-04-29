@@ -477,8 +477,17 @@ export default function Index() {
               {t("habits.title")}
             </h2>
 
-            {/* Mobile: sticky photo above the scrolling habit items */}
-            <div data-mobile-photo-stick="" className="sticky top-[calc(4.5rem+var(--safe-area-top))] md:hidden mb-6 z-20 bg-background">
+            {/* Mobile: sticky photo above the scrolling habit items.
+                Header height = h-[60px] inner div + 1px border-b = 61px (+ safe-area-top
+                which is 0 on non-notch devices). The Tailwind arbitrary-value form
+                `top-[calc(4.5rem+var(--safe-area-top))]` emits calc without spaces around
+                `+` which is invalid CSS. Use inline style to get correct syntax AND the
+                right value (61px, not 72px = 4.5rem which left an 11px gap). */}
+            <div
+              data-mobile-photo-stick=""
+              className="sticky md:hidden mb-6 z-20 bg-background"
+              style={{ top: "calc(61px + var(--safe-area-top, 0px))" }}
+            >
               <PhotoFader activeIdx={habitsActiveIdx} />
             </div>
 

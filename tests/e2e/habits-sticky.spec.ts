@@ -2,18 +2,18 @@ import { expect, test } from "@playwright/test";
 
 // Habits scrollytelling — sticky photo tests.
 //
-// Mobile: single photo at top, sticky top = 4.5rem + safe-area-top.
+// Mobile: single photo at top, sticky top = 61px + safe-area-top.
+//   61px = h-[60px] inner div + 1px border-b.
+//   Previously was `4.5rem + safe-area` (72px) which left an 11px gap where
+//   the previous section's text was visible above the sticky photo.
 // Desktop: two stacked photos on left, sticky top = 6rem (top-24).
 //
 // Key invariant: after scrolling INTO the habits section (past the heading),
-// the sticky photo must be at its threshold top value — NOT scrolled away
-// and NOT above the threshold.
+// the sticky photo top must align with the header bottom (±5px).
 //
-// Chromium with iPhone UA: safe-area-inset-top = 0 (no notch emulation),
-// so expected sticky top ≈ 72px (4.5rem = 72px).
+// Chromium with iPhone UA: safe-area-inset-top = 0 (no notch emulation).
 
-const HEADER_HEIGHT_PX = 60; // approx visible header height in test env
-const MOBILE_STICKY_TOP = 72; // 4.5rem = 72px, safe-area = 0 in Chromium
+const MOBILE_STICKY_TOP = 61; // 60px (h-[60px]) + 1px border-b = 61px
 const DESKTOP_STICKY_TOP = 96; // top-24 = 96px
 
 async function scrollPastHabitsHeading(page: import("@playwright/test").Page, extraPx = 300) {
@@ -39,27 +39,30 @@ test.describe("Habits sticky photo — mobile", () => {
     await page.waitForSelector("[data-habit-item]", { timeout: 10_000 });
   });
 
-  // ── RED: sticky photo sticks at top while scrolling through items ──────────
+  // ── sticky photo sticks at top while scrolling through items ───────────────
   // Fails when: (a) calc() syntax is invalid so `top` has no value → position:sticky
-  // never activates, or (b) top value is wrong.
+  // never activates, or (b) top value doesn't match header height leaving a gap.
   test("sticky photo stays at threshold after scrolling into section", async ({ page }) => {
     await scrollPastHabitsHeading(page, 200);
 
-    const top = await page.evaluate(() => {
-      const el = document.querySelector(
+    const { photoTop, headerBottom } = await page.evaluate(() => {
+      const photo = document.querySelector(
         "[data-mobile-photo-stick]",
       ) as HTMLElement | null;
-      if (!el) return null;
-      return el.getBoundingClientRect().top;
+      const header = document.querySelector("header") as HTMLElement | null;
+      if (!photo || !header) return { photoTop: null, headerBottom: null };
+      return {
+        photoTop: photo.getBoundingClientRect().top,
+        headerBottom: header.getBoundingClientRect().bottom,
+      };
     });
 
-    expect(top, "mobile sticky photo not found in DOM").not.toBeNull();
-    // Should be stuck near MOBILE_STICKY_TOP (72px), not scrolled off-screen.
-    // Allow ±20px for subpixel rounding and header measurement variance.
-    expect(top!, `sticky photo scrolled away (top=${top})`).toBeGreaterThan(0);
-    expect(top!, `sticky photo above threshold (top=${top})`).toBeLessThan(
-      MOBILE_STICKY_TOP + 20,
-    );
+    expect(photoTop, "mobile sticky photo not found in DOM").not.toBeNull();
+    expect(headerBottom, "header not found in DOM").not.toBeNull();
+    // Sticky photo top must be flush with header bottom — no gap where previous
+    // section content bleeds through. Allow ±5px for subpixel rounding.
+    const gap = Math.abs(photoTop! - headerBottom!);
+    expect(gap, `sticky photo top (${photoTop}px) not flush with header bottom (${headerBottom}px); gap=${gap}px`).toBeLessThan(5);
   });
 
   test("sticky photo is still visible halfway through the section", async ({ page }) => {
@@ -110,9 +113,8 @@ test.describe("Habits sticky photo — mobile", () => {
       return window.getComputedStyle(el).top;
     });
     expect(topValue, "element not found").not.toBeNull();
-    // Should resolve to a pixel value matching 4.5rem (~72px in 16px base).
-    // Not 'auto', not '0px'.
-    expect(topValue, `top should be ~72px, got '${topValue}'`).not.toBe("auto");
+    // Should resolve to ~61px (60px h-[60px] + 1px border-b). Not 'auto', not '0px'.
+    expect(topValue, `top should be ~61px, got '${topValue}'`).not.toBe("auto");
     const px = parseFloat(topValue!);
     expect(px, `top should be ≥ 60px (header height), got ${px}px`).toBeGreaterThanOrEqual(60);
   });
