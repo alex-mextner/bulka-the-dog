@@ -144,8 +144,14 @@ export function Header() {
     // images that came into the viewport during phase 1 may have
     // expanded the page, shifting the section's true position.
     requestAnimationFrame(() => {
+      // Re-lookup the element: setIsMenuOpen(false) triggers a React re-render
+      // that can unmount and remount sections below the fold, invalidating any
+      // element reference captured before the state update. A fresh getElementById
+      // always returns the live DOM node.
+      const liveEl = document.getElementById(id);
+      if (!liveEl) return;
       const settledTarget =
-        element.getBoundingClientRect().top + window.scrollY - headerHeight;
+        liveEl.getBoundingClientRect().top + window.scrollY - headerHeight;
       window.scrollTo({ top: settledTarget, behavior: "smooth" });
     });
 
@@ -158,10 +164,18 @@ export function Header() {
     // relative top and nudge if it's drifted >30px from the header
     // offset. Stops as soon as the section is parked correctly. Cheap
     // (a few rect reads), bounded (6 iterations max).
+    // NOTE: element ref is re-looked-up each iteration — setIsMenuOpen(false)
+    // triggers a React re-render that can remount DOM sections, making the
+    // original ref stale (getBoundingClientRect returns 0 on detached nodes).
     let iterations = 0;
     const settle = () => {
       iterations++;
-      const currentTop = element.getBoundingClientRect().top;
+      const liveEl = document.getElementById(id);
+      if (!liveEl) {
+        if (iterations < 6) window.setTimeout(settle, 250);
+        return;
+      }
+      const currentTop = liveEl.getBoundingClientRect().top;
       const drift = currentTop - headerHeight;
       if (Math.abs(drift) > 30) {
         window.scrollTo({
