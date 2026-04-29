@@ -227,6 +227,11 @@ type GalleryContextValue = {
   // wind down (gesture ended → 500ms grace then exit so we stop fighting
   // yarl's own pinch-zoom inside the lightbox).
   pinchActiveRef: React.MutableRefObject<boolean>;
+  // Test-only: when true, the pinch-hold overlay poll refuses to dismiss
+  // the overlay even if the image has already loaded. Set via
+  // __bulkaTest.setHoldPinchOverlay(true) before opening the lightbox so
+  // the e2e test can assert visibility before releasing.
+  holdPinchOverlayRef: React.MutableRefObject<boolean>;
 };
 
 const GalleryContext = React.createContext<GalleryContextValue | null>(null);
@@ -256,6 +261,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const pendingZoomRef = React.useRef<number>(1);
   const pendingPanRef = React.useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const pinchActiveRef = React.useRef<boolean>(false);
+  const holdPinchOverlayRef = React.useRef<boolean>(false);
 
   // Test hook — exposes the internal refs so e2e tests can drive the
   // seed-zoom path without simulating real multi-touch (which Chromium's
@@ -276,6 +282,11 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       getPendingPan: () => pendingPanRef.current,
       setPinchActive: (v: boolean) => {
         pinchActiveRef.current = v;
+      },
+      // Prevent the pinch-hold overlay from auto-dismissing on image load.
+      // Use in e2e tests to assert overlay visibility before allowing release.
+      setHoldPinchOverlay: (v: boolean) => {
+        holdPinchOverlayRef.current = v;
       },
     };
     return () => {
@@ -392,6 +403,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       pendingZoomRef,
       pendingPanRef,
       pinchActiveRef,
+      holdPinchOverlayRef,
     }),
     [register, update, unregister, open, entries, isOpen, index, close, setTrigger],
   );
@@ -691,7 +703,7 @@ export function GalleryImage({
 // ---------------------------------------------------------------------------
 
 export function GalleryLightbox() {
-  const { entries, isOpen, index, close, pendingZoomRef, pendingPanRef, pinchActiveRef } =
+  const { entries, isOpen, index, close, pendingZoomRef, pendingPanRef, pinchActiveRef, triggerRef, holdPinchOverlayRef } =
     useGallery();
   // yarl exposes the active slide's zoom controls through a forwarded ref.
   // We need this to seed the initial zoom level after a pinch-to-open
@@ -848,6 +860,24 @@ export function GalleryLightbox() {
     }
   }, [isOpen]);
 
+  // Safe-area coverage: on iPhone with viewport-fit=cover, iOS paints content
+  // behind the notch (top) and home-indicator strip (bottom). If <body> has a
+  // non-black background colour those safe-area zones show through as coloured
+  // bands even though .yarl__portal covers the visual viewport. Setting body's
+  // background to #000 while the lightbox is open fills those zones with the
+  // same colour as the lightbox, making the strips invisible.
+  // The original background is captured on open and restored on close.
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!isOpen) return;
+    const body = document.body;
+    const originalBg = body.style.backgroundColor;
+    body.style.backgroundColor = "#000";
+    return () => {
+      body.style.backgroundColor = originalBg;
+    };
+  }, [isOpen]);
+
   return (
     <Lightbox
       open={isOpen}
@@ -867,16 +897,16 @@ export function GalleryLightbox() {
       styles={
         {
           // Root = the .yarl__portal element. yarl's own styles.css already
-          // sets `position: fixed; inset: 0` on this element, so we only
-          // need to ensure the background is opaque black. Adding explicit
-          // width/height/inset overrides caused a layout regression on iOS
-          // Safari (safe-area strips at top/bottom). Let yarl's CSS handle
-          // positioning; we only supply the color.
+          // sets `position: fixed; inset: 0` on this element. Use fully
+          // opaque black (no alpha) so no page background bleeds through —
+          // even on devices where the portal doesn't extend to the absolute
+          // screen edge. Semi-transparent (#000 at 0.92) was enough for the
+          // overlay look but let the cream page bg tint through by 8%.
           root: {
-            backgroundColor: "rgba(0, 0, 0, 0.92)",
+            backgroundColor: "#000",
           },
           container: {
-            backgroundColor: "rgba(0, 0, 0, 0.92)",
+            backgroundColor: "#000",
             // Override yarl's slide padding via CSS variable — this is
             // honoured by every slide DOM, including the first one (which
             // otherwise inherits a smaller default in some yarl versions).
