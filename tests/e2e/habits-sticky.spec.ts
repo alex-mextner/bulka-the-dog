@@ -249,7 +249,7 @@ test.describe("Habits sticky photo — desktop", () => {
 
 // ── Bug 2: habitsActiveIdx must match the habit item currently in reading position ──
 // The "max visible pixels" algorithm picks the LONGEST item in view, not the one
-// the user is actually reading.  "In the car" (idx=3, dog_car) is short, so when
+// the user is actually reading.  "In the car" (idx=3, lena_dogs) is short, so when
 // it and "At home" (idx=4, bulka_tv) overlap in the visible area, bulka_tv wins.
 test.describe("Habits photo — correct active index (mobile)", () => {
   test.use({
@@ -264,9 +264,9 @@ test.describe("Habits photo — correct active index (mobile)", () => {
   });
 
   // Scroll so the 4th habit item (🚗 car, idx=3) sits just below the sticky photo
-  // and is the first fully-entering item — then the visible photo must be dog_car,
+  // and is the first fully-entering item — then the visible photo must be lena_dogs,
   // NOT bulka_tv (which is the next longer item).
-  test("car item (idx=3) triggers dog_car photo, not bulka_tv", async ({ page }) => {
+  test("car item (idx=3) triggers lena_dogs photo, not bulka_tv", async ({ page }) => {
     // Step 1: scroll into habits section so the sticky photo is active (stuck at top:0).
     await page.evaluate(() => {
       const heading = document.getElementById("habits-title");
@@ -304,8 +304,8 @@ test.describe("Habits photo — correct active index (mobile)", () => {
     expect(visibleSrc, "no visible photo found in sticky container").not.toBeNull();
     expect(
       visibleSrc!,
-      `expected dog_car photo when car item is at reading position, got: ${visibleSrc}`,
-    ).toContain("dog_car");
+      `expected lena_dogs photo when car item is at reading position, got: ${visibleSrc}`,
+    ).toContain("lena_dogs");
   });
 
   // Active index must not skip backwards as user scrolls forward through all items.
