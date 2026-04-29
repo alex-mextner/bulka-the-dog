@@ -1,5 +1,6 @@
 import "./global.css";
 
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -36,27 +37,46 @@ function Router({ children }: { children: React.ReactNode }) {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <LanguageProvider>
-      <TooltipProvider>
-        <GalleryProvider>
-          <Toaster />
-          <Sonner />
-          <Router>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Router>
-          <GalleryLightbox />
-          <SpeedInsights />
-          <Analytics />
-        </GalleryProvider>
-      </TooltipProvider>
-    </LanguageProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Block iOS Safari's native page-level pinch-zoom. Without this, a 2-finger
+  // pinch on a photo thumbnail simultaneously zooms the page AND the overlay,
+  // and the overlay's initial rect is computed post-zoom so its position is
+  // wrong. `gesturestart` + `gesturechange` cover the full gesture lifecycle.
+  // More reliable than `maximum-scale=1.0` in the viewport meta, which iOS 17+
+  // ignores in some configurations.
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    const prevent = (e: Event) => e.preventDefault();
+    document.addEventListener("gesturestart", prevent, { passive: false });
+    document.addEventListener("gesturechange", prevent, { passive: false });
+    return () => {
+      document.removeEventListener("gesturestart", prevent);
+      document.removeEventListener("gesturechange", prevent);
+    };
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <LanguageProvider>
+        <TooltipProvider>
+          <GalleryProvider>
+            <Toaster />
+            <Sonner />
+            <Router>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Router>
+            <GalleryLightbox />
+            <SpeedInsights />
+            <Analytics />
+          </GalleryProvider>
+        </TooltipProvider>
+      </LanguageProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

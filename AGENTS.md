@@ -1,164 +1,77 @@
-# Fusion Starter
+# Bulka the Dog
 
-A production-ready full-stack React application template with integrated Express server, featuring React Router 6 SPA mode, TypeScript, Vitest, Zod and modern tooling.
+Сайт об удочерении собаки Булки в Белграде. Три языка: `ru` (canonical), `rs` (Serbian), `en` (English).
 
-While the starter comes with a express server, only create endpoint when strictly neccesary, for example to encapsulate logic that must leave in the server, such as private keys handling, or certain DB operations, db...
+Про голос, тон и правила контента — см. `CLAUDE.md`. Этот файл про технику.
 
 ## Tech Stack
 
-- **PNPM**: Prefer pnpm
-- **Frontend**: React 18 + React Router 6 (spa) + TypeScript + Vite + TailwindCSS 3
-- **Backend**: Express server integrated with Vite dev server
-- **Testing**: Vitest
-- **UI**: Radix UI + TailwindCSS 3 + Lucide React icons
+- **Package manager**: pnpm (v10)
+- **Runtime**: Node.js 24
+- **Frontend**: React 18 + React Router 6 + TypeScript + Vite 8
+- **SSG**: vite-react-ssg (статическая генерация — вся страница pre-rendered, нет API-роутов в продакшне)
+- **Styling**: TailwindCSS 3 + Radix UI (shadcn/ui компоненты) + Lucide React
+- **Animation**: Framer Motion
+- **Lightbox**: yet-another-react-lightbox (yarl) с плагинами Zoom, Captions, Counter
+- **3D**: Three.js + @react-three/fiber + @react-three/drei
+- **State**: React Context + TanStack React Query
+- **Forms**: React Hook Form + Zod
+- **Server** (только для локального dev + serverless fallback): Express 5
+- **Testing**: Vitest (unit) + Playwright (e2e)
+- **Deployment**: Vercel (SSG + serverless функции)
+- **Analytics**: @vercel/analytics + @vercel/speed-insights
 
 ## Project Structure
 
 ```
-client/                   # React SPA frontend
-├── pages/                # Route components (Index.tsx = home)
-├── components/ui/        # Pre-built UI component library
-├── App.tsx                # App entry point and with SPA routing setup
-└── global.css            # TailwindCSS 3 theming and global styles
+client/
+├── pages/Index.tsx          # Единственная страница — весь сайт
+├── components/
+│   ├── Gallery.tsx          # Фотогалерея + лайтбокс (pinch-to-open, seed-zoom)
+│   ├── Header.tsx           # Sticky header с навигацией
+│   └── ui/                  # shadcn/ui компоненты
+├── context/LanguageContext  # Переключение языка (ru/rs/en)
+├── lib/translations.ts      # Весь текстовый контент (3 языка)
+├── App.tsx                  # Корень приложения, React Router
+├── global.css               # TailwindCSS темизация + глобальные стили
+└── main.tsx                 # Точка входа (vite-react-ssg)
 
-server/                   # Express API backend
-├── index.ts              # Main server setup (express config + routes)
-└── routes/               # API handlers
+server/
+└── index.ts                 # Express dev-сервер (не используется в продакшне)
 
-shared/                   # Types used by both client & server
-└── api.ts                # Example of how to share api interfaces
+tests/
+└── e2e/                     # Playwright тесты
+
+shared/
+└── api.ts                   # Общие типы client/server
 ```
 
-## Key Features
-
-## SPA Routing System
-
-The routing system is powered by React Router 6:
-
-- `client/pages/Index.tsx` represents the home page.
-- Routes are defined in `client/App.tsx` using the `react-router-dom` import
-- Route files are located in the `client/pages/` directory
-
-For example, routes can be defined with:
-
-```typescript
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-<Routes>
-  <Route path="/" element={<Index />} />
-  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-  <Route path="*" element={<NotFound />} />
-</Routes>;
-```
-
-### Styling System
-
-- **Primary**: TailwindCSS 3 utility classes
-- **Theme and design tokens**: Configure in `client/global.css` 
-- **UI components**: Pre-built library in `client/components/ui/`
-- **Utility**: `cn()` function combines `clsx` + `tailwind-merge` for conditional classes
-
-```typescript
-// cn utility usage
-className={cn(
-  "base-classes",
-  { "conditional-class": condition },
-  props.className  // User overrides
-)}
-```
-
-### Express Server Integration
-
-- **Development**: Single port (8080) for both frontend/backend
-- **Hot reload**: Both client and server code
-- **API endpoints**: Prefixed with `/api/`
-
-#### Example API Routes
-- `GET /api/ping` - Simple ping api
-- `GET /api/demo` - Demo endpoint  
-
-### Shared Types
-Import consistent types in both client and server:
-```typescript
-import { DemoResponse } from '@shared/api';
-```
-
-Path aliases:
-- `@shared/*` - Shared folder
-- `@/*` - Client folder
-
-## Development Commands
+## Commands
 
 ```bash
-pnpm dev        # Start dev server (client + server)
-pnpm build      # Production build
-pnpm start      # Start production server
-pnpm typecheck  # TypeScript validation
-pnpm test          # Run Vitest tests
+pnpm dev           # Dev-сервер
+pnpm build         # Полная сборка (SSG + server)
+pnpm build:client  # Только SSG (vite-react-ssg build)
+pnpm typecheck     # tsc без emit
+pnpm test          # Vitest unit-тесты
+pnpm test:e2e      # Playwright e2e (нужен запущенный dev-сервер)
+pnpm test:e2e:prod # Playwright против продакшна (bulka.rs)
 ```
 
-## Adding Features
+## Key files
 
-### Add new colors to the theme
+- `client/lib/translations.ts` — весь копирайт, три языка. Менять только здесь.
+- `client/components/Gallery.tsx` — GalleryProvider + GalleryImage + GalleryLightbox + PinchTransitionOverlay
+- `client/pages/Index.tsx` — единственная страница, все секции
 
-Open `client/global.css` and `tailwind.config.ts` and add new tailwind colors.
+## Path aliases
 
-### New API Route
-1. **Optional**: Create a shared interface in `shared/api.ts`:
-```typescript
-export interface MyRouteResponse {
-  message: string;
-  // Add other response properties here
-}
-```
+- `@/*` → `client/`
+- `@shared/*` → `shared/`
 
-2. Create a new route handler in `server/routes/my-route.ts`:
-```typescript
-import { RequestHandler } from "express";
-import { MyRouteResponse } from "@shared/api"; // Optional: for type safety
+## Conventions
 
-export const handleMyRoute: RequestHandler = (req, res) => {
-  const response: MyRouteResponse = {
-    message: 'Hello from my endpoint!'
-  };
-  res.json(response);
-};
-```
-
-3. Register the route in `server/index.ts`:
-```typescript
-import { handleMyRoute } from "./routes/my-route";
-
-// Add to the createServer function:
-app.get("/api/my-endpoint", handleMyRoute);
-```
-
-4. Use in React components with type safety:
-```typescript
-import { MyRouteResponse } from '@shared/api'; // Optional: for type safety
-
-const response = await fetch('/api/my-endpoint');
-const data: MyRouteResponse = await response.json();
-```
-
-### New Page Route
-1. Create component in `client/pages/MyPage.tsx`
-2. Add route in `client/App.tsx`:
-```typescript
-<Route path="/my-page" element={<MyPage />} />
-```
-
-## Production Deployment
-
-- **Standard**: `pnpm build`
-- **Binary**: Self-contained executables (Linux, macOS, Windows)
-- **Cloud Deployment**: Use either Netlify or Vercel via their MCP integrations for easy deployment. Both providers work well with this starter template.
-
-## Architecture Notes
-
-- Single-port development with Vite + Express integration
-- TypeScript throughout (client, server, shared)
-- Full hot reload for rapid development
-- Production-ready with multiple deployment options
-- Comprehensive UI component library included
-- Type-safe API communication via shared interfaces
+- `cn()` из `@/lib/utils` для conditional classNames (clsx + tailwind-merge)
+- Компоненты в `client/components/ui/` — shadcn/ui, не трогать без необходимости
+- Новые цвета темы — в `client/global.css` (CSS vars) + `tailwind.config.ts`
+- Контент только в `translations.ts`, не hardcode в JSX

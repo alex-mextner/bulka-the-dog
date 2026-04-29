@@ -598,6 +598,12 @@ export function GalleryImage({
       active = true;
       pinchActiveRef.current = true;
 
+      // Start decoding the full-res image while the user is still pinching
+      // so the lightbox doesn't flash a black frame on commit.
+      const preload = new Image();
+      preload.decode?.().catch(() => {});
+      preload.src = src;
+
       // Snapshot the button rect AND its border-radius so the overlay
       // exactly mirrors the polaroid frame visually.
       const rect = btn.getBoundingClientRect();
@@ -854,27 +860,13 @@ export function GalleryLightbox() {
       carousel={{ finite: false }}
       styles={
         {
-          // Root = the .yarl__portal element. Force full-screen sizing
-          // including under iOS Safari's status bar and address bar.
-          // Pairs with `viewport-fit=cover` in index.html — that meta is
-          // what unlocks the large viewport on iOS; lvh/lvw here is the
-          // belt to yarl's existing `inset: 0` suspenders. We chain
-          // 100vh/100vw → 100lvh/100lvw via CSS-syntax-aware fallback by
-          // using both the `width` and `height` props twice: React strips
-          // duplicate keys but yarl renders the SlotCSSProperties through
-          // a stylesheet/inline-style merge that respects the latter
-          // declaration. To be safe on browsers that don't grok lvh/lvw,
-          // we lean on yarl's default `inset: 0` (already in styles.css)
-          // for the fallback.
+          // Root = the .yarl__portal element. yarl's own styles.css already
+          // sets `position: fixed; inset: 0` on this element, so we only
+          // need to ensure the background is opaque black. Adding explicit
+          // width/height/inset overrides caused a layout regression on iOS
+          // Safari (safe-area strips at top/bottom). Let yarl's CSS handle
+          // positioning; we only supply the color.
           root: {
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: "100lvw",
-            height: "100lvh",
-            padding: 0,
-            margin: 0,
             backgroundColor: "rgba(0, 0, 0, 0.92)",
           },
           container: {
