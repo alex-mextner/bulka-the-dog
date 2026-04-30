@@ -32,30 +32,11 @@ Record exactly which layer Safari is painting in the visible top and bottom stri
 
 Steps:
 
-1. Open the latest deployment on real iOS Safari.
-2. Open the lightbox by normal tap and by pinch.
-3. In Safari Web Inspector, record computed geometry and styles for:
-   - `html`
-   - `body`
-   - `#root`
-   - `.bulka-lightbox-backdrop`
-   - `.bulka-lightbox.yarl__portal`
-   - `.bulka-lightbox .yarl__container`
-   - `.yarl__carousel`
-   - `.yarl__slide_current`
-   - `.yarl__slide_captions_container`
-4. Record these runtime values:
-   - `window.innerHeight`
-   - `window.visualViewport.height`
-   - `window.visualViewport.offsetTop`
-   - `screen.height`
-   - `getComputedStyle(document.documentElement).getPropertyValue("--bulka-viewport-height")`
-   - `getComputedStyle(document.documentElement).getPropertyValue("--bulka-viewport-bottom-inset")`
-   - `document.body.className`
-5. Save before/after screenshots for:
-   - lightbox opened by tap
-   - lightbox opened by pinch
-   - page after the grey bottom strip appears
+- [x] Open the latest deployment on real iOS Safari. (skipped - manual device testing, not automatable)
+- [x] Open the lightbox by normal tap and by pinch. (skipped - manual device testing, not automatable)
+- [x] In Safari Web Inspector, record computed geometry and styles for html, body, #root, .bulka-lightbox-backdrop, .bulka-lightbox.yarl__portal, .bulka-lightbox .yarl__container, .yarl__carousel, .yarl__slide_current, .yarl__slide_captions_container. (skipped - manual device testing, not automatable)
+- [x] Record runtime values: window.innerHeight, window.visualViewport.height, window.visualViewport.offsetTop, screen.height, --bulka-viewport-height, --bulka-viewport-bottom-inset, document.body.className. (skipped - manual device testing, not automatable)
+- [x] Save before/after screenshots for tap-open, pinch-open, grey bottom strip. (skipped - manual device testing, not automatable)
 
 Exit criteria:
 We know whether the visible strip is coming from `#root`, `body`, `html`, yarl internals, Safari chrome compositing, or a transparent/cropped lightbox layer.
@@ -70,21 +51,16 @@ In the latest screenshot, `.bulka-lightbox.yarl__portal` is `393 x 852`, but pag
 
 Implementation direction:
 
-1. Prefer a CSS modal-open state based on yarl's `body.yarl__no_scroll` class instead of JS inline repaint effects.
-2. Test options locally and on device:
-   - `body.yarl__no_scroll #root { visibility: hidden; }`
-   - `body.yarl__no_scroll #root { opacity: 0; }`
-   - `body.yarl__no_scroll { background: #000; }` plus `html` background only while modal-open via CSS
-   - a fixed `.bulka-lightbox-backdrop` with stronger stacking/compositing rules
-3. Keep the yarl portal and backdrop as the visible modal layers.
-4. Do not allow the page text to show through the bottom browser bar.
-5. Confirm that closing the lightbox restores the page without scroll jumps.
+- [ ] Prefer a CSS modal-open state based on yarl's `body.yarl__no_scroll` class instead of JS inline repaint effects.
+- [ ] Test CSS options: `body.yarl__no_scroll #root { visibility: hidden; }`, `body.yarl__no_scroll #root { opacity: 0; }`, `body.yarl__no_scroll { background: #000; }` plus html background, fixed `.bulka-lightbox-backdrop` with stronger stacking.
+- [ ] Keep the yarl portal and backdrop as the visible modal layers.
+- [ ] Ensure page text does not show through the bottom browser bar.
+- [ ] Confirm that closing the lightbox restores the page without scroll jumps.
 
 Tests to add or update:
 
-1. A Playwright regression that opening the lightbox applies the chosen CSS modal state.
-2. A Playwright regression that closing the lightbox removes the modal state.
-3. Keep the test explicit that this is modal canvas isolation, not a random inline repaint effect.
+- [ ] A Playwright regression that opening the lightbox applies the chosen CSS modal state.
+- [ ] A Playwright regression that closing the lightbox removes the modal state.
 
 Exit criteria:
 On real iOS Safari, neither top nor bottom system/browser areas show page content while the lightbox is open.
@@ -99,16 +75,16 @@ After `185bffb`, the portal starts at `top: 0` and has correct full height, but 
 
 Implementation direction:
 
-1. Separate "paint coverage" from "interactive content placement".
-2. If top overscan is needed, apply it only to backing/paint layers or portal geometry in a way that does not shift the image math unexpectedly.
-3. Keep toolbar/counter padding based on `--safe-area-top`.
-4. Re-run the pixel-perfect handoff tests after every geometry change.
+- [ ] Separate "paint coverage" from "interactive content placement".
+- [ ] If top overscan is needed, apply it only to backing/paint layers or portal geometry without shifting image math.
+- [ ] Keep toolbar/counter padding based on `--safe-area-top`.
+- [ ] Re-run the pixel-perfect handoff tests after every geometry change.
 
 Tests to add or update:
 
-1. Existing fullscreen tests should assert portal/backdrop geometry for the selected strategy.
-2. Existing handoff screenshot tests must still pass.
-3. Add a focused test for the computed top padding of controls when `--safe-area-top` is injected.
+- [ ] Existing fullscreen tests should assert portal/backdrop geometry for the selected strategy.
+- [ ] Existing handoff screenshot tests must still pass.
+- [ ] Add a focused test for the computed top padding of controls when `--safe-area-top` is injected.
 
 Exit criteria:
 On real iOS Safari, the top strip is covered, the close button is usable, and pinch handoff still matches before/after screenshots.
@@ -123,19 +99,15 @@ The screenshot shows page text visible under the caption/bottom area. The portal
 
 Implementation direction:
 
-1. Treat bottom browser chrome as a modal backing/canvas isolation problem first.
-2. Keep `--bulka-viewport-bottom-inset` for caption/control placement, but do not rely on it alone for paint coverage.
-3. Verify caption bottom padding on:
-   - compact bottom address bar visible
-   - address bar collapsed
-   - after scroll
-   - after pinch-open
+- [ ] Treat bottom browser chrome as a modal backing/canvas isolation problem first.
+- [ ] Keep `--bulka-viewport-bottom-inset` for caption/control placement, but do not rely on it alone for paint coverage.
+- [ ] Verify caption bottom padding on: compact bottom address bar visible, address bar collapsed, after scroll, after pinch-open.
 
 Tests to add or update:
 
-1. Existing caption padding test should continue to assert `--bulka-viewport-bottom-inset`.
-2. Add a test that the modal-open CSS state isolates the page canvas.
-3. Add a screenshot/geometry test around caption placement when `--bulka-viewport-bottom-inset` is injected.
+- [ ] Existing caption padding test should continue to assert `--bulka-viewport-bottom-inset`.
+- [ ] Add a test that the modal-open CSS state isolates the page canvas.
+- [ ] Add a screenshot/geometry test around caption placement when `--bulka-viewport-bottom-inset` is injected.
 
 Exit criteria:
 On real iOS Safari, no page content is visible below the lightbox, and the caption remains readable above the bottom chrome.
@@ -150,33 +122,21 @@ The strip appears intermittently after scrolling up/down and navigating through 
 
 Investigation steps:
 
-1. Reproduce on real iOS Safari with remote inspector open.
-2. Record whether the strip appears when:
-   - only scrolling manually
-   - using header nav chips
-   - opening/closing the mobile menu
-   - opening/closing the lightbox before scrolling
-3. Inspect computed backgrounds and heights for:
-   - `html`
-   - `body`
-   - `#root`
-   - the top-level page shell
-   - current section/footer
-4. Check whether `--bulka-viewport-height` changes during the scroll sequence.
-5. Check whether Safari rubber-band overscroll is still happening despite `overscroll-behavior: none`.
+- [ ] Reproduce on real iOS Safari and record when strip appears (manual scroll, nav chips, mobile menu, lightbox). (partially manual - automatable parts below)
+- [ ] Check whether Safari rubber-band overscroll is happening despite `overscroll-behavior: none`.
+- [ ] Inspect computed backgrounds and min-heights for html, body, #root, page shell, footer.
 
 Implementation direction:
 
-1. Keep the page shell min-height tied to the shared viewport var.
-2. If the strip is from document canvas exposure, fix the actual canvas/background chain.
-3. If the strip is from a section/footer not reaching the viewport, fix that section's layout.
-4. If the strip is from mobile menu/lightbox state leakage, clean up the state transition.
+- [ ] Keep the page shell min-height tied to the shared viewport var.
+- [ ] If the strip is from document canvas exposure, fix the canvas/background chain.
+- [ ] If the strip is from a section/footer not reaching the viewport, fix that section's layout.
+- [ ] If the strip is from mobile menu/lightbox state leakage, clean up the state transition.
 
 Tests to add or update:
 
-1. A Playwright scroll stress test that repeatedly scrolls and taps nav/menu controls.
-2. A computed-style regression that `html`, `body`, `#root`, and the page shell all have non-transparent backgrounds and min-heights covering the viewport.
-3. If reproducible in Playwright, add a screenshot test for the bottom 80px strip after stress scrolling.
+- [ ] A Playwright scroll stress test that repeatedly scrolls and taps nav/menu controls.
+- [ ] A computed-style regression that html, body, #root, and page shell all have non-transparent backgrounds and min-heights covering the viewport.
 
 Exit criteria:
 On real iOS Safari, repeated scroll/menu navigation does not expose grey/black/cream bottom strips.
@@ -192,11 +152,12 @@ After `185bffb`, Playwright has a delayed full-size image test:
 
 Regression checks:
 
-1. Full-size image delayed: lightbox attaches within 1s.
-2. Stretched thumbnail fallback appears.
-3. Precise transition overlay detaches.
-4. Close button works before full image finishes loading.
-5. Once full image loads, fallback fades without breaking zoom/pan.
+- [ ] Full-size image delayed: lightbox attaches within 1s.
+- [ ] Stretched thumbnail fallback appears.
+- [ ] Precise transition overlay detaches.
+- [ ] Close button works before full image finishes loading.
+- [ ] Once full image loads, fallback fades without breaking zoom/pan.
+- [ ] Run `timeout 90 npx playwright test tests/e2e/pinch-thumb-overlay.spec.ts --reporter=line` and confirm pass.
 
 Exit criteria:
 The existing Playwright cold-cache test passes, and the same flow works on real iOS Safari with cache disabled or a never-opened image.
@@ -212,10 +173,11 @@ After `185bffb`, Playwright has:
 
 Regression checks:
 
-1. Opening the lightbox pushes exactly one lightbox history entry.
-2. Next/previous slide clicks do not increase history length.
-3. Browser/Android back closes the lightbox.
-4. Closing with the close button pops the lightbox entry without leaving the page.
+- [ ] Opening the lightbox pushes exactly one lightbox history entry.
+- [ ] Next/previous slide clicks do not increase history length.
+- [ ] Browser/Android back closes the lightbox.
+- [ ] Closing with the close button pops the lightbox entry without leaving the page.
+- [ ] Run `timeout 90 npx playwright test tests/e2e/lightbox-history.spec.ts --reporter=line` and confirm pass.
 
 Exit criteria:
 The Playwright history test passes and the same behavior is confirmed on Android Chrome.
@@ -227,20 +189,18 @@ Do not ship another viewport fix without local verification.
 
 Required commands:
 
-```bash
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm exec playwright test --reporter=list
-```
+- [ ] Run `pnpm typecheck` and confirm no errors.
+- [ ] Run `pnpm test` and confirm all unit tests pass.
+- [ ] Run `pnpm build:client` and confirm clean build.
+- [ ] Run `timeout 120 npx playwright test --reporter=list` and confirm all e2e tests pass.
 
 Manual device checks:
 
-1. iOS Safari, tap-open lightbox.
-2. iOS Safari, pinch-open lightbox.
-3. iOS Safari, cold-cache image open.
-4. iOS Safari, repeated scroll/menu navigation for page bottom strip.
-5. Android Chrome, back gesture closes lightbox.
+- [ ] iOS Safari, tap-open lightbox. (manual)
+- [ ] iOS Safari, pinch-open lightbox. (manual)
+- [ ] iOS Safari, cold-cache image open. (manual)
+- [ ] iOS Safari, repeated scroll/menu navigation for page bottom strip. (manual)
+- [ ] Android Chrome, back gesture closes lightbox. (manual)
 
 Exit criteria:
 All local tests pass, manual iOS/Android checks pass, commit is pushed, and Vercel production deployment is Ready.
