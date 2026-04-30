@@ -75,16 +75,16 @@ After `185bffb`, the portal starts at `top: 0` and has correct full height, but 
 
 Implementation direction:
 
-- [ ] Separate "paint coverage" from "interactive content placement".
-- [ ] If top overscan is needed, apply it only to backing/paint layers or portal geometry without shifting image math.
-- [ ] Keep toolbar/counter padding based on `--safe-area-top`.
-- [ ] Re-run the pixel-perfect handoff tests after every geometry change.
+- [x] Separate "paint coverage" from "interactive content placement".
+- [x] If top overscan is needed, apply it only to backing/paint layers or portal geometry without shifting image math.
+- [x] Keep toolbar/counter padding based on `--safe-area-top`.
+- [x] Re-run the pixel-perfect handoff tests after every geometry change.
 
 Tests to add or update:
 
-- [ ] Existing fullscreen tests should assert portal/backdrop geometry for the selected strategy.
-- [ ] Existing handoff screenshot tests must still pass.
-- [ ] Add a focused test for the computed top padding of controls when `--safe-area-top` is injected.
+- [x] Existing fullscreen tests should assert portal/backdrop geometry for the selected strategy.
+- [x] Existing handoff screenshot tests must still pass.
+- [x] Add a focused test for the computed top padding of controls when `--safe-area-top` is injected.
 
 Exit criteria:
 On real iOS Safari, the top strip is covered, the close button is usable, and pinch handoff still matches before/after screenshots.

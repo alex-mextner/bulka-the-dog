@@ -295,6 +295,46 @@ test.describe("Lightbox fullscreen coverage", () => {
     expect(result!.captionsPaddingBottom).toBe("136px");
   });
 
+  // ── Task 3: Focused toolbar padding test ─────────────────────────────────────
+  //
+  // "Paint coverage" and "interactive content placement" are separate concerns:
+  // - Backing layers (portal, backdrop) use inset:0 — full physical screen coverage
+  // - Controls (toolbar, captions) use --safe-area-top / --safe-area-bottom padding
+  //   so they remain in the usable zone below the Dynamic Island
+  //
+  // This test injects only --safe-area-top and verifies the toolbar padding
+  // independently of portal geometry, so a geometry regression and a control
+  // placement regression produce separate, targeted failures.
+  test("Task 3: toolbar padding-top is derived from safe-area-top (focused)", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-top", "59px");
+    });
+
+    await tapFirstPhoto(page);
+    await page
+      .locator(".bulka-lightbox .yarl__toolbar")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    await page.waitForTimeout(200);
+
+    const paddingTop = await page.evaluate(() => {
+      const toolbar = document.querySelector(
+        ".bulka-lightbox .yarl__toolbar",
+      ) as HTMLElement | null;
+      if (!toolbar) return null;
+      return window.getComputedStyle(toolbar).paddingTop;
+    });
+
+    expect(paddingTop, "toolbar element not found").not.toBeNull();
+    // CSS: calc(var(--yarl__toolbar_padding, 8px) + 2 * var(--safe-area-top, 0px))
+    // With --safe-area-top = 59px: 8 + 2*59 = 126px
+    expect(
+      paddingTop,
+      "toolbar padding-top must be 8px base + 2×safe-area-top (59px) = 126px",
+    ).toBe("126px");
+  });
+
   test("black backdrop shares the lightbox viewport height", async ({
     page,
   }) => {
