@@ -173,11 +173,11 @@ After `185bffb`, Playwright has:
 
 Regression checks:
 
-- [ ] Opening the lightbox pushes exactly one lightbox history entry.
-- [ ] Next/previous slide clicks do not increase history length.
-- [ ] Browser/Android back closes the lightbox.
-- [ ] Closing with the close button pops the lightbox entry without leaving the page.
-- [ ] Run `timeout 90 npx playwright test tests/e2e/lightbox-history.spec.ts --reporter=line` and confirm pass.
+- [x] Opening the lightbox pushes exactly one lightbox history entry.
+- [x] Next/previous slide clicks do not increase history length.
+- [x] Browser/Android back closes the lightbox.
+- [x] Closing with the close button pops the lightbox entry without leaving the page.
+- [x] Run `timeout 90 npx playwright test tests/e2e/lightbox-history.spec.ts --reporter=line` and confirm pass.
 
 Exit criteria:
 The Playwright history test passes and the same behavior is confirmed on Android Chrome.

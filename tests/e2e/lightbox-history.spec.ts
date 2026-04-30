@@ -32,6 +32,38 @@ test.describe("Lightbox browser history", () => {
     await waitForGalleryReady(page);
   });
 
+  test("close button pops history entry without navigating away from page", async ({
+    page,
+  }) => {
+    const before = await page.evaluate(() => ({
+      length: window.history.length,
+      href: window.location.href,
+    }));
+
+    await tapFirstPhoto(page);
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "attached", timeout: 5_000 });
+
+    const afterOpen = await page.evaluate(() => window.history.length);
+    expect(afterOpen).toBe(before.length + 1);
+
+    await page.locator('button[title="Close"]').click({ force: true });
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "detached", timeout: 5_000 });
+
+    // history.back() navigates to the previous entry without removing it,
+    // so length stays at before.length + 1. What matters is the portal is gone,
+    // the URL is intact, and the current state no longer carries __bulkaLightbox.
+    const afterClose = await page.evaluate(() => ({
+      href: window.location.href,
+      state: window.history.state as { __bulkaLightbox?: number } | null,
+    }));
+    expect(afterClose.href).toBe(before.href);
+    expect(afterClose.state?.__bulkaLightbox).toBeUndefined();
+  });
+
   test("browser back closes the lightbox and slide navigation does not add history entries", async ({
     page,
   }) => {
