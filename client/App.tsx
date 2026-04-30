@@ -55,6 +55,48 @@ const App = () => {
     };
   }, []);
 
+  // Measure actual safe-area-inset-* values via a probe element and write them
+  // to --safe-area-top / --safe-area-bottom CSS custom properties.
+  // Reading env() values through a probe gives us the resolved pixel value;
+  // this is more reliable than declaring env() directly in a :root CSS custom
+  // property on some iOS Safari versions (where the env() value may be stale
+  // or 0 inside a CSS var declaration).
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const measure = () => {
+      const p = document.createElement("div");
+      p.style.cssText =
+        "position:fixed;pointer-events:none;visibility:hidden;";
+      document.body.appendChild(p);
+
+      p.style.top = "env(safe-area-inset-top, 0px)";
+      const top = parseFloat(getComputedStyle(p).top) || 0;
+
+      p.style.top = "env(safe-area-inset-bottom, 0px)";
+      const bottom = parseFloat(getComputedStyle(p).top) || 0;
+
+      document.body.removeChild(p);
+
+      document.documentElement.style.setProperty(
+        "--safe-area-top",
+        `${top}px`,
+      );
+      document.documentElement.style.setProperty(
+        "--safe-area-bottom",
+        `${bottom}px`,
+      );
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("orientationchange", measure);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>

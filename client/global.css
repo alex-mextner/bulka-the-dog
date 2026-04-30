@@ -139,6 +139,11 @@
     overscroll-behavior: none;
   }
 
+  #root {
+    min-height: 100dvh;
+    background-color: hsl(var(--background));
+  }
+
   h1 {
     @apply text-4xl md:text-5xl font-bold;
     line-height: 1.2;

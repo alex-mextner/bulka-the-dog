@@ -43,8 +43,8 @@ test.describe("Page safe-area bottom coverage", () => {
   test("html element has a non-transparent background colour", async ({
     page,
   }) => {
-    const htmlBg = await page.evaluate(() =>
-      window.getComputedStyle(document.documentElement).backgroundColor,
+    const htmlBg = await page.evaluate(
+      () => window.getComputedStyle(document.documentElement).backgroundColor,
     );
 
     // Should NOT be transparent or the default opaque white (rgb(255,255,255))
@@ -78,7 +78,8 @@ test.describe("Page safe-area bottom coverage", () => {
 
     const result = await page.evaluate(() => {
       const footer = document.querySelector("footer");
-      if (!footer) return { error: "no footer", footerBottom: 0, viewportHeight: 0 };
+      if (!footer)
+        return { error: "no footer", footerBottom: 0, viewportHeight: 0 };
       const rect = footer.getBoundingClientRect();
       return {
         error: null,
@@ -119,5 +120,31 @@ test.describe("Page safe-area bottom coverage", () => {
       paddingBottom,
       `footer padding-bottom (${paddingBottom}px) must be >= 34px to cover safe-area`,
     ).toBeGreaterThanOrEqual(34);
+  });
+
+  test("app root uses dynamic viewport height and body adds no extra bottom strip", async ({
+    page,
+  }) => {
+    const result = await page.evaluate(() => {
+      const root = document.getElementById("root");
+      const pageShell = document.querySelector("main")
+        ?.parentElement as HTMLElement | null;
+      return {
+        bodyPaddingBottom: window.getComputedStyle(document.body).paddingBottom,
+        rootMinHeight: root ? window.getComputedStyle(root).minHeight : "",
+        pageShellMinHeight: pageShell
+          ? window.getComputedStyle(pageShell).minHeight
+          : "",
+        innerHeight: window.innerHeight,
+      };
+    });
+
+    expect(result.bodyPaddingBottom).toBe("0px");
+    expect(parseFloat(result.rootMinHeight)).toBeGreaterThanOrEqual(
+      result.innerHeight,
+    );
+    expect(parseFloat(result.pageShellMinHeight)).toBeGreaterThanOrEqual(
+      result.innerHeight,
+    );
   });
 });

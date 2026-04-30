@@ -1,3 +1,5 @@
+/// <reference types="vitest/config" />
+
 import { defineConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
@@ -29,6 +31,14 @@ export default defineConfig(() => ({
     outDir: "dist/spa",
   },
   plugins: [react(), expressPlugin()],
+  test: {
+    include: [
+      "client/**/*.spec.{ts,tsx}",
+      "server/**/*.spec.{ts,tsx}",
+      "shared/**/*.spec.{ts,tsx}",
+    ],
+    exclude: ["tests/e2e/**", "node_modules/**", "dist/**"],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./client"),

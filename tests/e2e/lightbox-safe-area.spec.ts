@@ -53,42 +53,67 @@ test.describe("Lightbox safe-area coverage", () => {
   // painted on top of the <body> background. If body stays cream while the
   // lightbox is open, a thin strip of page colour is visible at top/bottom.
   // When lightbox closes, body should revert to its original background.
-  test("body background is black while lightbox is open", async ({ page }) => {
-    // Confirm body is NOT black before opening.
-    const bgBefore = await page.evaluate(() =>
-      window.getComputedStyle(document.body).backgroundColor,
-    );
+  test("document backgrounds are black while lightbox is open", async ({
+    page,
+  }) => {
+    // Confirm the page canvas is NOT black before opening.
+    const bgBefore = await page.evaluate(() => ({
+      html: window.getComputedStyle(document.documentElement).backgroundColor,
+      body: window.getComputedStyle(document.body).backgroundColor,
+      root: window.getComputedStyle(document.getElementById("root")!)
+        .backgroundColor,
+    }));
     expect(
-      bgBefore,
+      bgBefore.body,
       "body should not be black before lightbox opens",
     ).not.toBe("rgb(0, 0, 0)");
 
     await tapFirstPhoto(page);
-    await page.locator(".yarl__portal").waitFor({ state: "attached", timeout: 5_000 });
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "attached", timeout: 5_000 });
     // Small settle so any JS-driven class/style change has time to apply.
     await page.waitForTimeout(150);
 
-    const bgOpen = await page.evaluate(() =>
-      window.getComputedStyle(document.body).backgroundColor,
-    );
+    const bgOpen = await page.evaluate(() => ({
+      html: window.getComputedStyle(document.documentElement).backgroundColor,
+      body: window.getComputedStyle(document.body).backgroundColor,
+      root: window.getComputedStyle(document.getElementById("root")!)
+        .backgroundColor,
+    }));
 
-    // body must be opaque black while lightbox covers the screen.
-    expect(
-      bgOpen,
-      `body should be rgb(0, 0, 0) while lightbox is open, got: ${bgOpen}`,
-    ).toBe("rgb(0, 0, 0)");
+    // iOS unsafe zones can be painted from the html canvas, body, or app root
+    // depending on Safari version and viewport-fit state; keep all three black.
+    expect(bgOpen.html, `html bg while open: ${bgOpen.html}`).toBe(
+      "rgb(0, 0, 0)",
+    );
+    expect(bgOpen.body, `body bg while open: ${bgOpen.body}`).toBe(
+      "rgb(0, 0, 0)",
+    );
+    expect(bgOpen.root, `root bg while open: ${bgOpen.root}`).toBe(
+      "rgb(0, 0, 0)",
+    );
 
     // ── after close: body returns to original ──
     await page.keyboard.press("Escape");
-    await page.locator(".yarl__portal").waitFor({ state: "detached", timeout: 5_000 });
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "detached", timeout: 5_000 });
     await page.waitForTimeout(150);
 
-    const bgAfter = await page.evaluate(() =>
-      window.getComputedStyle(document.body).backgroundColor,
-    );
+    const bgAfter = await page.evaluate(() => ({
+      html: window.getComputedStyle(document.documentElement).backgroundColor,
+      body: window.getComputedStyle(document.body).backgroundColor,
+      root: window.getComputedStyle(document.getElementById("root")!)
+        .backgroundColor,
+    }));
     expect(
-      bgAfter,
+      bgAfter.body,
       "body should revert to page background after lightbox closes",
+    ).not.toBe("rgb(0, 0, 0)");
+    expect(
+      bgAfter.html,
+      "html should revert to page background after lightbox closes",
     ).not.toBe("rgb(0, 0, 0)");
   });
 
@@ -99,15 +124,25 @@ test.describe("Lightbox safe-area coverage", () => {
   // container should both be fully opaque black.
   test("yarl portal background is fully opaque black", async ({ page }) => {
     await tapFirstPhoto(page);
-    await page.locator(".yarl__portal").waitFor({ state: "attached", timeout: 5_000 });
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "attached", timeout: 5_000 });
     await page.waitForTimeout(150);
 
     const { portalBg, containerBg } = await page.evaluate(() => {
-      const portal = document.querySelector(".yarl__portal") as HTMLElement | null;
-      const container = document.querySelector(".yarl__container") as HTMLElement | null;
+      const portal = document.querySelector(
+        ".yarl__portal",
+      ) as HTMLElement | null;
+      const container = document.querySelector(
+        ".yarl__container",
+      ) as HTMLElement | null;
       return {
-        portalBg: portal ? window.getComputedStyle(portal).backgroundColor : null,
-        containerBg: container ? window.getComputedStyle(container).backgroundColor : null,
+        portalBg: portal
+          ? window.getComputedStyle(portal).backgroundColor
+          : null,
+        containerBg: container
+          ? window.getComputedStyle(container).backgroundColor
+          : null,
       };
     });
 

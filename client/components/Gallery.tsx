@@ -31,12 +31,17 @@ type PinchOpenOpts = {
   alt: string;
   rect: { left: number; top: number; width: number; height: number };
   borderRadius: string;
+  objectFit: React.CSSProperties["objectFit"];
+  objectPosition: React.CSSProperties["objectPosition"];
 };
 
 type PinchOverlayHandle = {
   open: (opts: PinchOpenOpts) => void;
   update: (scale: number, dx: number, dy: number) => void;
+  commit: () => void;
+  dismiss: () => void;
   close: (commit: boolean) => void;
+  isActive: () => boolean;
 };
 
 // Scale at which a release commits to opening the lightbox. Below this we
@@ -50,139 +55,158 @@ const PINCH_MAX_SCALE = 2.5;
 // runs for this long when we abort.
 const PINCH_CANCEL_MS = 220;
 
-const PinchTransitionOverlay = React.forwardRef<PinchOverlayHandle, {}>(
-  function PinchTransitionOverlay(_props, ref) {
-    const [opts, setOpts] = React.useState<PinchOpenOpts | null>(null);
-    const [transitioning, setTransitioning] = React.useState(false);
-    const imgRef = React.useRef<HTMLDivElement | null>(null);
-    const dimRef = React.useRef<HTMLDivElement | null>(null);
-    // Mutable ref so imperative handlers always see the latest opts value.
-    // useImperativeHandle captures closure at creation time ([] deps), so
-    // reading opts directly would always see null (stale closure bug).
-    const optsRef = React.useRef<PinchOpenOpts | null>(null);
+const PINCH_DISMISS_MS = 180;
 
-    React.useImperativeHandle(
-      ref,
-      () => ({
-        open: (o) => {
+const PinchTransitionOverlay = React.forwardRef<
+  PinchOverlayHandle,
+  { activeRef: React.MutableRefObject<boolean> }
+>(function PinchTransitionOverlay({ activeRef }, ref) {
+  const [opts, setOpts] = React.useState<PinchOpenOpts | null>(null);
+  const [transitioning, setTransitioning] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  const imgRef = React.useRef<HTMLImageElement | null>(null);
+  const dimRef = React.useRef<HTMLDivElement | null>(null);
+  // Mutable ref so imperative handlers always see the latest opts value.
+  // useImperativeHandle captures closure at creation time ([] deps), so
+  // reading opts directly would always see null (stale closure bug).
+  const optsRef = React.useRef<PinchOpenOpts | null>(null);
+
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      open: (o) => {
+        setTransitioning(false);
+        setOpts(o);
+        optsRef.current = o;
+        activeRef.current = true;
+        window.requestAnimationFrame(() => {
+          if (rootRef.current) {
+            rootRef.current.style.opacity = "1";
+            rootRef.current.style.transition = "none";
+          }
+        });
+      },
+      update: (scale, dx, dy) => {
+        // Clamp visible scale; dim still tracks the un-clamped scale so
+        // a stuck-at-max pinch keeps reading as "more committed".
+        const visibleScale = Math.min(PINCH_MAX_SCALE, Math.max(0.5, scale));
+        const dimAlpha = Math.min(0.9, Math.max(0, (scale - 1) / 1.5));
+        if (imgRef.current) {
+          imgRef.current.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${visibleScale})`;
+        }
+        if (dimRef.current) {
+          dimRef.current.style.backgroundColor = `rgba(0,0,0,${dimAlpha})`;
+        }
+      },
+      commit: () => {
+        // Keep the clone exactly where the user's fingers left it. The real
+        // lightbox is mounted underneath and receives the matching zoom/pan;
+        // GalleryLightbox dismisses this overlay only after that state is
+        // painted. Moving the clone to viewport centre here is the source of
+        // the visible "thumb disappears, then lightbox appears" gap.
+        setTransitioning(false);
+        if (dimRef.current) {
+          dimRef.current.style.backgroundColor = "rgba(0,0,0,0.92)";
+        }
+      },
+      dismiss: () => {
+        if (!optsRef.current) return;
+        setTransitioning(true);
+        if (rootRef.current) {
+          rootRef.current.style.transition = `opacity ${PINCH_DISMISS_MS}ms ease-out`;
+          rootRef.current.style.opacity = "0";
+        }
+        window.setTimeout(() => {
+          setOpts(null);
           setTransitioning(false);
-          setOpts(o);
-          optsRef.current = o;
-        },
-        update: (scale, dx, dy) => {
-          // Clamp visible scale; dim still tracks the un-clamped scale so
-          // a stuck-at-max pinch keeps reading as "more committed".
-          const visibleScale = Math.min(PINCH_MAX_SCALE, Math.max(0.5, scale));
-          const dimAlpha = Math.min(0.9, Math.max(0, (scale - 1) / 1.5));
+          optsRef.current = null;
+          activeRef.current = false;
+        }, PINCH_DISMISS_MS);
+      },
+      close: (commit) => {
+        if (commit) {
+          // Backward-compatible alias for the commit hold. Dismissal is
+          // intentionally separate and is driven by GalleryLightbox after
+          // the target zoom/pan has painted underneath.
+          if (dimRef.current) {
+            dimRef.current.style.backgroundColor = "rgba(0,0,0,0.92)";
+          }
+        } else {
+          // Animate back to identity (= thumbnail rect) over PINCH_CANCEL_MS,
+          // then unmount.
+          setTransitioning(true);
           if (imgRef.current) {
-            imgRef.current.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${visibleScale})`;
+            imgRef.current.style.transform = "translate3d(0, 0, 0) scale(1)";
           }
           if (dimRef.current) {
-            dimRef.current.style.backgroundColor = `rgba(0,0,0,${dimAlpha})`;
+            dimRef.current.style.backgroundColor = "rgba(0,0,0,0)";
           }
-        },
-        close: (commit) => {
-          if (commit) {
-            // Animate the overlay clone from "thumbnail-relative scale"
-            // to "viewport-centre with the same scale" over ~200ms so
-            // the visual handoff into the lightbox doesn't jump. The
-            // lightbox underneath is mounting and seeding its own zoom
-            // in parallel; by the time the overlay reaches viewport
-            // centre yarl has applied the same scale and we can dismiss
-            // the overlay cleanly.
-            if (imgRef.current && optsRef.current) {
-              const vw = window.innerWidth;
-              const vh = window.innerHeight;
-              const cardCenterX = optsRef.current.rect.left + optsRef.current.rect.width / 2;
-              const cardCenterY = optsRef.current.rect.top + optsRef.current.rect.height / 2;
-              const dx = vw / 2 - cardCenterX;
-              const dy = vh / 2 - cardCenterY;
-              // Read the current visible scale off the inline transform
-              // so we don't reset it.
-              const cur = imgRef.current.style.transform || "";
-              const m = cur.match(/scale\(([\d.]+)\)/);
-              const scale = m ? parseFloat(m[1]) : 1;
-              setTransitioning(true);
-              imgRef.current.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${scale})`;
-              if (dimRef.current) {
-                dimRef.current.style.backgroundColor = "rgba(0,0,0,0.92)";
-              }
-            }
-            window.setTimeout(() => {
-              setOpts(null);
-              setTransitioning(false);
-              optsRef.current = null;
-            }, 220);
-          } else {
-            // Animate back to identity (= thumbnail rect) over PINCH_CANCEL_MS,
-            // then unmount.
-            setTransitioning(true);
-            if (imgRef.current) {
-              imgRef.current.style.transform =
-                "translate3d(0, 0, 0) scale(1)";
-            }
-            if (dimRef.current) {
-              dimRef.current.style.backgroundColor = "rgba(0,0,0,0)";
-            }
-            window.setTimeout(() => {
-              setOpts(null);
-              setTransitioning(false);
-              optsRef.current = null;
-            }, PINCH_CANCEL_MS);
-          }
-        },
-      }),
-      [],
-    );
+          window.setTimeout(() => {
+            setOpts(null);
+            setTransitioning(false);
+            optsRef.current = null;
+            activeRef.current = false;
+          }, PINCH_CANCEL_MS);
+        }
+      },
+      isActive: () => activeRef.current,
+    }),
+    [activeRef],
+  );
 
-    if (!opts || typeof document === "undefined") return null;
+  if (!opts || typeof document === "undefined") return null;
 
-    return createPortal(
+  return createPortal(
+    <div
+      ref={rootRef}
+      data-testid="pinch-transition-overlay"
+      aria-hidden="true"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 10001,
+        opacity: 1,
+        pointerEvents: "none", // touch events still go to whoever's listening on window
+      }}
+    >
       <div
-        aria-hidden="true"
+        ref={dimRef}
         style={{
-          position: "fixed",
+          position: "absolute",
           inset: 0,
-          zIndex: 9999,
-          pointerEvents: "none", // touch events still go to whoever's listening on window
+          backgroundColor: "rgba(0,0,0,0)",
+          transition: transitioning
+            ? `background-color ${PINCH_CANCEL_MS}ms ease-out`
+            : "none",
         }}
-      >
-        <div
-          ref={dimRef}
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0)",
-            transition: transitioning
-              ? `background-color ${PINCH_CANCEL_MS}ms ease-out`
-              : "none",
-          }}
-        />
-        <div
-          ref={imgRef}
-          style={{
-            position: "absolute",
-            left: opts.rect.left,
-            top: opts.rect.top,
-            width: opts.rect.width,
-            height: opts.rect.height,
-            backgroundImage: `url("${opts.src}")`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            borderRadius: opts.borderRadius,
-            transform: "translate3d(0, 0, 0) scale(1)",
-            transformOrigin: "center center",
-            transition: transitioning
-              ? `transform ${PINCH_CANCEL_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
-              : "none",
-            willChange: "transform",
-          }}
-        />
-      </div>,
-      document.body,
-    );
-  },
-);
+      />
+      <img
+        ref={imgRef}
+        data-testid="pinch-transition-clone"
+        src={opts.src}
+        alt=""
+        draggable={false}
+        style={{
+          position: "absolute",
+          left: opts.rect.left,
+          top: opts.rect.top,
+          width: opts.rect.width,
+          height: opts.rect.height,
+          objectFit: opts.objectFit ?? "cover",
+          objectPosition: opts.objectPosition ?? "center",
+          borderRadius: opts.borderRadius,
+          transform: "translate3d(0, 0, 0) scale(1)",
+          transformOrigin: "center center",
+          transition: transitioning
+            ? `transform ${PINCH_CANCEL_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+            : "none",
+          willChange: "transform",
+        }}
+      />
+    </div>,
+    document.body,
+  );
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -211,6 +235,10 @@ type GalleryContextValue = {
   // Imperative handle for the pinch-to-open transition overlay. GalleryImage
   // drives this directly during a 2-finger gesture so we avoid 60Hz setState.
   pinchOverlayRef: React.MutableRefObject<PinchOverlayHandle | null>;
+  // True while the gesture transition overlay is mounted. GalleryLightbox uses
+  // this to avoid rendering the older full-screen thumbnail fallback on top of
+  // the precise handoff clone.
+  pinchTransitionActiveRef: React.MutableRefObject<boolean>;
   // Carry the final pinch scale from the overlay (in GalleryImage's commit
   // path) over to the lightbox's first-render effect, where we feed it to
   // yarl's ZoomRef.changeZoom so the lightbox opens already zoomed to the
@@ -276,9 +304,13 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   const [index, setIndex] = React.useState(0);
   const triggerRef = React.useRef<HTMLElement | null>(null);
   const pinchOverlayRef = React.useRef<PinchOverlayHandle | null>(null);
+  const pinchTransitionActiveRef = React.useRef<boolean>(false);
   const pendingZoomRef = React.useRef<number>(1);
   const pendingThumbWidthRef = React.useRef<number>(0);
-  const pendingPanRef = React.useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+  const pendingPanRef = React.useRef<{ dx: number; dy: number }>({
+    dx: 0,
+    dy: 0,
+  });
   const pinchActiveRef = React.useRef<boolean>(false);
   const holdPinchOverlayRef = React.useRef<boolean>(false);
   // Thumbnail src captured synchronously in open() so the hold-overlay renders
@@ -323,6 +355,68 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       setHoldPinchOverlay: (v: boolean) => {
         holdPinchOverlayRef.current = v;
       },
+      // Deterministic pinch-handoff driver for Playwright. It mirrors the
+      // production touch path without relying on browser multi-touch delivery.
+      beginPinchHandoff: (
+        selector: string,
+        opts: { scale: number; dx?: number; dy?: number },
+      ) => {
+        const el = document.querySelector(selector) as HTMLElement | null;
+        if (!el) throw new Error(`beginPinchHandoff: no match for ${selector}`);
+        const img = (el.querySelector("img[data-pinch-thumb]") ??
+          el.querySelector("img")) as HTMLImageElement | null;
+        const visualEl = img ?? el;
+        const rect = visualEl.getBoundingClientRect();
+        const cs = window.getComputedStyle(visualEl);
+        const scale = Math.min(PINCH_MAX_SCALE, Math.max(1, opts.scale));
+        const dx = opts.dx ?? 0;
+        const dy = opts.dy ?? 0;
+        triggerRef.current = el;
+        pendingThumbWidthRef.current = rect.width;
+        pendingZoomRef.current = rect.width * scale;
+        pendingPanRef.current = {
+          dx: rect.left + rect.width / 2 + dx - window.innerWidth / 2,
+          dy: rect.top + rect.height / 2 + dy - window.innerHeight / 2,
+        };
+        pinchActiveRef.current = true;
+        pinchOverlayRef.current?.open({
+          src: img?.currentSrc || img?.src || "",
+          alt: img?.alt || "",
+          rect: {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+          },
+          borderRadius: cs.borderRadius,
+          objectFit: cs.objectFit as React.CSSProperties["objectFit"],
+          objectPosition:
+            cs.objectPosition as React.CSSProperties["objectPosition"],
+        });
+        pinchOverlayRef.current?.update(scale, dx, dy);
+        window.setTimeout(
+          () => pinchOverlayRef.current?.update(scale, dx, dy),
+          0,
+        );
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            pinchOverlayRef.current?.update(scale, dx, dy);
+          });
+        });
+        return {
+          x: rect.left + dx + (rect.width * (1 - scale)) / 2,
+          y: rect.top + dy + (rect.height * (1 - scale)) / 2,
+          width: rect.width * scale,
+          height: rect.height * scale,
+        };
+      },
+      commitPinchHandoff: (selector: string) => {
+        const el = document.querySelector(selector) as HTMLElement | null;
+        if (!el)
+          throw new Error(`commitPinchHandoff: no match for ${selector}`);
+        el.click();
+        pinchOverlayRef.current?.commit();
+      },
     };
     return () => {
       delete (window as unknown as Record<string, unknown>).__bulkaTest;
@@ -353,50 +447,53 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   // calling close — the entry is already gone, no need to history.back again.
   const ownsHistoryEntryRef = React.useRef(false);
 
-  const open = React.useCallback((id: number) => {
-    setEntries((prev) => {
-      const idx = prev.findIndex((e) => e.id === id);
-      setIndex(idx >= 0 ? idx : 0);
-      return prev;
-    });
-    // Capture thumbnail src synchronously, BEFORE setIsOpen(true) so that
-    // when React batches all these setState calls into a single paint, the
-    // hold-overlay is already in the DOM on the first frame. Doing this in a
-    // useEffect would be one paint too late and cause the black flash.
-    //
-    // Only populate if there's an active pinch gesture (pendingZoomRef > 1).
-    // For plain tap-opens we don't need the hold overlay.
-    if (pendingZoomRef.current > 1) {
-      // Prefer img[data-pinch-thumb] if present (PhotoFader marks its active
-      // image with this attribute so we grab the right frame out of the stack).
-      // Fall back to the first <img> for single-image triggers (GalleryImage).
-      const thumbEl = (
-        triggerRef.current?.querySelector("img[data-pinch-thumb]") ??
-        triggerRef.current?.querySelector("img")
-      ) as HTMLImageElement | null;
-      const src = thumbEl?.currentSrc ?? thumbEl?.src ?? null;
-      setPinchThumbSrc(src);
-    } else {
-      setPinchThumbSrc(null);
-    }
-    setIsOpen(true);
-    // Push exactly one history entry for the whole lightbox session — slide
-    // changes inside the lightbox stay invisible to history. The Android
-    // back gesture / browser back will pop this entry and trigger popstate,
-    // which we handle by closing.
-    if (typeof window !== "undefined") {
-      try {
-        window.history.pushState({ lightbox: true }, "");
-        ownsHistoryEntryRef.current = true;
-      } catch {
-        ownsHistoryEntryRef.current = false;
+  const open = React.useCallback(
+    (id: number) => {
+      setEntries((prev) => {
+        const idx = prev.findIndex((e) => e.id === id);
+        setIndex(idx >= 0 ? idx : 0);
+        return prev;
+      });
+      // Capture thumbnail src synchronously, BEFORE setIsOpen(true) so that
+      // when React batches all these setState calls into a single paint, the
+      // hold-overlay is already in the DOM on the first frame. Doing this in a
+      // useEffect would be one paint too late and cause the black flash.
+      //
+      // Only populate if there's an active pinch gesture (pendingZoomRef > 1).
+      // For plain tap-opens we don't need the hold overlay.
+      if (pendingZoomRef.current > 1) {
+        // Prefer img[data-pinch-thumb] if present (PhotoFader marks its active
+        // image with this attribute so we grab the right frame out of the stack).
+        // Fall back to the first <img> for single-image triggers (GalleryImage).
+        const thumbEl = (triggerRef.current?.querySelector(
+          "img[data-pinch-thumb]",
+        ) ??
+          triggerRef.current?.querySelector("img")) as HTMLImageElement | null;
+        const src = thumbEl?.currentSrc ?? thumbEl?.src ?? null;
+        setPinchThumbSrc(src);
+      } else {
+        setPinchThumbSrc(null);
       }
-    }
-  // pendingZoomRef and triggerRef are stable refs (never change identity);
-  // setPinchThumbSrc is a stable useState setter. Empty eslint-disable would
-  // be stricter but these truly don't need to be in the dep array.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setPinchThumbSrc]);
+      setIsOpen(true);
+      // Push exactly one history entry for the whole lightbox session — slide
+      // changes inside the lightbox stay invisible to history. The Android
+      // back gesture / browser back will pop this entry and trigger popstate,
+      // which we handle by closing.
+      if (typeof window !== "undefined") {
+        try {
+          window.history.pushState({ lightbox: true }, "");
+          ownsHistoryEntryRef.current = true;
+        } catch {
+          ownsHistoryEntryRef.current = false;
+        }
+      }
+      // pendingZoomRef and triggerRef are stable refs (never change identity);
+      // setPinchThumbSrc is a stable useState setter. Empty eslint-disable would
+      // be stricter but these truly don't need to be in the dep array.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [setPinchThumbSrc],
+  );
 
   const close = React.useCallback(() => {
     setIsOpen(false);
@@ -461,6 +558,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       triggerRef,
       setTrigger,
       pinchOverlayRef,
+      pinchTransitionActiveRef,
       pendingZoomRef,
       pendingThumbWidthRef,
       pendingPanRef,
@@ -468,13 +566,27 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       holdPinchOverlayRef,
       pinchThumbSrc,
     }),
-    [register, update, unregister, open, entries, isOpen, index, close, setTrigger, pinchThumbSrc],
+    [
+      register,
+      update,
+      unregister,
+      open,
+      entries,
+      isOpen,
+      index,
+      close,
+      setTrigger,
+      pinchThumbSrc,
+    ],
   );
 
   return (
     <GalleryContext.Provider value={value}>
       {children}
-      <PinchTransitionOverlay ref={pinchOverlayRef} />
+      <PinchTransitionOverlay
+        ref={pinchOverlayRef}
+        activeRef={pinchTransitionActiveRef}
+      />
     </GalleryContext.Provider>
   );
 }
@@ -529,204 +641,224 @@ export function usePinchToOpen(
     onCommitRef.current = onCommit;
   });
 
-  React.useEffect(() => {
-    const el = elementRef.current;
-    if (!el) return;
+  React.useEffect(
+    () => {
+      const el = elementRef.current;
+      if (!el) return;
 
-    let active = false;
-    let initialDist = 0;
-    let initialMidX = 0;
-    let initialMidY = 0;
-    let lastScale = 1;
-    // Width of the thumbnail element at gesture start (CSS pixels).
-    // Snapshotted in onNativeTouchStart so it's stable throughout the gesture.
-    let thumbWidthPx = 0;
-    // Center of the thumbnail element in viewport coordinates at gesture start.
-    // Used to compute the correct yarl focal-point offset so the lightbox opens
-    // with the image centred on the same pixel as the thumbnail.
-    let thumbCenterX = 0;
-    let thumbCenterY = 0;
-    let cleanup: (() => void) | null = null;
+      let active = false;
+      let initialDist = 0;
+      let initialMidX = 0;
+      let initialMidY = 0;
+      let lastScale = 1;
+      let lastDx = 0;
+      let lastDy = 0;
+      // Width of the thumbnail element at gesture start (CSS pixels).
+      // Snapshotted in onNativeTouchStart so it's stable throughout the gesture.
+      let thumbWidthPx = 0;
+      // Center of the thumbnail element in viewport coordinates at gesture start.
+      // Used to compute the correct yarl focal-point offset so the lightbox opens
+      // with the image centred on the same pixel as the thumbnail.
+      let thumbCenterX = 0;
+      let thumbCenterY = 0;
+      let cleanup: (() => void) | null = null;
 
-    const distance = (t1: Touch, t2: Touch) =>
-      Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const distance = (t1: Touch, t2: Touch) =>
+        Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
 
-    const onWindowTouchMove = (e: TouchEvent) => {
-      if (!active) return;
-      if (e.touches.length < 2) return;
-      // Block page-zoom and page-pan throughout the gesture.
-      if (e.cancelable) e.preventDefault();
-      const t1 = e.touches[0];
-      const t2 = e.touches[1];
-      const dist = distance(t1, t2);
-      if (initialDist <= 0) return;
-      const scale = dist / initialDist;
-      const midX = (t1.clientX + t2.clientX) / 2;
-      const midY = (t1.clientY + t2.clientY) / 2;
-      lastScale = scale;
-      // Update the seed-zoom ref LIVE during the gesture, not only on
-      // touchend. Why: Chromium-emulated mobile (and possibly real iOS)
-      // fires the synthetic `click` event after the FIRST finger lifts,
-      // not after the last. That click triggers handleOpen() via the
-      // button's onClick, which mounts the lightbox and starts its
-      // useEffect-poll for pendingZoomRef BEFORE finishGesture has a
-      // chance to set it. By writing it on every move we guarantee the
-      // lightbox sees the current pinch scale whenever it opens.
-      //
-      // Store as "target CSS pixels" = thumbWidth × scale so the lightbox's
-      // rAF poll can divide by the actual fit_width and get the correct yarl
-      // zoom. (pendingThumbWidthRef > 0 signals this pixel-based path.)
-      const clamped = Math.min(3, Math.max(1, scale));
-      pendingZoomRef.current = thumbWidthPx * clamped;
-      pinchOverlayRef.current?.update(
-        scale,
-        midX - initialMidX,
-        midY - initialMidY,
-      );
-    };
-
-    const finishGesture = () => {
-      if (!active) return;
-      active = false;
-      // KEEP pinchActiveRef true a little longer than the gesture itself.
-      // Why: the lightbox mounts UNDER the user's still-down finger
-      // (commit fires on the last touchend, but iOS can dispatch a fresh
-      // touchstart on the newly-mounted .yarl__container if a finger is
-      // resting in its bounds). That would trip the onUserTouch listener
-      // and release zoom-ownership before our mount-effect has time to
-      // read pendingZoomRef and apply the seed scale to yarl. The 600ms
-      // grace covers React mount + yarl ZoomRef attach + first paint.
-      const commit = lastScale >= PINCH_COMMIT_SCALE;
-      if (commit) {
-        // Stash the target width (thumb × scale, CSS pixels) so the lightbox's
-        // rAF poll can compute the correct yarl zoom by dividing by fit_width.
-        // Clamp to PINCH_MAX_SCALE for consistency with the overlay clamp.
-        const clampedScale = Math.min(PINCH_MAX_SCALE, Math.max(1, lastScale));
-        pendingZoomRef.current = thumbWidthPx * clampedScale;
-        pendingThumbWidthRef.current = thumbWidthPx;
-        // Stash the thumbnail centre (relative to viewport centre) so the
-        // lightbox's rAF poll can compute the exact focal-point argument for
-        // yarl's changeZoom, placing the image centre over the same pixel as
-        // the thumbnail centre on screen.
+      const onWindowTouchMove = (e: TouchEvent) => {
+        if (!active) return;
+        if (e.touches.length < 2) return;
+        // Block page-zoom and page-pan throughout the gesture.
+        if (e.cancelable) e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = distance(t1, t2);
+        if (initialDist <= 0) return;
+        const scale = dist / initialDist;
+        const midX = (t1.clientX + t2.clientX) / 2;
+        const midY = (t1.clientY + t2.clientY) / 2;
+        lastScale = scale;
+        lastDx = midX - initialMidX;
+        lastDy = midY - initialMidY;
+        // Update the seed-zoom ref LIVE during the gesture, not only on
+        // touchend. Why: Chromium-emulated mobile (and possibly real iOS)
+        // fires the synthetic `click` event after the FIRST finger lifts,
+        // not after the last. That click triggers handleOpen() via the
+        // button's onClick, which mounts the lightbox and starts its
+        // useEffect-poll for pendingZoomRef BEFORE finishGesture has a
+        // chance to set it. By writing it on every move we guarantee the
+        // lightbox sees the current pinch scale whenever it opens.
         //
-        // NOTE: pendingPanRef now stores the THUMB CENTRE (not the pinch
-        // midpoint). The rAF poll converts it to a yarl focal-point offset
-        // using: dx_focal = -thumbCenterDx / (yarlZoom - 1). This is derived
-        // from the yarl changeZoom formula which applies
-        //   changeOffsets(dx * (1/zoom - 1/newZoom), …)
-        // so that the resulting screenOffset = offsetX * newZoom = thumbCenterDx.
+        // Store as "target CSS pixels" = thumbWidth × scale so the lightbox's
+        // rAF poll can divide by the actual fit_width and get the correct yarl
+        // zoom. (pendingThumbWidthRef > 0 signals this pixel-based path.)
+        const clamped = Math.min(3, Math.max(1, scale));
+        pendingZoomRef.current = thumbWidthPx * clamped;
         pendingPanRef.current = {
-          dx: thumbCenterX - window.innerWidth / 2,
-          dy: thumbCenterY - window.innerHeight / 2,
+          dx: thumbCenterX + lastDx - window.innerWidth / 2,
+          dy: thumbCenterY + lastDy - window.innerHeight / 2,
         };
-        // Open the real lightbox first, then dismiss the overlay so yarl's
-        // own opening visuals immediately replace ours with no flash gap.
-        onCommitRef.current();
-        pinchOverlayRef.current?.close(true);
-        // Release pinchActive only AFTER the mount-effect has had time to
-        // run. See note above finishGesture.
-        window.setTimeout(() => {
-          pinchActiveRef.current = false;
-        }, 600);
-      } else {
-        pendingZoomRef.current = 1;
-        pendingThumbWidthRef.current = 0;
-        pendingPanRef.current = { dx: 0, dy: 0 };
-        pinchOverlayRef.current?.close(false);
-        pinchActiveRef.current = false;
-      }
-      cleanup?.();
-      cleanup = null;
-    };
-
-    const onWindowTouchEnd = (e: TouchEvent) => {
-      if (!active) return;
-      // Commit only when BOTH fingers are off — otherwise wait (finger
-      // adjustments mid-pinch shouldn't trigger commit).
-      if (e.touches.length >= 1) return;
-      finishGesture();
-    };
-
-    const onWindowTouchCancel = () => {
-      if (!active) return;
-      finishGesture();
-    };
-
-    const onNativeTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
-      if (active) return;
-      if (e.cancelable) e.preventDefault();
-      const t1 = e.touches[0];
-      const t2 = e.touches[1];
-      initialDist = distance(t1, t2);
-      initialMidX = (t1.clientX + t2.clientX) / 2;
-      initialMidY = (t1.clientY + t2.clientY) / 2;
-      lastScale = 1;
-      active = true;
-      pinchActiveRef.current = true;
-
-      const { src, thumbSrc, alt } = metaRef.current;
-
-      // Start decoding the full-res image while the user is still pinching
-      // so the lightbox doesn't flash a black frame on commit.
-      const preload = new Image();
-      preload.decode?.().catch(() => {});
-      preload.src = src;
-
-      // Snapshot the element rect AND its border-radius so the overlay
-      // exactly mirrors the thumbnail frame visually.
-      const rect = el.getBoundingClientRect();
-      // Capture thumb width for the zoom-scale conversion in GalleryLightbox.
-      // The rAF poll divides pendingZoomRef (target CSS px) by the fit_width
-      // read from yarl's DOM to get the correct yarl zoom multiplier.
-      thumbWidthPx = rect.width;
-      pendingThumbWidthRef.current = rect.width;
-      // Capture thumb center for the focal-point pan calculation.
-      // The rAF poll uses this to compute the yarl offset that places the
-      // lightbox image centre over the same viewport pixel as the thumbnail.
-      thumbCenterX = rect.left + rect.width / 2;
-      thumbCenterY = rect.top + rect.height / 2;
-      const cs = window.getComputedStyle(el);
-      pinchOverlayRef.current?.open({
-        src: thumbSrc ?? src,
-        alt,
-        rect: {
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
-        },
-        borderRadius: cs.borderRadius,
-      });
-      // Remember the original trigger so close()-after-commit returns focus
-      // here, not to whatever else might steal it during the gesture.
-      setTrigger(el as HTMLElement);
-
-      window.addEventListener("touchmove", onWindowTouchMove, {
-        passive: false,
-      });
-      window.addEventListener("touchend", onWindowTouchEnd, { passive: false });
-      window.addEventListener("touchcancel", onWindowTouchCancel, {
-        passive: false,
-      });
-      cleanup = () => {
-        window.removeEventListener("touchmove", onWindowTouchMove);
-        window.removeEventListener("touchend", onWindowTouchEnd);
-        window.removeEventListener("touchcancel", onWindowTouchCancel);
+        pinchOverlayRef.current?.update(scale, lastDx, lastDy);
       };
-    };
 
-    el.addEventListener("touchstart", onNativeTouchStart, { passive: false });
-    return () => {
-      el.removeEventListener("touchstart", onNativeTouchStart);
-      cleanup?.();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    // elementRef is stable (useRef), pinch*Refs are stable context refs.
-    // Re-attach only if the element itself changes (e.g. conditional render).
-    // meta and onCommit are tracked via their own refs above.
-  ]);
+      const finishGesture = () => {
+        if (!active) return;
+        active = false;
+        // KEEP pinchActiveRef true a little longer than the gesture itself.
+        // Why: the lightbox mounts UNDER the user's still-down finger
+        // (commit fires on the last touchend, but iOS can dispatch a fresh
+        // touchstart on the newly-mounted .yarl__container if a finger is
+        // resting in its bounds). That would trip the onUserTouch listener
+        // and release zoom-ownership before our mount-effect has time to
+        // read pendingZoomRef and apply the seed scale to yarl. The 600ms
+        // grace covers React mount + yarl ZoomRef attach + first paint.
+        const commit = lastScale >= PINCH_COMMIT_SCALE;
+        if (commit) {
+          // Stash the target width (thumb × scale, CSS pixels) so the lightbox's
+          // rAF poll can compute the correct yarl zoom by dividing by fit_width.
+          // Clamp to PINCH_MAX_SCALE for consistency with the overlay clamp.
+          const clampedScale = Math.min(
+            PINCH_MAX_SCALE,
+            Math.max(1, lastScale),
+          );
+          pendingZoomRef.current = thumbWidthPx * clampedScale;
+          pendingThumbWidthRef.current = thumbWidthPx;
+          // Stash the thumbnail centre (relative to viewport centre) so the
+          // lightbox's rAF poll can compute the exact focal-point argument for
+          // yarl's changeZoom, placing the image centre over the same pixel as
+          // the thumbnail centre on screen.
+          //
+          // NOTE: pendingPanRef now stores the THUMB CENTRE (not the pinch
+          // midpoint). The rAF poll converts it to a yarl focal-point offset
+          // using: dx_focal = -thumbCenterDx / (yarlZoom - 1). This is derived
+          // from the yarl changeZoom formula which applies
+          //   changeOffsets(dx * (1/zoom - 1/newZoom), …)
+          // so that the resulting screenOffset = offsetX * newZoom = thumbCenterDx.
+          pendingPanRef.current = {
+            dx: thumbCenterX + lastDx - window.innerWidth / 2,
+            dy: thumbCenterY + lastDy - window.innerHeight / 2,
+          };
+          // Open the real lightbox first, then dismiss the overlay so yarl's
+          // own opening visuals immediately replace ours with no flash gap.
+          onCommitRef.current();
+          pinchOverlayRef.current?.commit();
+          // Release pinchActive only AFTER the mount-effect has had time to
+          // run. See note above finishGesture.
+          window.setTimeout(() => {
+            pinchActiveRef.current = false;
+          }, 600);
+        } else {
+          pendingZoomRef.current = 1;
+          pendingThumbWidthRef.current = 0;
+          pendingPanRef.current = { dx: 0, dy: 0 };
+          pinchOverlayRef.current?.close(false);
+          pinchActiveRef.current = false;
+        }
+        cleanup?.();
+        cleanup = null;
+      };
+
+      const onWindowTouchEnd = (e: TouchEvent) => {
+        if (!active) return;
+        // Commit only when BOTH fingers are off — otherwise wait (finger
+        // adjustments mid-pinch shouldn't trigger commit).
+        if (e.touches.length >= 1) return;
+        finishGesture();
+      };
+
+      const onWindowTouchCancel = () => {
+        if (!active) return;
+        finishGesture();
+      };
+
+      const onNativeTouchStart = (e: TouchEvent) => {
+        if (e.touches.length !== 2) return;
+        if (active) return;
+        if (e.cancelable) e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        initialDist = distance(t1, t2);
+        initialMidX = (t1.clientX + t2.clientX) / 2;
+        initialMidY = (t1.clientY + t2.clientY) / 2;
+        lastScale = 1;
+        lastDx = 0;
+        lastDy = 0;
+        active = true;
+        pinchActiveRef.current = true;
+
+        const { src, thumbSrc, alt } = metaRef.current;
+
+        // Start decoding the full-res image while the user is still pinching
+        // so the lightbox doesn't flash a black frame on commit.
+        const preload = new Image();
+        preload.decode?.().catch(() => {});
+        preload.src = src;
+
+        // Snapshot the element rect AND its border-radius so the overlay
+        // exactly mirrors the thumbnail frame visually.
+        const thumbImg = (el.querySelector("img[data-pinch-thumb]") ??
+          el.querySelector("img")) as HTMLImageElement | null;
+        const visualEl = thumbImg ?? el;
+        const rect = visualEl.getBoundingClientRect();
+        // Capture thumb width for the zoom-scale conversion in GalleryLightbox.
+        // The rAF poll divides pendingZoomRef (target CSS px) by the fit_width
+        // read from yarl's DOM to get the correct yarl zoom multiplier.
+        thumbWidthPx = rect.width;
+        pendingThumbWidthRef.current = rect.width;
+        // Capture thumb center for the focal-point pan calculation.
+        // The rAF poll uses this to compute the yarl offset that places the
+        // lightbox image centre over the same viewport pixel as the thumbnail.
+        thumbCenterX = rect.left + rect.width / 2;
+        thumbCenterY = rect.top + rect.height / 2;
+        const cs = window.getComputedStyle(visualEl);
+        pinchOverlayRef.current?.open({
+          src: thumbImg?.currentSrc || thumbImg?.src || thumbSrc || src,
+          alt,
+          rect: {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+          },
+          borderRadius: cs.borderRadius,
+          objectFit: cs.objectFit as React.CSSProperties["objectFit"],
+          objectPosition:
+            cs.objectPosition as React.CSSProperties["objectPosition"],
+        });
+        // Remember the original trigger so close()-after-commit returns focus
+        // here, not to whatever else might steal it during the gesture.
+        setTrigger(el as HTMLElement);
+
+        window.addEventListener("touchmove", onWindowTouchMove, {
+          passive: false,
+        });
+        window.addEventListener("touchend", onWindowTouchEnd, {
+          passive: false,
+        });
+        window.addEventListener("touchcancel", onWindowTouchCancel, {
+          passive: false,
+        });
+        cleanup = () => {
+          window.removeEventListener("touchmove", onWindowTouchMove);
+          window.removeEventListener("touchend", onWindowTouchEnd);
+          window.removeEventListener("touchcancel", onWindowTouchCancel);
+        };
+      };
+
+      el.addEventListener("touchstart", onNativeTouchStart, { passive: false });
+      return () => {
+        el.removeEventListener("touchstart", onNativeTouchStart);
+        cleanup?.();
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [
+      // elementRef is stable (useRef), pinch*Refs are stable context refs.
+      // Re-attach only if the element itself changes (e.g. conditional render).
+      // meta and onCommit are tracked via their own refs above.
+    ],
+  );
 }
 
 export type GalleryImageProps = {
@@ -753,13 +885,7 @@ export function GalleryImage({
   loading = "lazy",
   ...imgProps
 }: GalleryImageProps) {
-  const {
-    register,
-    update,
-    unregister,
-    open,
-    setTrigger,
-  } = useGallery();
+  const { register, update, unregister, open, setTrigger } = useGallery();
   const idRef = React.useRef<number | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
 
@@ -806,6 +932,7 @@ export function GalleryImage({
     <button
       ref={buttonRef}
       type="button"
+      data-gallery-image=""
       onClick={handleOpen}
       aria-label={`Открыть фото: ${caption || alt}`}
       // `appearance-none` + zero padding/border keeps tailwind sizing on the
@@ -839,8 +966,20 @@ export function GalleryImage({
 // ---------------------------------------------------------------------------
 
 export function GalleryLightbox() {
-  const { entries, isOpen, index, close, pendingZoomRef, pendingThumbWidthRef, pendingPanRef, pinchActiveRef, holdPinchOverlayRef, pinchThumbSrc } =
-    useGallery();
+  const {
+    entries,
+    isOpen,
+    index,
+    close,
+    pinchOverlayRef,
+    pinchTransitionActiveRef,
+    pendingZoomRef,
+    pendingThumbWidthRef,
+    pendingPanRef,
+    pinchActiveRef,
+    holdPinchOverlayRef,
+    pinchThumbSrc,
+  } = useGallery();
   // yarl exposes the active slide's zoom controls through a forwarded ref.
   // We need this to seed the initial zoom level after a pinch-to-open
   // commit, so the lightbox opens already zoomed to the scale the user
@@ -851,6 +990,61 @@ export function GalleryLightbox() {
   // is applied). Used to convert "target CSS pixels" → yarl zoom multiplier.
   // Reset to 0 on close so the next open re-reads a fresh value.
   const fitWidthCacheRef = React.useRef<number>(0);
+  // After mount we hold ownership of the zoom level (= keep re-applying
+  // pendingZoomRef on every yarl reset) until either:
+  //   • the user touches anywhere inside the lightbox container — that's
+  //     the start of an in-lightbox pinch we must NOT fight, OR
+  //   • close().
+  // No fixed timer because yarl's post-decode reset can land anywhere
+  // from ~50ms to ~2s after open depending on network; a 500ms grace
+  // window gambled wrong on slow connections and we lost the seed.
+  const ownsZoomRef = React.useRef(false);
+
+  const applyUnboundedSeedTransform = React.useCallback(
+    (targetZoom: number) => {
+      if (pendingThumbWidthRef.current <= 0 || targetZoom <= 1) return;
+      const fullsize = document.querySelector(
+        ".yarl__slide_current .yarl__fullsize",
+      ) as HTMLElement | null;
+      if (!fullsize) return;
+      const pan = pendingPanRef.current;
+      const offsetX = pan.dx / targetZoom;
+      const offsetY = pan.dy / targetZoom;
+      fullsize.style.transform = `scale(${targetZoom}) translateX(${offsetX}px) translateY(${offsetY}px)`;
+      fullsize.dataset.bulkaSeedTransform = "true";
+    },
+    [pendingPanRef, pendingThumbWidthRef],
+  );
+
+  const isUnboundedSeedPainted = React.useCallback(
+    (targetZoom: number) => {
+      if (pendingThumbWidthRef.current <= 0 || targetZoom <= 1.05) return true;
+      const img = document.querySelector(
+        ".yarl__slide_current .yarl__fullsize img",
+      ) as HTMLImageElement | null;
+      if (!img) return false;
+      const rect = img.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      const pan = pendingPanRef.current;
+      const targetCenterX = window.innerWidth / 2 + pan.dx;
+      const targetCenterY = window.innerHeight / 2 + pan.dy;
+      return (
+        Math.abs(rect.left + rect.width / 2 - targetCenterX) <= 2 &&
+        Math.abs(rect.top + rect.height / 2 - targetCenterY) <= 2
+      );
+    },
+    [pendingPanRef, pendingThumbWidthRef],
+  );
+
+  const scheduleUnboundedSeedTransform = React.useCallback(
+    (targetZoom: number) => {
+      applyUnboundedSeedTransform(targetZoom);
+      window.setTimeout(() => {
+        if (ownsZoomRef.current) applyUnboundedSeedTransform(targetZoom);
+      }, 0);
+    },
+    [applyUnboundedSeedTransform],
+  );
 
   // After the lightbox opens, if there's a pending zoom from a pinch gesture
   // (set by GalleryImage's commit path), feed it to yarl. We can't do this
@@ -952,21 +1146,19 @@ export function GalleryLightbox() {
           }
           z.changeZoom(target, true, focalDx, focalDy);
         }
+        scheduleUnboundedSeedTransform(target);
       }
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isOpen, pendingZoomRef, pendingThumbWidthRef, pendingPanRef]);
-  // After mount we hold ownership of the zoom level (= keep re-applying
-  // pendingZoomRef on every yarl reset) until either:
-  //   • the user touches anywhere inside the lightbox container — that's
-  //     the start of an in-lightbox pinch we must NOT fight, OR
-  //   • close().
-  // No fixed timer because yarl's post-decode reset can land anywhere
-  // from ~50ms to ~2s after open depending on network; a 500ms grace
-  // window gambled wrong on slow connections and we lost the seed.
-  const ownsZoomRef = React.useRef(false);
+  }, [
+    isOpen,
+    pendingZoomRef,
+    pendingThumbWidthRef,
+    pendingPanRef,
+    scheduleUnboundedSeedTransform,
+  ]);
   // True while we should skip the next on.view event. Initialised to true so
   // the first on.view (which yarl fires synchronously on mount for the initial
   // slide) is a no-op and doesn't prematurely release ownership. Reset to true
@@ -976,7 +1168,7 @@ export function GalleryLightbox() {
     if (!isOpen) {
       ownsZoomRef.current = false;
       skipNextViewRef.current = true; // arm the skip for the next open
-      fitWidthCacheRef.current = 0;   // reset fit_width cache for next open
+      fitWidthCacheRef.current = 0; // reset fit_width cache for next open
       return;
     }
     ownsZoomRef.current = true;
@@ -1073,11 +1265,19 @@ export function GalleryLightbox() {
   React.useEffect(() => {
     if (typeof document === "undefined") return;
     if (!isOpen) return;
+    const html = document.documentElement;
     const body = document.body;
+    const root = document.getElementById("root");
+    const originalHtmlBg = html.style.backgroundColor;
     const originalBg = body.style.backgroundColor;
+    const originalRootBg = root?.style.backgroundColor ?? "";
+    html.style.backgroundColor = "#000";
     body.style.backgroundColor = "#000";
+    if (root) root.style.backgroundColor = "#000";
     return () => {
+      html.style.backgroundColor = originalHtmlBg;
       body.style.backgroundColor = originalBg;
+      if (root) root.style.backgroundColor = originalRootBg;
     };
   }, [isOpen]);
 
@@ -1132,6 +1332,17 @@ export function GalleryLightbox() {
     let rafId = 0;
     let frameCount = 0;
     const MAX_FRAMES = 300; // ~5s at 60fps — safety exit
+    // How many consecutive frames the AND-gate has been satisfied.
+    // We require STABLE_REQUIRED in a row before dismissing the overlay.
+    // Why: yarl fires a useLayoutEffect reset (zoom→1) when the preload image
+    // source swaps to full-res (~50–500ms after mount). zoomRef.current.zoom
+    // drops to 1 for one tick, then our seed-zoom rAF re-applies the target.
+    // Without stability tracking, the gate fires the frame the ref first
+    // hits target, the overlay fades, and the user sees the image flash to
+    // zoom=1 during the next frame's reset. Three consecutive frames with no
+    // drop back below threshold confirms the reset has settled.
+    let stableFrames = 0;
+    const STABLE_REQUIRED = 3;
     const pollImageLoad = () => {
       frameCount++;
       if (frameCount > MAX_FRAMES) {
@@ -1188,19 +1399,35 @@ export function GalleryLightbox() {
           return;
         }
         const maxZ = zoomRef.current?.maxZoom ?? 3;
-        targetYarlZoom = Math.min(maxZ, Math.max(1, pendingZoomRef.current / fitW));
+        targetYarlZoom = Math.min(
+          maxZ,
+          Math.max(1, pendingZoomRef.current / fitW),
+        );
       } else {
         targetYarlZoom = Math.max(1, pendingZoomRef.current);
       }
       // Use actual yarl zoom state (zoomRef.current.zoom), not CSS transform regex.
       // The old CSS regex path compared CSS px scale (~2.5) against pixel-based
       // pendingZoomRef.current (~480), producing "2.5 >= 432" — always false → 5s wait.
-      const zoomPainted = targetYarlZoom <= 1.05 ||
+      const zoomPainted =
+        targetYarlZoom <= 1.05 ||
         (zoomRef.current?.zoom ?? 1) >= targetYarlZoom * 0.9;
-      if (imageLoadedRef.current && !pinchActiveRef.current && zoomPainted) {
-        // Full image decoded, pinch grace elapsed, seed zoom painted → fade out.
-        setPinchHoldDismissing(true);
-        return;
+      const panPainted = isUnboundedSeedPainted(targetYarlZoom);
+      if (
+        imageLoadedRef.current &&
+        !pinchActiveRef.current &&
+        zoomPainted &&
+        panPainted
+      ) {
+        stableFrames++;
+        if (stableFrames >= STABLE_REQUIRED) {
+          // All conditions met for N consecutive frames → overlay safe to fade.
+          pinchOverlayRef.current?.dismiss();
+          setPinchHoldDismissing(true);
+          return;
+        }
+      } else {
+        stableFrames = 0;
       }
       rafId = requestAnimationFrame(pollImageLoad);
     };
@@ -1209,176 +1436,209 @@ export function GalleryLightbox() {
     return () => {
       cancelAnimationFrame(rafId);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, pinchThumbSrc]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, pinchThumbSrc, isUnboundedSeedPainted, pinchOverlayRef]);
   // ────────────────────────────────────────────────────────────────────────────
 
   return (
     <>
-    {/* Pinch-hold thumbnail overlay — keeps thumb visible over yarl's black
+      {/* Full-screen black backdrop rendered behind the yarl portal (z=9998 < 9999).
+        Covers the Dynamic Island / status-bar safe-area zone (top ~47px) and the
+        home-indicator zone (bottom ~34px) where yarl's own background-color does
+        not paint on iOS Safari (overflow:hidden clips its render to the layout
+        viewport, not the physical screen).  Using background-image (gradient)
+        instead of background-color because iOS Safari reliably paints
+        background-image into the safe-area zones. */}
+      {isOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            aria-hidden="true"
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundImage: "linear-gradient(to bottom, #000 0%, #000 100%)",
+              zIndex: 9998,
+              pointerEvents: "none",
+            }}
+          />,
+          document.body,
+        )}
+      {/* Pinch-hold thumbnail overlay — keeps thumb visible over yarl's black
         background until the full image finishes loading AND pinch grace ends.
         pinchThumbSrc is null for plain tap opens — overlay not rendered. */}
-    {pinchThumbSrc && typeof document !== "undefined" && createPortal(
-      <div
-        data-testid="pinch-thumb-overlay"
-        aria-hidden="true"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 10000,
-          pointerEvents: "none",
-          backgroundImage: `url("${pinchThumbSrc}")`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          // Overlay appears at opacity:1 immediately on the first paint (no
-          // useEffect delay) — pinchThumbSrc is set synchronously in open().
-          // Transition applies only on the way OUT (pinchHoldDismissing=true)
-          // so there is no 0→1 fade-in that would produce a black flash.
-          opacity: pinchHoldDismissing ? 0 : 1,
-          transition: pinchHoldDismissing ? "opacity 300ms ease-out" : "none",
+      {pinchThumbSrc &&
+        !pinchTransitionActiveRef.current &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            data-testid="pinch-thumb-overlay"
+            aria-hidden="true"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 10000,
+              pointerEvents: "none",
+              backgroundImage: `url("${pinchThumbSrc}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              // Overlay appears at opacity:1 immediately on the first paint (no
+              // useEffect delay) — pinchThumbSrc is set synchronously in open().
+              // Transition applies only on the way OUT (pinchHoldDismissing=true)
+              // so there is no 0→1 fade-in that would produce a black flash.
+              opacity: pinchHoldDismissing ? 0 : 1,
+              transition: pinchHoldDismissing
+                ? "opacity 300ms ease-out"
+                : "none",
+            }}
+          />,
+          document.body,
+        )}
+      <Lightbox
+        open={isOpen}
+        close={close}
+        index={index}
+        slides={slides}
+        plugins={[Zoom, Captions, Counter]}
+        // ESC + backdrop-click are yarl defaults; restated for clarity.
+        controller={{ closeOnBackdropClick: true, closeOnPullDown: true }}
+        // Loop arrows: with finite=false there's never an "end", so both
+        // prev/next arrows render on every slide when there are 2+ slides.
+        // We force the first slide to size like the rest by overriding yarl's
+        // CSS variable for slide padding (sets the inner box that bounds the
+        // image). 10vw on each side → image ~80vw wide on phones, consistent
+        // across all slides regardless of which one was opened first.
+        carousel={{ finite: false }}
+        styles={
+          {
+            // Root = the .yarl__portal element. yarl's own styles.css already
+            // sets `position: fixed; inset: 0` on this element. Use fully
+            // opaque black (no alpha) so no page background bleeds through —
+            // even on devices where the portal doesn't extend to the absolute
+            // screen edge. Semi-transparent (#000 at 0.92) was enough for the
+            // overlay look but let the cream page bg tint through by 8%.
+            //
+            // iOS Safari height fix is applied via global.css (.yarl__portal rule)
+            // rather than here via inline styles — inline height on portal breaks
+            // yarl's internal fit-width DOM measurement (getBoundingClientRect on
+            // the fullsize img reads wrong when height is set inline in the same
+            // render cycle that the portal mounts).
+            root: {
+              backgroundColor: "#000",
+            },
+            container: {
+              backgroundColor: "#000",
+              // Defeat any safe-area-inset padding that might otherwise shrink
+              // the photo away from the screen edges.
+              paddingTop: 0,
+              paddingBottom: 0,
+              paddingLeft: 0,
+              paddingRight: 0,
+            },
+          } as Record<string, React.CSSProperties>
+        }
+        // Pinch / wheel zoom config — keeps both touch and desktop snappy.
+        // `ref: zoomRef` exposes ZoomRef.changeZoom so we can seed initial
+        // zoom from a pinch-to-open gesture (see on.zoom callback below).
+        zoom={{
+          ref: zoomRef,
+          maxZoomPixelRatio: 3,
+          scrollToZoom: true,
+          wheelZoomDistanceFactor: 100,
+          pinchZoomDistanceFactor: 100,
+          doubleTapDelay: 300,
+          doubleClickDelay: 300,
         }}
-      />,
-      document.body,
-    )}
-    <Lightbox
-      open={isOpen}
-      close={close}
-      index={index}
-      slides={slides}
-      plugins={[Zoom, Captions, Counter]}
-      // ESC + backdrop-click are yarl defaults; restated for clarity.
-      controller={{ closeOnBackdropClick: true, closeOnPullDown: true }}
-      // Loop arrows: with finite=false there's never an "end", so both
-      // prev/next arrows render on every slide when there are 2+ slides.
-      // We force the first slide to size like the rest by overriding yarl's
-      // CSS variable for slide padding (sets the inner box that bounds the
-      // image). 10vw on each side → image ~80vw wide on phones, consistent
-      // across all slides regardless of which one was opened first.
-      carousel={{ finite: false }}
-      styles={
-        {
-          // Root = the .yarl__portal element. yarl's own styles.css already
-          // sets `position: fixed; inset: 0` on this element. Use fully
-          // opaque black (no alpha) so no page background bleeds through —
-          // even on devices where the portal doesn't extend to the absolute
-          // screen edge. Semi-transparent (#000 at 0.92) was enough for the
-          // overlay look but let the cream page bg tint through by 8%.
-          //
-          // iOS Safari height fix is applied via global.css (.yarl__portal rule)
-          // rather than here via inline styles — inline height on portal breaks
-          // yarl's internal fit-width DOM measurement (getBoundingClientRect on
-          // the fullsize img reads wrong when height is set inline in the same
-          // render cycle that the portal mounts).
-          root: {
-            backgroundColor: "#000",
-          },
-          container: {
-            backgroundColor: "#000",
-            // Defeat any safe-area-inset padding that might otherwise shrink
-            // the photo away from the screen edges.
-            paddingTop: 0,
-            paddingBottom: 0,
-            paddingLeft: 0,
-            paddingRight: 0,
-          },
-        } as Record<string, React.CSSProperties>
-      }
-      // Pinch / wheel zoom config — keeps both touch and desktop snappy.
-      // `ref: zoomRef` exposes ZoomRef.changeZoom so we can seed initial
-      // zoom from a pinch-to-open gesture (see on.zoom callback below).
-      zoom={{
-        ref: zoomRef,
-        maxZoomPixelRatio: 3,
-        scrollToZoom: true,
-        wheelZoomDistanceFactor: 100,
-        pinchZoomDistanceFactor: 100,
-        doubleTapDelay: 300,
-        doubleClickDelay: 300,
-      }}
-      on={{
-        // Release zoom ownership when the user navigates to a different slide.
-        // Without this, the rAF seed-zoom poll keeps re-applying pendingZoomRef
-        // to every subsequent slide (opened at scale 2.5, swipe to next slide →
-        // next slide should start at 1, not 2.5).
-        // skipNextViewRef guard: yarl fires one synthetic `view` for the initial
-        // slide on mount — we skip it so the seed has time to apply.
-        view: () => {
-          if (skipNextViewRef.current) {
-            skipNextViewRef.current = false;
-            return;
-          }
-          ownsZoomRef.current = false;
-          // Reset image-loaded flag when the user navigates to a new slide so
-          // the hold-overlay poll re-checks load state for the new image.
-          imageLoadedRef.current = false;
-        },
-        // Event-driven seed-zoom guard. Yarl fires this callback on every
-        // state.zoom change — both its own mount/decode resets AND
-        // user-initiated pinch inside the lightbox. We re-apply the seed
-        // ONLY while ownsZoomRef.current === true, which is set on open
-        // and cleared the moment the user touches the lightbox container
-        // (see the touchstart-listener effect above).
-        zoom: ({ zoom: currentZoom }) => {
-          if (!ownsZoomRef.current) return;
-          // Convert pendingZoomRef to a yarl zoom target using the same
-          // pixel-based path as the rAF tick (fitWidthCacheRef is shared).
-          let target: number;
-          if (pendingThumbWidthRef.current > 0 && fitWidthCacheRef.current > 0) {
-            const z = zoomRef.current;
-            const maxZoom = z ? z.maxZoom : 3;
-            target = Math.min(maxZoom, Math.max(1, pendingZoomRef.current / fitWidthCacheRef.current));
-          } else {
-            target = Math.max(1, pendingZoomRef.current);
-          }
-          if (target <= 1) return;
-          if (Math.abs(currentZoom - target) < 0.01) return;
-          const z = zoomRef.current;
-          if (z && !z.disabled) {
-            const pan = pendingPanRef.current;
-            // Same focal-point conversion as the rAF tick: pan.dx/dy is the
-            // thumbnail centre offset (not a raw focal point) when
-            // pendingThumbWidthRef > 0.
-            let focalDx: number;
-            let focalDy: number;
-            if (pendingThumbWidthRef.current > 0 && target > 1) {
-              focalDx = -pan.dx / (target - 1);
-              focalDy = -pan.dy / (target - 1);
-            } else {
-              focalDx = pan.dx;
-              focalDy = pan.dy;
+        on={{
+          // Release zoom ownership when the user navigates to a different slide.
+          // Without this, the rAF seed-zoom poll keeps re-applying pendingZoomRef
+          // to every subsequent slide (opened at scale 2.5, swipe to next slide →
+          // next slide should start at 1, not 2.5).
+          // skipNextViewRef guard: yarl fires one synthetic `view` for the initial
+          // slide on mount — we skip it so the seed has time to apply.
+          view: () => {
+            if (skipNextViewRef.current) {
+              skipNextViewRef.current = false;
+              return;
             }
-            z.changeZoom(target, true, focalDx, focalDy);
-          }
-        },
-      }}
-      counter={{
-        container: {
-          style: {
-            top: 8,
-            left: "50%",
-            transform: "translateX(-50%)",
-            color: "rgba(255,255,255,0.85)",
-            fontSize: 13,
-            fontWeight: 500,
+            ownsZoomRef.current = false;
+            // Reset image-loaded flag when the user navigates to a new slide so
+            // the hold-overlay poll re-checks load state for the new image.
+            imageLoadedRef.current = false;
           },
-        },
-      }}
-      captions={{
-        descriptionTextAlign: "center",
-        // Hide the title overlay (it's a duplicate of description and clashes with the counter).
-        // Keep description (renders at the bottom).
-      }}
-      // Single-slide: hide arrows. Multi-slide: let yarl render defaults
-      // (carousel.finite=false guarantees both arrows appear on every slide).
-      // Touch (coarse pointer): hide the toolbar Zoom button — pinch /
-      // double-tap still work because the Zoom plugin is loaded.
-      render={{
-        ...(entries.length <= 1
-          ? { buttonPrev: () => null, buttonNext: () => null }
-          : {}),
-        ...(isCoarsePointer ? { buttonZoom: () => null } : {}),
-      }}
-    />
+          // Event-driven seed-zoom guard. Yarl fires this callback on every
+          // state.zoom change — both its own mount/decode resets AND
+          // user-initiated pinch inside the lightbox. We re-apply the seed
+          // ONLY while ownsZoomRef.current === true, which is set on open
+          // and cleared the moment the user touches the lightbox container
+          // (see the touchstart-listener effect above).
+          zoom: ({ zoom: currentZoom }) => {
+            if (!ownsZoomRef.current) return;
+            // Convert pendingZoomRef to a yarl zoom target using the same
+            // pixel-based path as the rAF tick (fitWidthCacheRef is shared).
+            let target: number;
+            if (
+              pendingThumbWidthRef.current > 0 &&
+              fitWidthCacheRef.current > 0
+            ) {
+              const z = zoomRef.current;
+              const maxZoom = z ? z.maxZoom : 3;
+              target = Math.min(
+                maxZoom,
+                Math.max(1, pendingZoomRef.current / fitWidthCacheRef.current),
+              );
+            } else {
+              target = Math.max(1, pendingZoomRef.current);
+            }
+            if (target <= 1) return;
+            if (Math.abs(currentZoom - target) < 0.01) return;
+            const z = zoomRef.current;
+            if (z && !z.disabled) {
+              const pan = pendingPanRef.current;
+              // Same focal-point conversion as the rAF tick: pan.dx/dy is the
+              // thumbnail centre offset (not a raw focal point) when
+              // pendingThumbWidthRef > 0.
+              let focalDx: number;
+              let focalDy: number;
+              if (pendingThumbWidthRef.current > 0 && target > 1) {
+                focalDx = -pan.dx / (target - 1);
+                focalDy = -pan.dy / (target - 1);
+              } else {
+                focalDx = pan.dx;
+                focalDy = pan.dy;
+              }
+              z.changeZoom(target, true, focalDx, focalDy);
+            }
+          },
+        }}
+        counter={{
+          container: {
+            style: {
+              top: 8,
+              left: "50%",
+              transform: "translateX(-50%)",
+              color: "rgba(255,255,255,0.85)",
+              fontSize: 13,
+              fontWeight: 500,
+            },
+          },
+        }}
+        captions={{
+          descriptionTextAlign: "center",
+          // Hide the title overlay (it's a duplicate of description and clashes with the counter).
+          // Keep description (renders at the bottom).
+        }}
+        // Single-slide: hide arrows. Multi-slide: let yarl render defaults
+        // (carousel.finite=false guarantees both arrows appear on every slide).
+        // Touch (coarse pointer): hide the toolbar Zoom button — pinch /
+        // double-tap still work because the Zoom plugin is loaded.
+        render={{
+          ...(entries.length <= 1
+            ? { buttonPrev: () => null, buttonNext: () => null }
+            : {}),
+          ...(isCoarsePointer ? { buttonZoom: () => null } : {}),
+        }}
+      />
     </>
   );
 }
