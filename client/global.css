@@ -194,3 +194,25 @@
      (safe-area excluded), which would leave a 47px gap at top (Dynamic
      Island) and 34px at bottom (home indicator). */
 }
+
+/* ── Lightbox (yarl) iOS Safari safe-area fixes ──────────────────────────────
+   overflow:hidden on .yarl__portal combined with position:fixed + viewport-fit=cover
+   can clip portal rendering to the visual viewport on iOS Safari, leaving black
+   strips at the Dynamic Island (top) and home indicator (bottom) zones.
+   Setting overflow:visible on the portal removes this clip — .yarl__container
+   (position:absolute; inset:0 inside portal) takes over as the clip boundary
+   and correctly covers the full physical screen.
+
+   Safe-area padding on toolbar/captions ensures interactive elements remain
+   accessible below the Dynamic Island chip and above the home indicator. */
+.yarl__portal {
+  overflow: visible !important;
+}
+
+.yarl__toolbar {
+  padding-top: max(var(--yarl__toolbar_padding, 8px), env(safe-area-inset-top, 0px)) !important;
+}
+
+.yarl__slide_captions_container {
+  padding-bottom: max(0px, env(safe-area-inset-bottom, 0px)) !important;
+}

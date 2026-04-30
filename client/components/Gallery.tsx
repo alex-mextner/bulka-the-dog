@@ -1153,13 +1153,25 @@ export function GalleryLightbox() {
           imageLoadedRef.current = true;
         }
       }
-      // AND-gate: dismiss only when BOTH conditions are met:
+      // AND-gate: dismiss only when ALL conditions are met:
       //   1. Full image is loaded (imageLoadedRef.current = true)
       //   2. Pinch grace period has elapsed (!pinchActiveRef.current)
-      // This prevents black flash on cached images (condition 1 immediate)
-      // and ensures the gesture animation finishes before we dismiss (cond 2).
-      if (imageLoadedRef.current && !pinchActiveRef.current) {
-        // Full image decoded AND pinch grace elapsed — fade out the hold overlay.
+      //   3. yarl has painted the seed zoom (CSS transform scale ≈ pendingZoom)
+      //      Read from DOM so we check the *actually painted* state, not just
+      //      the internal zoom state which fires one tick before rAF commit.
+      const targetZoom = pendingZoomRef.current || 1;
+      let zoomPainted = targetZoom <= 1.05; // no zoom pending — skip check
+      if (!zoomPainted) {
+        const fullsize = document.querySelector(
+          ".yarl__slide_current .yarl__fullsize",
+        ) as HTMLElement | null;
+        const tr = fullsize?.style.transform || "";
+        const scaleMatch = tr.match(/scale\(([\d.]+)\)/);
+        const paintedScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
+        zoomPainted = paintedScale >= targetZoom * 0.9;
+      }
+      if (imageLoadedRef.current && !pinchActiveRef.current && zoomPainted) {
+        // Full image decoded, pinch grace elapsed, seed zoom painted → fade out.
         setPinchHoldDismissing(true);
         return;
       }
@@ -1235,10 +1247,6 @@ export function GalleryLightbox() {
           },
           container: {
             backgroundColor: "#000",
-            // Override yarl's slide padding via CSS variable — this is
-            // honoured by every slide DOM, including the first one (which
-            // otherwise inherits a smaller default in some yarl versions).
-            "--yarl__slide_padding": "10vw",
             // Defeat any safe-area-inset padding that might otherwise shrink
             // the photo away from the screen edges.
             paddingTop: 0,
