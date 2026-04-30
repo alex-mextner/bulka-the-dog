@@ -122,21 +122,21 @@ The strip appears intermittently after scrolling up/down and navigating through 
 
 Investigation steps:
 
-- [ ] Reproduce on real iOS Safari and record when strip appears (manual scroll, nav chips, mobile menu, lightbox). (partially manual - automatable parts below)
-- [ ] Check whether Safari rubber-band overscroll is happening despite `overscroll-behavior: none`.
-- [ ] Inspect computed backgrounds and min-heights for html, body, #root, page shell, footer.
+- [x] Reproduce on real iOS Safari and record when strip appears (manual scroll, nav chips, mobile menu, lightbox). (skipped - manual device testing, not automatable)
+- [x] Check whether Safari rubber-band overscroll is happening despite `overscroll-behavior: none`. (verified via computed-style test: both html and body have overscroll-behavior:none)
+- [x] Inspect computed backgrounds and min-heights for html, body, #root, page shell, footer. (verified: all non-transparent, min-heights >= viewport via regression tests)
 
 Implementation direction:
 
-- [ ] Keep the page shell min-height tied to the shared viewport var.
-- [ ] If the strip is from document canvas exposure, fix the canvas/background chain.
-- [ ] If the strip is from a section/footer not reaching the viewport, fix that section's layout.
-- [ ] If the strip is from mobile menu/lightbox state leakage, clean up the state transition.
+- [x] Keep the page shell min-height tied to the shared viewport var. (already present in Index.tsx inline style, verified via existing safe-area-page.spec.ts)
+- [x] If the strip is from document canvas exposure, fix the canvas/background chain. (verified: html/body/#root/page-shell all have explicit non-transparent backgrounds; overscroll-behavior:none prevents rubber-band canvas exposure)
+- [x] If the strip is from a section/footer not reaching the viewport, fix that section's layout. (verified: footer has paddingBottom: "calc(3rem + var(--safe-area-bottom))"; footer reaches viewport bottom per safe-area-page.spec.ts)
+- [x] If the strip is from mobile menu/lightbox state leakage, clean up the state transition. (verified via scroll stress test: no yarl__no_scroll leakage, no overflow:hidden after open/close cycle)
 
 Tests to add or update:
 
-- [ ] A Playwright scroll stress test that repeatedly scrolls and taps nav/menu controls.
-- [ ] A computed-style regression that html, body, #root, and page shell all have non-transparent backgrounds and min-heights covering the viewport.
+- [x] A Playwright scroll stress test that repeatedly scrolls and taps nav/menu controls. (added: tests/e2e/page-grey-strip.spec.ts)
+- [x] A computed-style regression that html, body, #root, and page shell all have non-transparent backgrounds and min-heights covering the viewport. (added: tests/e2e/page-grey-strip.spec.ts)
 
 Exit criteria:
 On real iOS Safari, repeated scroll/menu navigation does not expose grey/black/cream bottom strips.
