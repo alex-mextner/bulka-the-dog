@@ -32,7 +32,7 @@ test.describe("Lightbox browser history", () => {
     await waitForGalleryReady(page);
   });
 
-  test("close button pops history entry without navigating away from page", async ({
+  test("close button calls history.back() to dismiss lightbox without navigating away from page", async ({
     page,
   }) => {
     const before = await page.evaluate(() => ({

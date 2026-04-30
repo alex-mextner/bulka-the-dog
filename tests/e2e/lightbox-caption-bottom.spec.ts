@@ -206,40 +206,8 @@ test.describe("Lightbox caption bottom placement (Task 4)", () => {
     ).toBe(50);
   });
 
-  // -- Canvas isolation is the bottom chrome paint guard --------------------
-  // Caption padding positions the text; canvas isolation prevents page bleed.
+  // Canvas isolation (body.yarl__no_scroll → body black + #root hidden) is the
+  // bottom chrome paint guard; caption padding positions the text above it.
   // Both are needed: isolation alone keeps page hidden, padding keeps text visible.
-  test("canvas isolation: body is black and #root is hidden while lightbox open", async ({
-    page,
-  }) => {
-    await tapFirstPhoto(page);
-    await page
-      .locator(".yarl__portal")
-      .waitFor({ state: "attached", timeout: 5_000 });
-    await page.waitForTimeout(150);
-
-    const result = await page.evaluate(() => {
-      const root = document.getElementById("root");
-      return {
-        bodyBg: window.getComputedStyle(document.body).backgroundColor,
-        rootVisibility: root
-          ? window.getComputedStyle(root).visibility
-          : null,
-        bodyHasNoScroll: document.body.classList.contains("yarl__no_scroll"),
-      };
-    });
-
-    expect(
-      result.bodyBg,
-      "body must be black to prevent page canvas bleed through bottom Safari chrome",
-    ).toBe("rgb(0, 0, 0)");
-    expect(
-      result.rootVisibility,
-      "#root must be hidden so page content cannot bleed through bottom Safari chrome",
-    ).toBe("hidden");
-    expect(
-      result.bodyHasNoScroll,
-      "body must have yarl__no_scroll class while lightbox is open",
-    ).toBe(true);
-  });
+  // The isolation invariant itself is covered by lightbox-modal-isolation.spec.ts.
 });

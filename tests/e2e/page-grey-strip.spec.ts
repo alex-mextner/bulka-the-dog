@@ -17,12 +17,6 @@ import { expect, test } from "@playwright/test";
 // after repeated interaction. Real device verification is required for visual
 // confirmation.
 
-test.use({
-  viewport: { width: 390, height: 844 },
-  userAgent:
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-});
-
 // ── Computed-style regression: backgrounds and overscroll ────────────────────
 
 test.describe("Page canvas background chain (grey strip prevention)", () => {

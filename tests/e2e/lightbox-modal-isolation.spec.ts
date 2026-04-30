@@ -163,6 +163,7 @@ test.describe("Lightbox modal isolation (Task 2)", () => {
     await page.evaluate(() => window.scrollTo(0, 200));
     await page.waitForTimeout(100);
     const scrollBefore = await page.evaluate(() => window.scrollY);
+    expect(scrollBefore, "page must be scrollable to test scroll preservation").toBeGreaterThan(0);
 
     await tapFirstPhoto(page);
     await page
