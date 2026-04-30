@@ -55,8 +55,11 @@ const App = () => {
     };
   }, []);
 
-  // Measure actual safe-area-inset-* values via a probe element and write them
-  // to --safe-area-top / --safe-area-bottom CSS custom properties.
+  // Measure actual safe-area-inset-* values via a probe element and expose them
+  // as JS fallback vars. The canonical --safe-area-top / --safe-area-bottom
+  // stay in CSS and include safe-area-max-inset-*; do not overwrite them from
+  // JS with 0px, because iOS Safari can temporarily report the dynamic insets
+  // as zero while the large viewport still has a notch / toolbar area.
   // Reading env() values through a probe gives us the resolved pixel value;
   // this is more reliable than declaring env() directly in a :root CSS custom
   // property on some iOS Safari versions (where the env() value may be stale
@@ -70,20 +73,28 @@ const App = () => {
         "position:fixed;pointer-events:none;visibility:hidden;";
       document.body.appendChild(p);
 
-      p.style.top = "env(safe-area-inset-top, 0px)";
-      const top = parseFloat(getComputedStyle(p).top) || 0;
+      const readPx = (value: string) => {
+        p.style.top = value;
+        return parseFloat(getComputedStyle(p).top) || 0;
+      };
 
-      p.style.top = "env(safe-area-inset-bottom, 0px)";
-      const bottom = parseFloat(getComputedStyle(p).top) || 0;
+      const top = Math.max(
+        readPx("env(safe-area-inset-top, 0px)"),
+        readPx("env(safe-area-max-inset-top, 0px)"),
+      );
+      const bottom = Math.max(
+        readPx("env(safe-area-inset-bottom, 0px)"),
+        readPx("env(safe-area-max-inset-bottom, 0px)"),
+      );
 
       document.body.removeChild(p);
 
       document.documentElement.style.setProperty(
-        "--safe-area-top",
+        "--safe-area-top-js",
         `${top}px`,
       );
       document.documentElement.style.setProperty(
-        "--safe-area-bottom",
+        "--safe-area-bottom-js",
         `${bottom}px`,
       );
     };

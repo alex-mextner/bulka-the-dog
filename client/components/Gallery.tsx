@@ -1453,6 +1453,7 @@ export function GalleryLightbox() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            className="bulka-lightbox-backdrop"
             aria-hidden="true"
             style={{
               position: "fixed",
@@ -1472,6 +1473,7 @@ export function GalleryLightbox() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            className="bulka-pinch-thumb-overlay"
             data-testid="pinch-thumb-overlay"
             aria-hidden="true"
             style={{

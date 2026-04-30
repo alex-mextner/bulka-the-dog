@@ -106,9 +106,25 @@
   :root {
     /* iOS safe-area insets — used by Header (top) and footer (bottom).
        Defined as vars so we can reference them in calc() without
-       repeating the env() call at every use-site. */
-    --safe-area-top: env(safe-area-inset-top, 0px);
-    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+       repeating the env() call at every use-site.
+
+       Use the maximum insets as well as the dynamic insets. Safari can report
+       safe-area-inset-* as 0 while the address bar / Dynamic Island are still
+       taking physical screen space; safe-area-max-inset-* gives us a stable
+       non-zero value for fullscreen layers. JS writes only the *-js fallback
+       vars, so it cannot accidentally replace these expressions with 0px. */
+    --safe-area-top-js: 0px;
+    --safe-area-bottom-js: 0px;
+    --safe-area-top: max(
+      env(safe-area-inset-top, 0px),
+      env(safe-area-max-inset-top, 0px),
+      var(--safe-area-top-js, 0px)
+    );
+    --safe-area-bottom: max(
+      env(safe-area-inset-bottom, 0px),
+      env(safe-area-max-inset-bottom, 0px),
+      var(--safe-area-bottom-js, 0px)
+    );
   }
 
   html {
@@ -119,7 +135,8 @@
        Firefox 102+). */
     overflow-x: clip;
     background-color: hsl(var(--background));
-    min-height: 100dvh;
+    min-height: 100vh;
+    min-height: max(100dvh, 100lvh);
     /* Prevent overscroll-bounce from revealing the UA background behind the
        page. On iOS Safari, rubber-band scroll past the bottom (or top) briefly
        shows whatever is "behind" the document — either white (light UA) or the
@@ -135,12 +152,14 @@
     width: 100%;
     max-width: 100vw;
     position: relative;
-    min-height: 100dvh;
+    min-height: 100vh;
+    min-height: max(100dvh, 100lvh);
     overscroll-behavior: none;
   }
 
   #root {
-    min-height: 100dvh;
+    min-height: 100vh;
+    min-height: max(100dvh, 100lvh);
     background-color: hsl(var(--background));
   }
 
@@ -195,11 +214,9 @@
     scroll-margin-top: calc(72px + var(--safe-area-top));
   }
 
-  /* On viewport-fit=cover the portal's `position:fixed; inset:0` already
-     stretches to the physical screen edges including safe-area zones.
-     Do NOT set height:100dvh here — dvh equals the visual viewport
-     (safe-area excluded), which would leave a 47px gap at top (Dynamic
-     Island) and 34px at bottom (home indicator). */
+  /* Fullscreen overlays are handled below with 100lvh + safe-area overscan.
+     Plain 100dvh equals Safari's current visual viewport and can stop above
+     the Dynamic Island / bottom toolbar. */
 }
 
 /* ── Lightbox (yarl) iOS Safari safe-area fixes ──────────────────────────────
@@ -216,12 +233,52 @@
   overflow: visible !important;
 }
 
-/* yarl's fixed portal is sized to Safari's visual viewport. Expand the Bulka
-   lightbox root by the resolved safe-area values so the photo/backdrop paint
-   underneath the Dynamic Island and bottom address/home-indicator zones. */
+/* yarl's fixed portal is sized to Safari's visual viewport. On iOS Safari with
+   visible browser chrome this can be much shorter than the physical screen
+   (for example the remote inspector can show ~695px tall on a ~852px screen).
+   Move the portal up by the notch safe-area and size it from the large viewport
+   so the photo/backdrop paints behind the Dynamic Island and bottom toolbar.
+
+   The second height value is the modern path:
+   - 100lvh covers the large/physical viewport behind Safari chrome.
+   - + safe-area-top compensates for the negative top shift so the bottom still
+     reaches the large viewport bottom.
+   - the max(...100dvh + top + bottom) branch keeps Playwright and browsers
+     where lvh==dvh honest when we inject safe-area vars in tests. */
 .bulka-lightbox.yarl__portal {
   top: calc(-1 * var(--safe-area-top, 0px)) !important;
-  bottom: calc(-1 * var(--safe-area-bottom, 0px)) !important;
+  bottom: auto !important;
+  height: calc(
+    100vh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
+  ) !important;
+  height: max(
+    calc(100lvh + var(--safe-area-top, 0px)),
+    calc(
+      100dvh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
+    )
+  ) !important;
+  min-height: calc(
+    100dvh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
+  ) !important;
+}
+
+.bulka-lightbox .yarl__container {
+  height: 100% !important;
+}
+
+.bulka-lightbox-backdrop,
+.bulka-pinch-thumb-overlay {
+  top: calc(-1 * var(--safe-area-top, 0px)) !important;
+  bottom: auto !important;
+  height: calc(
+    100vh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
+  ) !important;
+  height: max(
+    calc(100lvh + var(--safe-area-top, 0px)),
+    calc(
+      100dvh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
+    )
+  ) !important;
 }
 
 .bulka-lightbox .yarl__slide_image_cover {

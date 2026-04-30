@@ -327,7 +327,7 @@ export default function Index() {
   ];
 
   return (
-    <div className="min-h-[100dvh] bg-background">
+    <div className="min-h-[max(100dvh,100lvh)] bg-background">
       <Header />
 
       <main id="main">

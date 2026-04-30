@@ -268,7 +268,8 @@ test.describe("Lightbox fullscreen coverage", () => {
       if (!portal || !toolbar || !captions) return null;
       const rect = portal.getBoundingClientRect();
       return {
-        rect: { top: rect.top, bottom: rect.bottom },
+        rect: { top: rect.top, bottom: rect.bottom, height: rect.height },
+        portalHeight: window.getComputedStyle(portal).height,
         toolbarPaddingTop: window.getComputedStyle(toolbar).paddingTop,
         captionsPaddingBottom: window.getComputedStyle(captions).paddingBottom,
         vh: window.innerHeight,
@@ -278,7 +279,43 @@ test.describe("Lightbox fullscreen coverage", () => {
     expect(result, "lightbox safe-area elements not found").not.toBeNull();
     expect(result!.rect.top).toBe(-59);
     expect(result!.rect.bottom).toBe(result!.vh + 34);
+    expect(result!.rect.height).toBe(result!.vh + 59 + 34);
+    expect(result!.portalHeight).toBe(`${result!.vh + 59 + 34}px`);
     expect(result!.toolbarPaddingTop).toBe("126px");
     expect(result!.captionsPaddingBottom).toBe("84px");
+  });
+
+  test("black backdrop expands with the lightbox safe-area geometry", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-top", "59px");
+      document.documentElement.style.setProperty("--safe-area-bottom", "34px");
+    });
+
+    await tapFirstPhoto(page);
+    await page
+      .locator(".bulka-lightbox-backdrop")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    await page.waitForTimeout(200);
+
+    const result = await page.evaluate(() => {
+      const backdrop = document.querySelector(
+        ".bulka-lightbox-backdrop",
+      ) as HTMLElement | null;
+      if (!backdrop) return null;
+      const rect = backdrop.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        height: rect.height,
+        vh: window.innerHeight,
+      };
+    });
+
+    expect(result, "lightbox backdrop not found").not.toBeNull();
+    expect(result!.top).toBe(-59);
+    expect(result!.bottom).toBe(result!.vh + 34);
+    expect(result!.height).toBe(result!.vh + 59 + 34);
   });
 });

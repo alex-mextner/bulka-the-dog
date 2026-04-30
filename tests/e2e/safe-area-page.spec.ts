@@ -122,6 +122,23 @@ test.describe("Page safe-area bottom coverage", () => {
     ).toBeGreaterThanOrEqual(34);
   });
 
+  test("JS measurement does not overwrite canonical safe-area vars with 0px", async ({
+    page,
+  }) => {
+    await page.waitForTimeout(150);
+
+    const inlineStyle = await page.evaluate(
+      () => document.documentElement.getAttribute("style") ?? "",
+    );
+
+    // Regression for the real iPhone Inspector state that showed:
+    // <html style="--safe-area-top: 0px; --safe-area-bottom: 0px; ...">
+    // That wipes out CSS env(safe-area-max-inset-*) and keeps fullscreen
+    // overlays stuck to Safari's shorter visual viewport.
+    expect(inlineStyle).not.toMatch(/(?:^|;)\s*--safe-area-top\s*:/);
+    expect(inlineStyle).not.toMatch(/(?:^|;)\s*--safe-area-bottom\s*:/);
+  });
+
   test("app root uses dynamic viewport height and body adds no extra bottom strip", async ({
     page,
   }) => {
@@ -131,6 +148,9 @@ test.describe("Page safe-area bottom coverage", () => {
         ?.parentElement as HTMLElement | null;
       return {
         bodyPaddingBottom: window.getComputedStyle(document.body).paddingBottom,
+        htmlMinHeight: window.getComputedStyle(document.documentElement)
+          .minHeight,
+        bodyMinHeight: window.getComputedStyle(document.body).minHeight,
         rootMinHeight: root ? window.getComputedStyle(root).minHeight : "",
         pageShellMinHeight: pageShell
           ? window.getComputedStyle(pageShell).minHeight
@@ -140,11 +160,47 @@ test.describe("Page safe-area bottom coverage", () => {
     });
 
     expect(result.bodyPaddingBottom).toBe("0px");
+    expect(parseFloat(result.htmlMinHeight)).toBeGreaterThanOrEqual(
+      result.innerHeight,
+    );
+    expect(parseFloat(result.bodyMinHeight)).toBeGreaterThanOrEqual(
+      result.innerHeight,
+    );
     expect(parseFloat(result.rootMinHeight)).toBeGreaterThanOrEqual(
       result.innerHeight,
     );
     expect(parseFloat(result.pageShellMinHeight)).toBeGreaterThanOrEqual(
       result.innerHeight,
+    );
+  });
+
+  test("page canvas uses large viewport fallback for Safari toolbar bleed", async ({
+    page,
+  }) => {
+    const hasLargeViewportUnits = await page.evaluate(() => {
+      const css = [...document.styleSheets]
+        .flatMap((sheet) => {
+          try {
+            return [...sheet.cssRules].map((rule) => rule.cssText);
+          } catch {
+            return [];
+          }
+        })
+        .join("\n");
+      const pageShell = document.querySelector("main")
+        ?.parentElement as HTMLElement | null;
+      return {
+        cssMentionsLvh: css.includes("100lvh"),
+        pageShellMinHeight: pageShell
+          ? window.getComputedStyle(pageShell).minHeight
+          : "",
+        supportsLvh: CSS.supports("height: 100lvh"),
+      };
+    });
+
+    expect(hasLargeViewportUnits.cssMentionsLvh).toBe(true);
+    expect(parseFloat(hasLargeViewportUnits.pageShellMinHeight)).toBeGreaterThan(
+      0,
     );
   });
 });

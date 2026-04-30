@@ -10,14 +10,14 @@ import type { Page } from "@playwright/test";
 // Bug 1: Lightbox doesn't fill the full physical screen height.
 //   .yarl__portal uses position:fixed; inset:0 but no explicit height. On iOS
 //   Safari with a visible address bar, the visual viewport is shorter than 100vh
-//   and fixed elements sized only by inset may not fully cover it. Fix: add
-//   `height: 100dvh` to .yarl__portal (and container) via Gallery.tsx styles prop.
+//   and fixed elements sized only by inset may not fully cover it. Fix: expand
+//   the portal with safe-area offsets and a 100lvh / 100dvh height fallback.
 //
 // Bug 2: White strip at the bottom of the page in Safari.
 //   `100vh` resolves to "large viewport" height (address-bar-included). When the
 //   address bar is visible the visual viewport is shorter, so page content falls
 //   short and the <body> background (not even html background) doesn't fill the
-//   visual bottom. Fix: `body { min-height: 100dvh }` in global.css.
+//   visual bottom. Fix: `body { min-height: max(100dvh, 100lvh) }` in global.css.
 
 async function waitForGalleryReady(page: Page) {
   await page
@@ -52,9 +52,9 @@ test.describe("Bug 1: Lightbox portal explicit height (iOS address-bar fix)", ()
 
   // Without an explicit height on .yarl__portal, iOS Safari may render the
   // fixed-positioned portal short of the full visual viewport when the address
-  // bar is shown. The fix is `height: 100dvh` in global.css on `.yarl__portal`.
-  // We verify by checking computed height equals window.innerHeight
-  // (100dvh = current visual viewport height in Chromium DevTools emulation).
+  // bar is shown. The fix gives `.yarl__portal` an explicit height from
+  // viewport units. With zero safe-area in Chromium emulation, that resolves to
+  // window.innerHeight.
   test("yarl portal has an explicit height set (not auto) — CSS fix present", async ({
     page,
   }) => {
@@ -72,8 +72,7 @@ test.describe("Bug 1: Lightbox portal explicit height (iOS address-bar fix)", ()
 
     expect(result, "portal element not found").not.toBeNull();
 
-    // The fix sets height: 100dvh via global.css. Computed height must equal
-    // window.innerHeight (in Chromium DevTools emulation 100dvh === innerHeight).
+    // With zero emulated safe-area, computed height must equal window.innerHeight.
     expect(
       result!.computedHeightPx,
       `portal computed height (${result!.computedHeight}) must equal viewport height (${result!.innerHeight}px) — fix not applied`,
@@ -82,7 +81,7 @@ test.describe("Bug 1: Lightbox portal explicit height (iOS address-bar fix)", ()
 
   // Regression guard: container (position:absolute inside portal) has zero padding.
   // No explicit height needed on container — it stretches via inset:0 inside the
-  // portal which already has height:100dvh. Adding height:100dvh to an absolute
+  // portal which already has explicit height. Adding viewport height to an absolute
   // element that also has top:0/bottom:0 can break yarl's internal layout.
   test("yarl container retains zero padding after portal height fix", async ({
     page,
@@ -114,11 +113,11 @@ test.describe("Bug 2: Body min-height for Safari white strip fix", () => {
     await page.goto("/", { waitUntil: "load" });
   });
 
-  // html already has min-height: 100dvh (global.css line 129). Body does not.
+  // html/body/root all use max(100dvh, 100lvh).
   // Without min-height on body, the body background can fall short of the
   // visual viewport bottom when the Safari address bar is visible.
   // After fix: body computed min-height >= window.innerHeight.
-  test("body min-height is set to at least viewport height (100dvh fix present)", async ({
+  test("body min-height is set to at least viewport height", async ({
     page,
   }) => {
     const result = await page.evaluate(() => {
@@ -132,7 +131,7 @@ test.describe("Bug 2: Body min-height for Safari white strip fix", () => {
     });
 
     // Before fix: body has no min-height → computed is "0px" or "auto"
-    // After fix: body min-height: 100dvh → resolves to px equal to innerHeight
+    // After fix: body min-height resolves to at least innerHeight.
     expect(
       result.minHeightPx,
       `body min-height (${result.minHeight}) must be >= viewport height (${result.innerHeight}px) — '${result.minHeight}' is too short, white strip will appear in Safari`,
