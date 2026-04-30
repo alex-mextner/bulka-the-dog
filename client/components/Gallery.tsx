@@ -477,6 +477,17 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       } else {
         setPinchThumbSrc(null);
       }
+      // Eagerly add yarl__no_scroll before setIsOpen so the CSS isolation
+      // (visibility:hidden on #root, black body background) is already in
+      // effect on the very first paint. Without this, YARL adds the class in a
+      // passive useEffect one paint cycle after isOpen becomes true, leaving a
+      // brief window where iOS Safari chrome compositing can show live page
+      // content in the top/bottom chrome strips. classList.add is idempotent,
+      // so YARL's own add is a no-op, and YARL's cleanup correctly removes the
+      // class on close.
+      if (typeof document !== "undefined") {
+        document.body.classList.add("yarl__no_scroll");
+      }
       isOpenRef.current = true;
       setIsOpen(true);
       // Push exactly one history entry for the whole lightbox session — slide
@@ -515,6 +526,13 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     isOpenRef.current = false;
     setIsOpen(false);
     setPinchThumbSrc(null);
+    // Mirror the eager add in open(): remove the class immediately so that if
+    // close() is called before YARL's NoScroll effect has mounted (e.g. a
+    // popstate arriving before React commits the isOpen=true render), the
+    // class doesn't stick and leave #root hidden.
+    if (typeof document !== "undefined") {
+      document.body.classList.remove("yarl__no_scroll");
+    }
     // Reset seed zoom, thumb width, and pan so a subsequent open via tap
     // (no pinch) starts at scale 1 centered.
     pendingZoomRef.current = 1;

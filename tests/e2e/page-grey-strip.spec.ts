@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 // Tests targeting the "grey strip at bottom" symptom seen intermittently on
 // iOS Safari after repeated scrolls and menu navigation.
@@ -8,8 +9,9 @@ import { expect, test } from "@playwright/test";
 //      bleed through rubber-band overscroll zones.
 //   2. overscroll-behavior is accidentally removed from html or body, re-enabling
 //      Safari's rubber-band bounce which reveals the raw document canvas.
-//   3. State leakage from burger menu open/close or lightbox lifecycle leaves
-//      overflow:hidden / yarl__no_scroll on body, clipping the page short.
+//   3. State leakage from burger menu open/close leaves overflow:hidden on body.
+//   4. State leakage from lightbox open/close leaves yarl__no_scroll or black
+//      body background, making #root permanently invisible or body incorrectly styled.
 //
 // NOTE: Playwright (Chromium) cannot reproduce the actual iOS rubber-band
 // overscroll — it has no address bar and no UA chrome compositing. These tests
@@ -210,5 +212,144 @@ test.describe("Scroll stress: no state leakage after scroll and menu nav", () =>
       state.rootBg,
       `#root background must remain set after interaction (got '${state.rootBg}')`,
     ).not.toBe("rgba(0, 0, 0, 0)");
+  });
+});
+
+// ── Lightbox lifecycle stress: no state leakage after open/close ──────────────
+
+async function waitForGalleryReady(page: Page) {
+  await page
+    .locator('[data-photo-strip][data-touch-mode="true"]')
+    .first()
+    .waitFor({ state: "attached", timeout: 15_000 });
+  await page.waitForFunction(
+    () =>
+      typeof (window as unknown as Record<string, unknown>).__bulkaTest ===
+      "object",
+    { timeout: 5_000 },
+  );
+}
+
+async function tapFirstPhoto(page: Page) {
+  const clicked = await page.evaluate(() => {
+    const btn = document.querySelector(
+      "[data-photo-strip] div.flex.flex-nowrap button",
+    );
+    if (!(btn instanceof HTMLElement)) return false;
+    btn.click();
+    return true;
+  });
+  expect(clicked, "no photo button found").toBe(true);
+}
+
+test.describe("Lightbox lifecycle stress: no state leakage after open/close", () => {
+  test("body retains correct styles after lightbox open/close cycle", async ({
+    page,
+  }) => {
+    await page.goto("/?touch=1", { waitUntil: "load" });
+    await waitForGalleryReady(page);
+
+    // Open the lightbox.
+    await tapFirstPhoto(page);
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    await page.waitForTimeout(100);
+
+    // Close via Escape.
+    await page.keyboard.press("Escape");
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "detached", timeout: 5_000 });
+    await page.waitForTimeout(100);
+
+    const state = await page.evaluate(() => {
+      const bodyClasses = document.body.className;
+      const bodyOverflow = window.getComputedStyle(document.body).overflow;
+      const bodyBg = window.getComputedStyle(document.body).backgroundColor;
+      const rootVisibility = (() => {
+        const root = document.getElementById("root");
+        return root ? window.getComputedStyle(root).visibility : null;
+      })();
+      return { bodyClasses, bodyOverflow, bodyBg, rootVisibility };
+    });
+
+    // yarl__no_scroll must be gone after close.
+    expect(
+      state.bodyClasses,
+      "body must not have yarl__no_scroll after lightbox closes",
+    ).not.toContain("yarl__no_scroll");
+
+    // body overflow must not be stuck as hidden (would clip the page).
+    expect(
+      state.bodyOverflow,
+      `body overflow should not be 'hidden' after lightbox close (got '${state.bodyOverflow}')`,
+    ).not.toBe("hidden");
+
+    // body background must be the page colour, not black from the modal state.
+    expect(
+      state.bodyBg,
+      `body background must not be black after lightbox close (got '${state.bodyBg}')`,
+    ).not.toBe("rgb(0, 0, 0)");
+
+    // #root must be visible again.
+    expect(
+      state.rootVisibility,
+      `#root must be visible after lightbox close (got '${state.rootVisibility}')`,
+    ).toBe("visible");
+  });
+
+  // Regression for the pre-mount popstate race: open() eagerly adds
+  // yarl__no_scroll before setIsOpen(true) so YARL's NoScroll effect is
+  // already in effect on the first paint.  If popstate fires before that
+  // first render commits (Android back arriving very quickly), close() must
+  // remove the class synchronously — YARL's own cleanup never runs because
+  // isOpen goes false before YARL mounts.
+  //
+  // We exercise this deterministically by dispatching a synchronous PopStateEvent
+  // inside the same evaluate() as the click, before React has had a chance to
+  // flush the setIsOpen(true) update.
+  test("yarl__no_scroll is removed when popstate fires before YARL portal mounts", async ({
+    page,
+  }) => {
+    await page.goto("/?touch=1", { waitUntil: "load" });
+    await waitForGalleryReady(page);
+
+    // Click the first photo button AND immediately fire a synchronous popstate,
+    // all in one evaluate so React has not yet committed the isOpen=true render.
+    const triggered = await page.evaluate(() => {
+      const btn = document.querySelector(
+        "[data-photo-strip] div.flex.flex-nowrap button",
+      );
+      if (!(btn instanceof HTMLElement)) return false;
+      // open(): adds yarl__no_scroll, queues setIsOpen(true), pushes history.
+      btn.click();
+      // dispatchEvent is synchronous — fires before React flushes the update.
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      return true;
+    });
+    expect(triggered, "no photo button found").toBe(true);
+
+    // Allow React to flush both setIsOpen(true) and setIsOpen(false).
+    await page.waitForTimeout(200);
+
+    const state = await page.evaluate(() => {
+      const bodyClasses = document.body.className;
+      const rootVisibility = (() => {
+        const root = document.getElementById("root");
+        return root ? window.getComputedStyle(root).visibility : null;
+      })();
+      return { bodyClasses, rootVisibility };
+    });
+
+    expect(
+      state.bodyClasses,
+      "yarl__no_scroll must not be stuck after pre-mount popstate closes the lightbox",
+    ).not.toContain("yarl__no_scroll");
+
+    expect(
+      state.rootVisibility,
+      `#root must be visible after pre-mount popstate close (got '${state.rootVisibility}')`,
+    ).toBe("visible");
   });
 });

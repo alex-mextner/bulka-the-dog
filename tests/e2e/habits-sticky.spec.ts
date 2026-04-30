@@ -274,6 +274,28 @@ test.describe("Habits photo — correct active index (mobile)", () => {
     });
     await page.waitForTimeout(150);
 
+    // Pre-condition: lena_dogs must NOT be visible yet after the initial scroll.
+    // If it is already visible here, waitForFunction below would resolve
+    // immediately on stale state and the test would false-pass even if the
+    // "item[3] at reading position → lena_dogs" logic regressed.
+    const srcBeforeStep2 = await page.evaluate(() => {
+      const container = document.querySelector(
+        "[data-mobile-photo-stick]",
+      ) as HTMLElement | null;
+      if (!container) return null;
+      const imgs = Array.from(container.querySelectorAll("img"));
+      for (const img of imgs) {
+        if ((img as HTMLImageElement).style.opacity === "1")
+          return (img as HTMLImageElement).src;
+      }
+      return null;
+    });
+    expect(
+      srcBeforeStep2,
+      "lena_dogs must not already be visible before scroll-to-item[3] — " +
+        "if it is, the waitForFunction below tests nothing",
+    ).not.toContain("lena_dogs");
+
     // Step 2: now that sticky is active, measure its stuck height, then scroll
     // so item[3]'s top lands just below the sticky photo bottom.
     await page.evaluate(() => {
@@ -288,7 +310,24 @@ test.describe("Habits photo — correct active index (mobile)", () => {
       const targetScrollY = window.scrollY + rect.top - stickyBottom;
       window.scrollTo({ top: Math.max(0, targetScrollY), behavior: "instant" });
     });
-    await page.waitForTimeout(250);
+
+    // Wait for scroll handlers + photo fade to settle. Poll instead of a
+    // fixed timeout so the test doesn't flake under load in a full suite run.
+    await page.waitForFunction(
+      () => {
+        const container = document.querySelector("[data-mobile-photo-stick]");
+        if (!container) return false;
+        const imgs = Array.from(container.querySelectorAll("img")) as HTMLImageElement[];
+        // Resolve as soon as lena_dogs is the visible photo.
+        return imgs.some(
+          (img) => img.style.opacity === "1" && img.src.includes("lena_dogs"),
+        );
+      },
+      { timeout: 3_000 },
+    ).catch(() => {
+      // If we time out, fall through — the assertion below will report the
+      // actual visible src so the failure is readable.
+    });
 
     const visibleSrc = await page.evaluate(() => {
       // Find the img inside the MOBILE sticky photo container that has opacity 1.
