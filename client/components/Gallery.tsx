@@ -540,10 +540,12 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     }
     activeHistoryKeyRef.current = null;
     // Return focus to the thumbnail that opened the lightbox.
-    // yarl unmounts its overlay on close; restoring on the next tick avoids
-    // the focus race with its internal cleanup.
-    queueMicrotask(() => {
-      triggerRef.current?.focus?.();
+    // rAF (not queueMicrotask) ensures we wait until after the paint — otherwise
+    // body.yarl__no_scroll is still set when the microtask fires, #root is
+    // visibility:hidden, and focus() is silently rejected by the browser.
+    // preventScroll: true so the browser doesn't jump to the thumbnail position.
+    requestAnimationFrame(() => {
+      triggerRef.current?.focus?.({ preventScroll: true });
     });
   }, []);
 
