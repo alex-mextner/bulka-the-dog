@@ -51,16 +51,16 @@ In the latest screenshot, `.bulka-lightbox.yarl__portal` is `393 x 852`, but pag
 
 Implementation direction:
 
-- [ ] Prefer a CSS modal-open state based on yarl's `body.yarl__no_scroll` class instead of JS inline repaint effects.
-- [ ] Test CSS options: `body.yarl__no_scroll #root { visibility: hidden; }`, `body.yarl__no_scroll #root { opacity: 0; }`, `body.yarl__no_scroll { background: #000; }` plus html background, fixed `.bulka-lightbox-backdrop` with stronger stacking.
-- [ ] Keep the yarl portal and backdrop as the visible modal layers.
-- [ ] Ensure page text does not show through the bottom browser bar.
-- [ ] Confirm that closing the lightbox restores the page without scroll jumps.
+- [x] Prefer a CSS modal-open state based on yarl's `body.yarl__no_scroll` class instead of JS inline repaint effects.
+- [x] Test CSS options: `body.yarl__no_scroll #root { visibility: hidden; }`, `body.yarl__no_scroll #root { opacity: 0; }`, `body.yarl__no_scroll { background: #000; }` plus html background, fixed `.bulka-lightbox-backdrop` with stronger stacking.
+- [x] Keep the yarl portal and backdrop as the visible modal layers.
+- [x] Ensure page text does not show through the bottom browser bar.
+- [x] Confirm that closing the lightbox restores the page without scroll jumps.
 
 Tests to add or update:
 
-- [ ] A Playwright regression that opening the lightbox applies the chosen CSS modal state.
-- [ ] A Playwright regression that closing the lightbox removes the modal state.
+- [x] A Playwright regression that opening the lightbox applies the chosen CSS modal state.
+- [x] A Playwright regression that closing the lightbox removes the modal state.
 
 Exit criteria:
 On real iOS Safari, neither top nor bottom system/browser areas show page content while the lightbox is open.

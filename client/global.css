@@ -270,3 +270,33 @@
       var(--bulka-viewport-bottom-inset, var(--safe-area-bottom, 0px))
   ) !important;
 }
+
+/* ── Lightbox modal-open isolation ───────────────────────────────────────────
+   yarl adds yarl__no_scroll to body when the lightbox opens and removes it on
+   close. We piggyback on that class to isolate the page canvas so Safari's
+   top/bottom chrome compositing never shows live page content behind the modal.
+
+   visibility:hidden is used instead of opacity:0 because iOS Safari still
+   samples opacity:0 layers through its chrome compositing pass; visibility:hidden
+   removes the element from the paint tree entirely.
+
+   IMPORTANT: this rule hides #root, not document.body. The lightbox portal,
+   backdrop, and pinch-transition overlay all mount into document.body (not
+   #root), so they remain fully visible while this rule is active. */
+body.yarl__no_scroll #root {
+  visibility: hidden;
+}
+
+/* Make the canvas behind the modal black so any partial composite bleed from
+   Safari top/bottom chrome reads as black, matching the lightbox backdrop.
+   body background is typically cream (#f9f5f0) without this rule. */
+body.yarl__no_scroll {
+  background-color: #000 !important;
+}
+
+/* html background: defensive layer for edge cases where Safari composites the
+   root document canvas (not just body) through its chrome. `:has()` is
+   supported Safari 15.4+. */
+html:has(body.yarl__no_scroll) {
+  background-color: #000 !important;
+}
