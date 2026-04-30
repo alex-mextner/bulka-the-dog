@@ -99,15 +99,15 @@ The screenshot shows page text visible under the caption/bottom area. The portal
 
 Implementation direction:
 
-- [ ] Treat bottom browser chrome as a modal backing/canvas isolation problem first.
-- [ ] Keep `--bulka-viewport-bottom-inset` for caption/control placement, but do not rely on it alone for paint coverage.
-- [ ] Verify caption bottom padding on: compact bottom address bar visible, address bar collapsed, after scroll, after pinch-open.
+- [x] Treat bottom browser chrome as a modal backing/canvas isolation problem first.
+- [x] Keep `--bulka-viewport-bottom-inset` for caption/control placement, but do not rely on it alone for paint coverage.
+- [x] Verify caption bottom padding on: compact bottom address bar visible, address bar collapsed, after scroll, after pinch-open.
 
 Tests to add or update:
 
-- [ ] Existing caption padding test should continue to assert `--bulka-viewport-bottom-inset`.
-- [ ] Add a test that the modal-open CSS state isolates the page canvas.
-- [ ] Add a screenshot/geometry test around caption placement when `--bulka-viewport-bottom-inset` is injected.
+- [x] Existing caption padding test should continue to assert `--bulka-viewport-bottom-inset`.
+- [x] Add a test that the modal-open CSS state isolates the page canvas.
+- [x] Add a screenshot/geometry test around caption placement when `--bulka-viewport-bottom-inset` is injected.
 
 Exit criteria:
 On real iOS Safari, no page content is visible below the lightbox, and the caption remains readable above the bottom chrome.
