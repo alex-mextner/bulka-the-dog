@@ -152,12 +152,12 @@ After `185bffb`, Playwright has a delayed full-size image test:
 
 Regression checks:
 
-- [ ] Full-size image delayed: lightbox attaches within 1s.
-- [ ] Stretched thumbnail fallback appears.
-- [ ] Precise transition overlay detaches.
-- [ ] Close button works before full image finishes loading.
-- [ ] Once full image loads, fallback fades without breaking zoom/pan.
-- [ ] Run `timeout 90 npx playwright test tests/e2e/pinch-thumb-overlay.spec.ts --reporter=line` and confirm pass.
+- [x] Full-size image delayed: lightbox attaches within 1s.
+- [x] Stretched thumbnail fallback appears.
+- [x] Precise transition overlay detaches.
+- [x] Close button works before full image finishes loading.
+- [x] Once full image loads, fallback fades without breaking zoom/pan.
+- [x] Run `timeout 90 npx playwright test tests/e2e/pinch-thumb-overlay.spec.ts --reporter=line` and confirm pass.
 
 Exit criteria:
 The existing Playwright cold-cache test passes, and the same flow works on real iOS Safari with cache disabled or a never-opened image.
