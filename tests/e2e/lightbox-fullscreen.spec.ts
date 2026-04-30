@@ -30,7 +30,10 @@ async function waitForGalleryReady(page: Page) {
 async function setSeedZoom(page: Page, scale: number) {
   await page.evaluate((v) => {
     const t = (window as unknown as Record<string, unknown>).__bulkaTest as
-      | { setPendingZoom: (n: number) => void; setPinchActive: (b: boolean) => void }
+      | {
+          setPendingZoom: (n: number) => void;
+          setPinchActive: (b: boolean) => void;
+        }
       | undefined;
     if (!t) throw new Error("__bulkaTest hook not present");
     t.setPendingZoom(v);
@@ -63,19 +66,31 @@ test.describe("Lightbox fullscreen coverage", () => {
   // so that on iOS with viewport-fit=cover it extends behind the notch and
   // home indicator.  Any margin or inset offset would leave a strip of page
   // background visible.
-  test("yarl portal fills the full visual viewport (top=0, bottom>=viewportHeight)", async ({ page }) => {
+  test("yarl portal fills the full visual viewport (top=0, bottom>=viewportHeight)", async ({
+    page,
+  }) => {
     await tapFirstPhoto(page);
-    await page.locator(".yarl__portal").waitFor({ state: "attached", timeout: 5_000 });
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "attached", timeout: 5_000 });
     await page.waitForTimeout(200);
 
     const result = await page.evaluate(() => {
-      const portal = document.querySelector(".yarl__portal") as HTMLElement | null;
+      const portal = document.querySelector(
+        ".yarl__portal",
+      ) as HTMLElement | null;
       if (!portal) return null;
       const rect = portal.getBoundingClientRect();
       const style = window.getComputedStyle(portal);
       return {
-        rect: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom,
-                width: rect.width, height: rect.height },
+        rect: {
+          top: rect.top,
+          left: rect.left,
+          right: rect.right,
+          bottom: rect.bottom,
+          width: rect.width,
+          height: rect.height,
+        },
         position: style.position,
         paddingTop: style.paddingTop,
         paddingBottom: style.paddingBottom,
@@ -88,11 +103,18 @@ test.describe("Lightbox fullscreen coverage", () => {
     expect(result!.position, "portal must be position:fixed").toBe("fixed");
     expect(result!.rect.top, "portal top must be 0").toBe(0);
     expect(result!.rect.left, "portal left must be 0").toBe(0);
-    expect(result!.rect.right, "portal right must equal viewport width").toBe(390);
+    expect(result!.rect.right, "portal right must equal viewport width").toBe(
+      390,
+    );
     // bottom should match visual viewport height (844 for iPhone 13 viewport)
-    expect(result!.rect.bottom, "portal bottom must reach viewport height").toBeGreaterThanOrEqual(844);
+    expect(
+      result!.rect.bottom,
+      "portal bottom must reach viewport height",
+    ).toBeGreaterThanOrEqual(844);
     expect(result!.paddingTop, "portal must have no top padding").toBe("0px");
-    expect(result!.paddingBottom, "portal must have no bottom padding").toBe("0px");
+    expect(result!.paddingBottom, "portal must have no bottom padding").toBe(
+      "0px",
+    );
   });
 
   // ── Container has no safe-area padding ───────────────────────────────────────
@@ -101,13 +123,19 @@ test.describe("Lightbox fullscreen coverage", () => {
   // added padding-top/bottom from env(safe-area-inset-*) the image bounding
   // box would shrink away from the screen edges, leaving black strips.
   // Gallery.tsx explicitly sets paddingTop/Bottom/Left/Right:0 via styles prop.
-  test("yarl container has zero padding (no safe-area inset applied)", async ({ page }) => {
+  test("yarl container has zero padding (no safe-area inset applied)", async ({
+    page,
+  }) => {
     await tapFirstPhoto(page);
-    await page.locator(".yarl__container").waitFor({ state: "attached", timeout: 5_000 });
+    await page
+      .locator(".yarl__container")
+      .waitFor({ state: "attached", timeout: 5_000 });
     await page.waitForTimeout(200);
 
     const padding = await page.evaluate(() => {
-      const container = document.querySelector(".yarl__container") as HTMLElement | null;
+      const container = document.querySelector(
+        ".yarl__container",
+      ) as HTMLElement | null;
       if (!container) return null;
       const style = window.getComputedStyle(container);
       return {
@@ -120,7 +148,9 @@ test.describe("Lightbox fullscreen coverage", () => {
 
     expect(padding, "container element not found").not.toBeNull();
     expect(padding!.top, "container must have no top padding").toBe("0px");
-    expect(padding!.bottom, "container must have no bottom padding").toBe("0px");
+    expect(padding!.bottom, "container must have no bottom padding").toBe(
+      "0px",
+    );
     expect(padding!.left, "container must have no left padding").toBe("0px");
     expect(padding!.right, "container must have no right padding").toBe("0px");
   });
@@ -133,7 +163,9 @@ test.describe("Lightbox fullscreen coverage", () => {
   // At zoom 3x a portrait photo (taller than wide) will overflow the viewport
   // on both axes; a landscape photo will at least overflow horizontally.
   // We require height >= viewportHeight and width >= viewportWidth.
-  test("at zoom 3x the slide image covers the full viewport", async ({ page }) => {
+  test("at zoom 3x the slide image covers the full viewport", async ({
+    page,
+  }) => {
     await setSeedZoom(page, 3.0);
     await tapFirstPhoto(page);
     await page.locator(".yarl__slide_current .yarl__fullsize").waitFor({
@@ -170,5 +202,83 @@ test.describe("Lightbox fullscreen coverage", () => {
       result!.height,
       `at zoom 3x image height ${result!.height} should cover viewport height ${result!.vh}`,
     ).toBeGreaterThanOrEqual(result!.vh);
+  });
+
+  test("tap-open image is full-bleed, with no contain letterbox strips", async ({
+    page,
+  }) => {
+    await tapFirstPhoto(page);
+    await page
+      .locator(".yarl__slide_current .yarl__slide_image")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    await page.waitForTimeout(300);
+
+    const result = await page.evaluate(() => {
+      const img = document.querySelector(
+        ".yarl__slide_current .yarl__slide_image",
+      ) as HTMLImageElement | null;
+      if (!img) return null;
+      const rect = img.getBoundingClientRect();
+      const style = window.getComputedStyle(img);
+      return {
+        rect: {
+          top: rect.top,
+          left: rect.left,
+          right: rect.right,
+          bottom: rect.bottom,
+          width: rect.width,
+          height: rect.height,
+        },
+        objectFit: style.objectFit,
+        vw: window.innerWidth,
+        vh: window.innerHeight,
+      };
+    });
+
+    expect(result, "slide image element not found").not.toBeNull();
+    expect(result!.objectFit).toBe("cover");
+    expect(result!.rect.left).toBeLessThanOrEqual(1);
+    expect(result!.rect.top).toBeLessThanOrEqual(1);
+    expect(result!.rect.right).toBeGreaterThanOrEqual(result!.vw - 1);
+    expect(result!.rect.bottom).toBeGreaterThanOrEqual(result!.vh - 1);
+  });
+
+  test("portal expands into CSS safe-area insets", async ({ page }) => {
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-top", "59px");
+      document.documentElement.style.setProperty("--safe-area-bottom", "34px");
+    });
+
+    await tapFirstPhoto(page);
+    await page
+      .locator(".bulka-lightbox.yarl__portal")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    await page.waitForTimeout(200);
+
+    const result = await page.evaluate(() => {
+      const portal = document.querySelector(
+        ".bulka-lightbox.yarl__portal",
+      ) as HTMLElement | null;
+      const toolbar = document.querySelector(
+        ".bulka-lightbox .yarl__toolbar",
+      ) as HTMLElement | null;
+      const captions = document.querySelector(
+        ".bulka-lightbox .yarl__slide_captions_container",
+      ) as HTMLElement | null;
+      if (!portal || !toolbar || !captions) return null;
+      const rect = portal.getBoundingClientRect();
+      return {
+        rect: { top: rect.top, bottom: rect.bottom },
+        toolbarPaddingTop: window.getComputedStyle(toolbar).paddingTop,
+        captionsPaddingBottom: window.getComputedStyle(captions).paddingBottom,
+        vh: window.innerHeight,
+      };
+    });
+
+    expect(result, "lightbox safe-area elements not found").not.toBeNull();
+    expect(result!.rect.top).toBe(-59);
+    expect(result!.rect.bottom).toBe(result!.vh + 34);
+    expect(result!.toolbarPaddingTop).toBe("126px");
+    expect(result!.captionsPaddingBottom).toBe("84px");
   });
 });

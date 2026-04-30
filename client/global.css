@@ -159,7 +159,9 @@
     line-height: 1.3;
   }
 
-  h4, h5, h6 {
+  h4,
+  h5,
+  h6 {
     @apply font-bold;
   }
 
@@ -214,10 +216,28 @@
   overflow: visible !important;
 }
 
+/* yarl's fixed portal is sized to Safari's visual viewport. Expand the Bulka
+   lightbox root by the resolved safe-area values so the photo/backdrop paint
+   underneath the Dynamic Island and bottom address/home-indicator zones. */
+.bulka-lightbox.yarl__portal {
+  top: calc(-1 * var(--safe-area-top, 0px)) !important;
+  bottom: calc(-1 * var(--safe-area-bottom, 0px)) !important;
+}
+
+.bulka-lightbox .yarl__slide_image_cover {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 .yarl__toolbar {
-  padding-top: max(var(--yarl__toolbar_padding, 8px), var(--safe-area-top, 0px)) !important;
+  padding-top: calc(
+    var(--yarl__toolbar_padding, 8px) + 2 * var(--safe-area-top, 0px)
+  ) !important;
 }
 
 .yarl__slide_captions_container {
-  padding-bottom: max(0px, var(--safe-area-bottom, 0px)) !important;
+  padding-bottom: calc(
+    var(--yarl__slide_captions_container_padding, 16px) + 2 *
+      var(--safe-area-bottom, 0px)
+  ) !important;
 }

@@ -1500,15 +1500,23 @@ export function GalleryLightbox() {
         index={index}
         slides={slides}
         plugins={[Zoom, Captions, Counter]}
+        className={cn(
+          "bulka-lightbox",
+          pinchThumbSrc ? "bulka-lightbox--pinch" : "bulka-lightbox--cover",
+        )}
         // ESC + backdrop-click are yarl defaults; restated for clarity.
         controller={{ closeOnBackdropClick: true, closeOnPullDown: true }}
         // Loop arrows: with finite=false there's never an "end", so both
         // prev/next arrows render on every slide when there are 2+ slides.
-        // We force the first slide to size like the rest by overriding yarl's
-        // CSS variable for slide padding (sets the inner box that bounds the
-        // image). 10vw on each side → image ~80vw wide on phones, consistent
-        // across all slides regardless of which one was opened first.
-        carousel={{ finite: false }}
+        // Tap-open uses full-bleed cover so Safari chrome / Dynamic Island zones
+        // don't read as black letterbox strips. Pinch-open keeps contain sizing:
+        // the seed zoom/pan math depends on yarl's fit-width matching the
+        // thumbnail clone exactly for a pixel-stable handoff.
+        carousel={{
+          finite: false,
+          imageFit: pinchThumbSrc ? "contain" : "cover",
+          padding: 0,
+        }}
         styles={
           {
             // Root = the .yarl__portal element. yarl's own styles.css already
