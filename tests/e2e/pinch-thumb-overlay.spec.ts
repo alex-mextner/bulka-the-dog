@@ -207,4 +207,71 @@ test.describe("Pinch thumb overlay persists until full image loads", () => {
       "Overlay should not be present for a normal tap-to-open (no pinch seed)",
     ).toBe(false);
   });
+
+  // ── Timing regression: pixel-based zoom path must dismiss overlay in <2s ──
+  //
+  // Root cause of the bug this guards:
+  //   In the PIXEL-BASED path (thumbWidth > 0), pendingZoomRef holds CSS pixels
+  //   (e.g. 480 = 192px thumb × 2.5× scale), NOT a yarl scale factor.
+  //   The old zoomPainted check compared this CSS-px value directly as a yarl
+  //   scale: "2.5 >= 480 * 0.9" → always false → overlay waited full MAX_FRAMES
+  //   (300 frames ≈ 5s) before dismissing on every pinch-open.
+  //
+  //   Fix: detect pixel-based path (thumbW > 0), divide by fitWidth to get true
+  //   targetYarlZoom, then compare against zoomRef.current.zoom (actual yarl state).
+  //
+  //   The test would time out after 2s with the broken code (5s freeze),
+  //   and passes quickly with the fix (dismiss happens after 600ms grace + rAF).
+  test("pixel-based zoom path: overlay dismisses within 2s (not 5s freeze)", async ({
+    page,
+  }) => {
+    // Pixel-based path: setThumbWidth(192) + setPendingZoom(480) = 192px thumb at 2.5×.
+    // Real pinch sets pendingZoomRef = thumbWidthPx * clampedScale (CSS pixels).
+    await page.evaluate(() => {
+      const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+        | {
+            setPendingZoom: (n: number) => void;
+            setThumbWidth: (n: number) => void;
+            setPinchActive: (b: boolean) => void;
+          }
+        | undefined;
+      if (!t) throw new Error("__bulkaTest hook not present");
+      t.setThumbWidth(192);
+      t.setPendingZoom(480); // 192px × 2.5 scale = 480 CSS pixels
+      t.setPinchActive(true);
+      // Release pinch after 600ms — mirrors the real gesture grace window.
+      window.setTimeout(() => t.setPinchActive(false), 600);
+    });
+
+    await tapFirstPhoto(page);
+    await page.locator(".yarl__portal").waitFor({ state: "attached", timeout: 5_000 });
+
+    // Overlay must appear (pixel-based path with zoom>1 → pinchThumbSrc set).
+    await page.locator('[data-testid="pinch-thumb-overlay"]').waitFor({
+      state: "attached",
+      timeout: 1_000,
+    });
+
+    // Within 2s: overlay must transition to opacity:0.
+    // Breakdown of expected timeline:
+    //   600ms — pinch grace ends (setTimeout above)
+    //   ~50ms — rAF poll detects all three conditions met (loaded + grace + zoom)
+    //   300ms — CSS fade-out transition
+    //   Total: ~950ms, well within 2s budget.
+    //
+    // BEFORE FIX: would time out here (overlay stays until MAX_FRAMES ≈ 5s).
+    // AFTER FIX:  passes in ~1s.
+    await page.waitForFunction(
+      () => {
+        const el = document.querySelector(
+          '[data-testid="pinch-thumb-overlay"]',
+        ) as HTMLElement | null;
+        if (!el) return true; // removed from DOM = also dismissed
+        // React sets inline style.opacity="0" when pinchHoldDismissing fires,
+        // before the CSS transition completes — so this is an immediate signal.
+        return el.style.opacity === "0";
+      },
+      { timeout: 2_000 },
+    );
+  });
 });

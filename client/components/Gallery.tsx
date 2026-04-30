@@ -1159,17 +1159,44 @@ export function GalleryLightbox() {
       //   3. yarl has painted the seed zoom (CSS transform scale ≈ pendingZoom)
       //      Read from DOM so we check the *actually painted* state, not just
       //      the internal zoom state which fires one tick before rAF commit.
-      const targetZoom = pendingZoomRef.current || 1;
-      let zoomPainted = targetZoom <= 1.05; // no zoom pending — skip check
-      if (!zoomPainted) {
-        const fullsize = document.querySelector(
-          ".yarl__slide_current .yarl__fullsize",
-        ) as HTMLElement | null;
-        const tr = fullsize?.style.transform || "";
-        const scaleMatch = tr.match(/scale\(([\d.]+)\)/);
-        const paintedScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
-        zoomPainted = paintedScale >= targetZoom * 0.9;
+      // Resolve the target yarl zoom. Two paths (mirrors the seed-zoom rAF tick):
+      //   thumbW > 0 → pixel-based: pendingZoomRef holds CSS px, divide by fitWidth.
+      //   thumbW = 0 → legacy: pendingZoomRef is a direct yarl zoom factor.
+      const thumbW = pendingThumbWidthRef.current;
+      let fitW = fitWidthCacheRef.current;
+      let targetYarlZoom: number;
+      if (thumbW > 0) {
+        if (fitW <= 0) {
+          // fitWidth not cached yet. Fallback: derive from img's rendered width
+          // divided by the current zoom, which works whether zoom=1 (direct
+          // measurement) or zoom>1 (seed-zoom already applied before we cached).
+          const currentZoom = zoomRef.current?.zoom ?? 1;
+          const img = document.querySelector(
+            ".yarl__slide_current .yarl__fullsize img",
+          ) as HTMLImageElement | null;
+          if (img) {
+            const w = img.getBoundingClientRect().width;
+            if (w > 0) {
+              fitWidthCacheRef.current = w / Math.max(1, currentZoom);
+              fitW = fitWidthCacheRef.current;
+            }
+          }
+        }
+        if (fitW <= 0) {
+          // Image not in DOM yet — defer.
+          rafId = requestAnimationFrame(pollImageLoad);
+          return;
+        }
+        const maxZ = zoomRef.current?.maxZoom ?? 3;
+        targetYarlZoom = Math.min(maxZ, Math.max(1, pendingZoomRef.current / fitW));
+      } else {
+        targetYarlZoom = Math.max(1, pendingZoomRef.current);
       }
+      // Use actual yarl zoom state (zoomRef.current.zoom), not CSS transform regex.
+      // The old CSS regex path compared CSS px scale (~2.5) against pixel-based
+      // pendingZoomRef.current (~480), producing "2.5 >= 432" — always false → 5s wait.
+      const zoomPainted = targetYarlZoom <= 1.05 ||
+        (zoomRef.current?.zoom ?? 1) >= targetYarlZoom * 0.9;
       if (imageLoadedRef.current && !pinchActiveRef.current && zoomPainted) {
         // Full image decoded, pinch grace elapsed, seed zoom painted → fade out.
         setPinchHoldDismissing(true);
