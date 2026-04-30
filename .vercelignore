@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+.vite-react-ssg-temp
+*.local
+tests
+test-results
+.playwright-mcp
+.serena
+*.png
+*.gif
