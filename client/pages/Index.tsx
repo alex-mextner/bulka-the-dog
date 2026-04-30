@@ -327,7 +327,12 @@ export default function Index() {
   ];
 
   return (
-    <div className="min-h-[max(100dvh,100lvh)] bg-background">
+    <div
+      className="bg-background"
+      style={{
+        minHeight: "max(100dvh, 100lvh, var(--bulka-viewport-height))",
+      }}
+    >
       <Header />
 
       <main id="main">

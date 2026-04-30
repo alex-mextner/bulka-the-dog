@@ -72,11 +72,12 @@ test.describe("Bug 1: Lightbox portal explicit height (iOS address-bar fix)", ()
 
     expect(result, "portal element not found").not.toBeNull();
 
-    // With zero emulated safe-area, computed height must equal window.innerHeight.
+    // The fullscreen height can be larger than innerHeight when the app's iOS
+    // viewport measurement detects translucent browser chrome.
     expect(
       result!.computedHeightPx,
-      `portal computed height (${result!.computedHeight}) must equal viewport height (${result!.innerHeight}px) — fix not applied`,
-    ).toBe(result!.innerHeight);
+      `portal computed height (${result!.computedHeight}) must cover viewport height (${result!.innerHeight}px) — fix not applied`,
+    ).toBeGreaterThanOrEqual(result!.innerHeight);
   });
 
   // Regression guard: container (position:absolute inside portal) has zero padding.

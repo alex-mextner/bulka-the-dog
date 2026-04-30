@@ -341,4 +341,63 @@ test.describe("pinch-to-open visual handoff", () => {
       { timeout: 3_000 },
     );
   });
+
+  test("seeded pan remains aligned when fullscreen viewport is taller than visual viewport", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty(
+        "--bulka-viewport-height",
+        "960px",
+      );
+    });
+
+    const scale = 2;
+    const dx = 25;
+    const dy = -60;
+    const rect = await page.evaluate(
+      ({ selector, scale: s, dx: x, dy: y }) => {
+        const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+          | {
+              beginPinchHandoff: (
+                selector: string,
+                opts: { scale: number; dx: number; dy: number },
+              ) => Clip;
+              commitPinchHandoff: (selector: string) => void;
+              setPinchActive: (active: boolean) => void;
+            }
+          | undefined;
+        if (!t) throw new Error("__bulkaTest hook not present");
+        const r = t.beginPinchHandoff(selector, { scale: s, dx: x, dy: y });
+        t.commitPinchHandoff(selector);
+        t.setPinchActive(false);
+        return r;
+      },
+      { selector: HERO_SELECTOR, scale, dx, dy },
+    );
+
+    await page.locator(".yarl__portal").waitFor({
+      state: "attached",
+      timeout: 5_000,
+    });
+
+    await page.waitForFunction(
+      ({ expectedCenterX, expectedCenterY }) => {
+        const img = document.querySelector(
+          ".yarl__slide_current .yarl__fullsize img",
+        ) as HTMLImageElement | null;
+        if (!img) return false;
+        const r = img.getBoundingClientRect();
+        return (
+          Math.abs(r.left + r.width / 2 - expectedCenterX) <= 2 &&
+          Math.abs(r.top + r.height / 2 - expectedCenterY) <= 2
+        );
+      },
+      {
+        expectedCenterX: rect.x + rect.width / 2,
+        expectedCenterY: rect.y + rect.height / 2,
+      },
+      { timeout: 3_000 },
+    );
+  });
 });

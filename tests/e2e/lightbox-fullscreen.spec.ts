@@ -243,10 +243,20 @@ test.describe("Lightbox fullscreen coverage", () => {
     expect(result!.rect.bottom).toBeGreaterThanOrEqual(result!.vh - 1);
   });
 
-  test("portal expands into CSS safe-area insets", async ({ page }) => {
+  test("portal uses one fullscreen viewport height and keeps controls in safe areas", async ({
+    page,
+  }) => {
     await page.evaluate(() => {
       document.documentElement.style.setProperty("--safe-area-top", "59px");
       document.documentElement.style.setProperty("--safe-area-bottom", "34px");
+      document.documentElement.style.setProperty(
+        "--bulka-viewport-height",
+        "900px",
+      );
+      document.documentElement.style.setProperty(
+        "--bulka-viewport-bottom-inset",
+        "120px",
+      );
     });
 
     await tapFirstPhoto(page);
@@ -277,20 +287,22 @@ test.describe("Lightbox fullscreen coverage", () => {
     });
 
     expect(result, "lightbox safe-area elements not found").not.toBeNull();
-    expect(result!.rect.top).toBe(-59);
-    expect(result!.rect.bottom).toBe(result!.vh + 34);
-    expect(result!.rect.height).toBe(result!.vh + 59 + 34);
-    expect(result!.portalHeight).toBe(`${result!.vh + 59 + 34}px`);
+    expect(result!.rect.top).toBe(0);
+    expect(result!.rect.bottom).toBe(900);
+    expect(result!.rect.height).toBe(900);
+    expect(result!.portalHeight).toBe("900px");
     expect(result!.toolbarPaddingTop).toBe("126px");
-    expect(result!.captionsPaddingBottom).toBe("84px");
+    expect(result!.captionsPaddingBottom).toBe("136px");
   });
 
-  test("black backdrop expands with the lightbox safe-area geometry", async ({
+  test("black backdrop shares the lightbox viewport height", async ({
     page,
   }) => {
     await page.evaluate(() => {
-      document.documentElement.style.setProperty("--safe-area-top", "59px");
-      document.documentElement.style.setProperty("--safe-area-bottom", "34px");
+      document.documentElement.style.setProperty(
+        "--bulka-viewport-height",
+        "900px",
+      );
     });
 
     await tapFirstPhoto(page);
@@ -314,8 +326,8 @@ test.describe("Lightbox fullscreen coverage", () => {
     });
 
     expect(result, "lightbox backdrop not found").not.toBeNull();
-    expect(result!.top).toBe(-59);
-    expect(result!.bottom).toBe(result!.vh + 34);
-    expect(result!.height).toBe(result!.vh + 59 + 34);
+    expect(result!.top).toBe(0);
+    expect(result!.bottom).toBe(900);
+    expect(result!.height).toBe(900);
   });
 });

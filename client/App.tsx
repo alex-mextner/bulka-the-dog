@@ -55,15 +55,10 @@ const App = () => {
     };
   }, []);
 
-  // Measure actual safe-area-inset-* values via a probe element and expose them
-  // as JS fallback vars. The canonical --safe-area-top / --safe-area-bottom
-  // stay in CSS and include safe-area-max-inset-*; do not overwrite them from
-  // JS with 0px, because iOS Safari can temporarily report the dynamic insets
-  // as zero while the large viewport still has a notch / toolbar area.
-  // Reading env() values through a probe gives us the resolved pixel value;
-  // this is more reliable than declaring env() directly in a :root CSS custom
-  // property on some iOS Safari versions (where the env() value may be stale
-  // or 0 inside a CSS var declaration).
+  // Central viewport measurements for fullscreen mobile layers. CSS viewport
+  // units remain the default path; JS only provides resolved values for iOS
+  // Safari states where the browser chrome is translucent but the CSS viewport
+  // exposed to fixed elements is shorter than the physical screen.
   React.useEffect(() => {
     if (typeof document === "undefined") return;
 
@@ -89,6 +84,24 @@ const App = () => {
 
       document.body.removeChild(p);
 
+      const visualHeight = window.visualViewport?.height ?? window.innerHeight;
+      const isAppleTouchDevice =
+        /iP(ad|hone|od)/.test(window.navigator.userAgent) ||
+        (window.navigator.platform === "MacIntel" &&
+          window.navigator.maxTouchPoints > 1);
+      const screenHeight = (() => {
+        if (!isAppleTouchDevice || !window.screen) return 0;
+        const shortSide = Math.min(window.screen.width, window.screen.height);
+        const longSide = Math.max(window.screen.width, window.screen.height);
+        return window.innerWidth > window.innerHeight ? shortSide : longSide;
+      })();
+      const viewportHeight = Math.max(
+        window.innerHeight,
+        visualHeight,
+        screenHeight,
+      );
+      const bottomInset = Math.max(0, viewportHeight - top - visualHeight);
+
       document.documentElement.style.setProperty(
         "--safe-area-top-js",
         `${top}px`,
@@ -97,14 +110,26 @@ const App = () => {
         "--safe-area-bottom-js",
         `${bottom}px`,
       );
+      document.documentElement.style.setProperty(
+        "--bulka-viewport-height",
+        `${viewportHeight}px`,
+      );
+      document.documentElement.style.setProperty(
+        "--bulka-viewport-bottom-inset",
+        `${Math.max(bottom, bottomInset)}px`,
+      );
     };
 
     measure();
     window.addEventListener("resize", measure);
     window.addEventListener("orientationchange", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("scroll", measure);
     return () => {
       window.removeEventListener("resize", measure);
       window.removeEventListener("orientationchange", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("scroll", measure);
     };
   }, []);
 

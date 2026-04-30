@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
+const FIRST_STRIP_BUTTON = '[data-photo-strip] div.flex.flex-nowrap button';
+const portraitFixtureSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000">
+  <rect width="800" height="1000" fill="#0f172a"/>
+  <rect x="80" y="120" width="640" height="760" fill="#f97316"/>
+  <circle cx="400" cy="500" r="180" fill="#f8fafc"/>
+</svg>`;
+
 // Test for pinch-to-open black-screen fix:
 //   When user releases pinch fingers before the full-resolution image has
 //   loaded, the pinch-hold overlay (thumbnail clone) must remain visible
@@ -34,15 +41,31 @@ async function waitForGalleryReady(page: Page) {
 }
 
 async function tapFirstPhoto(page: Page) {
-  const clicked = await page.evaluate(() => {
-    const btn = document.querySelector(
-      '[data-photo-strip] div.flex.flex-nowrap button',
-    );
+  const clicked = await page.evaluate((selector) => {
+    const btn = document.querySelector(selector);
     if (!(btn instanceof HTMLElement)) return false;
     btn.click();
     return true;
-  });
+  }, FIRST_STRIP_BUTTON);
   expect(clicked, "no photo button found").toBe(true);
+}
+
+async function installColdPortraitRoute(page: Page) {
+  await page.route(/\/images\/photo-set\/thumbs\/ps_portrait\.webp$/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "image/svg+xml",
+      body: portraitFixtureSvg,
+    }),
+  );
+  await page.route(/\/images\/photo-set\/ps_portrait\.webp$/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 2_500));
+    await route.fulfill({
+      status: 200,
+      contentType: "image/svg+xml",
+      body: portraitFixtureSvg,
+    });
+  });
 }
 
 // Read computed opacity of the overlay at the current moment.
@@ -273,5 +296,47 @@ test.describe("Pinch thumb overlay persists until full image loads", () => {
       },
       { timeout: 2_000 },
     );
+  });
+});
+
+test.describe("Pinch thumb overlay on cold full-size image", () => {
+  test.beforeEach(async ({ page }) => {
+    await installColdPortraitRoute(page);
+    await page.goto("/?touch=1", { waitUntil: "load" });
+    await waitForGalleryReady(page);
+  });
+
+  test("lightbox opens immediately, shows stretched thumb fallback, and can close before full image loads", async ({
+    page,
+  }) => {
+    await page.evaluate((selector) => {
+      const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+        | {
+            beginPinchHandoff: (
+              selector: string,
+              opts: { scale: number; dx?: number; dy?: number },
+            ) => void;
+            commitPinchHandoff: (selector: string) => void;
+          }
+        | undefined;
+      if (!t) throw new Error("__bulkaTest hook not present");
+      t.beginPinchHandoff(selector, { scale: 2, dx: 0, dy: 0 });
+      t.commitPinchHandoff(selector);
+    }, FIRST_STRIP_BUTTON);
+
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "attached", timeout: 1_000 });
+    const thumbFallback = page.locator('[data-testid="pinch-thumb-overlay"]');
+    await thumbFallback.waitFor({ state: "attached", timeout: 1_500 });
+    await expect(thumbFallback).toHaveCSS("opacity", "1");
+    await page
+      .locator('[data-testid="pinch-transition-overlay"]')
+      .waitFor({ state: "detached", timeout: 2_000 });
+
+    await page.locator('button[title="Close"]').click({ force: true });
+    await page
+      .locator(".yarl__portal")
+      .waitFor({ state: "detached", timeout: 2_000 });
   });
 });

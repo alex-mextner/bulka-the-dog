@@ -313,6 +313,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   });
   const pinchActiveRef = React.useRef<boolean>(false);
   const holdPinchOverlayRef = React.useRef<boolean>(false);
+  const isOpenRef = React.useRef(false);
+  const lightboxHistoryKeyRef = React.useRef(0);
+  const activeHistoryKeyRef = React.useRef<number | null>(null);
   // Thumbnail src captured synchronously in open() so the hold-overlay renders
   // on the SAME paint cycle as isOpen=true (not one frame later via useEffect).
   const [pinchThumbSrc, setPinchThumbSrc] = React.useState<string | null>(null);
@@ -474,6 +477,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       } else {
         setPinchThumbSrc(null);
       }
+      isOpenRef.current = true;
       setIsOpen(true);
       // Push exactly one history entry for the whole lightbox session — slide
       // changes inside the lightbox stay invisible to history. The Android
@@ -481,10 +485,22 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       // which we handle by closing.
       if (typeof window !== "undefined") {
         try {
-          window.history.pushState({ lightbox: true }, "");
+          const key = lightboxHistoryKeyRef.current + 1;
+          lightboxHistoryKeyRef.current = key;
+          activeHistoryKeyRef.current = key;
+          const state =
+            window.history.state && typeof window.history.state === "object"
+              ? window.history.state
+              : {};
+          window.history.pushState(
+            { ...state, __bulkaLightbox: key },
+            "",
+            window.location.href,
+          );
           ownsHistoryEntryRef.current = true;
         } catch {
           ownsHistoryEntryRef.current = false;
+          activeHistoryKeyRef.current = null;
         }
       }
       // pendingZoomRef and triggerRef are stable refs (never change identity);
@@ -496,6 +512,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   );
 
   const close = React.useCallback(() => {
+    isOpenRef.current = false;
     setIsOpen(false);
     setPinchThumbSrc(null);
     // Reset seed zoom, thumb width, and pan so a subsequent open via tap
@@ -508,8 +525,12 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // resets the flag before invoking close, so we don't double-pop.
     if (ownsHistoryEntryRef.current && typeof window !== "undefined") {
       ownsHistoryEntryRef.current = false;
-      const state = window.history.state as { lightbox?: boolean } | null;
-      if (state && state.lightbox) {
+      const state = window.history.state as { __bulkaLightbox?: number } | null;
+      if (
+        state &&
+        state.__bulkaLightbox != null &&
+        state.__bulkaLightbox === activeHistoryKeyRef.current
+      ) {
         try {
           window.history.back();
         } catch {
@@ -517,6 +538,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
+    activeHistoryKeyRef.current = null;
     // Return focus to the thumbnail that opened the lightbox.
     // yarl unmounts its overlay on close; restoring on the next tick avoids
     // the focus race with its internal cleanup.
@@ -529,21 +551,25 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     triggerRef.current = el;
   }, []);
 
-  // popstate listener — active only while the lightbox is open. Fires on
-  // Android back gesture, browser back button, or hardware back. The entry
-  // we pushed has already been popped by the time we run, so we only need
-  // to flip our own state (clear ownership flag, then close).
   React.useEffect(() => {
-    if (!isOpen) return;
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  // Permanent popstate listener: Android can dispatch the back navigation very
+  // soon after open(), before an "only while open" effect has attached. We keep
+  // one listener for the provider lifetime and gate it with isOpenRef.
+  React.useEffect(() => {
     if (typeof window === "undefined") return;
     const onPopState = () => {
+      if (!isOpenRef.current) return;
       // Browser already moved history; don't call history.back again in close.
       ownsHistoryEntryRef.current = false;
+      activeHistoryKeyRef.current = null;
       close();
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [isOpen, close]);
+  }, [close]);
 
   const value = React.useMemo<GalleryContextValue>(
     () => ({
@@ -1000,6 +1026,20 @@ export function GalleryLightbox() {
   // window gambled wrong on slow connections and we lost the seed.
   const ownsZoomRef = React.useRef(false);
 
+  const getEffectiveSeedPan = React.useCallback(() => {
+    const pan = pendingPanRef.current;
+    const viewport = document.querySelector(
+      ".bulka-lightbox .yarl__container",
+    ) as HTMLElement | null;
+    if (!viewport) return pan;
+    const rect = viewport.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return pan;
+    return {
+      dx: window.innerWidth / 2 + pan.dx - (rect.left + rect.width / 2),
+      dy: window.innerHeight / 2 + pan.dy - (rect.top + rect.height / 2),
+    };
+  }, [pendingPanRef]);
+
   const applyUnboundedSeedTransform = React.useCallback(
     (targetZoom: number) => {
       if (pendingThumbWidthRef.current <= 0 || targetZoom <= 1) return;
@@ -1007,13 +1047,13 @@ export function GalleryLightbox() {
         ".yarl__slide_current .yarl__fullsize",
       ) as HTMLElement | null;
       if (!fullsize) return;
-      const pan = pendingPanRef.current;
+      const pan = getEffectiveSeedPan();
       const offsetX = pan.dx / targetZoom;
       const offsetY = pan.dy / targetZoom;
       fullsize.style.transform = `scale(${targetZoom}) translateX(${offsetX}px) translateY(${offsetY}px)`;
       fullsize.dataset.bulkaSeedTransform = "true";
     },
-    [pendingPanRef, pendingThumbWidthRef],
+    [getEffectiveSeedPan, pendingThumbWidthRef],
   );
 
   const isUnboundedSeedPainted = React.useCallback(
@@ -1125,7 +1165,10 @@ export function GalleryLightbox() {
 
       if (target > 1) {
         if (z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
-          const pan = pendingPanRef.current;
+          const pan =
+            pendingThumbWidthRef.current > 0
+              ? getEffectiveSeedPan()
+              : pendingPanRef.current;
           // Convert thumb-centre coords to yarl focal-point offset.
           // When pendingThumbWidthRef > 0 (pixel-based path), pan.dx/dy is the
           // thumbnail centre relative to viewport centre (not the pinch midpoint).
@@ -1158,6 +1201,7 @@ export function GalleryLightbox() {
     pendingThumbWidthRef,
     pendingPanRef,
     scheduleUnboundedSeedTransform,
+    getEffectiveSeedPan,
   ]);
   // True while we should skip the next on.view event. Initialised to true so
   // the first on.view (which yarl fires synchronously on mount for the initial
@@ -1255,32 +1299,6 @@ export function GalleryLightbox() {
     }
   }, [isOpen]);
 
-  // Safe-area coverage: on iPhone with viewport-fit=cover, iOS paints content
-  // behind the notch (top) and home-indicator strip (bottom). If <body> has a
-  // non-black background colour those safe-area zones show through as coloured
-  // bands even though .yarl__portal covers the visual viewport. Setting body's
-  // background to #000 while the lightbox is open fills those zones with the
-  // same colour as the lightbox, making the strips invisible.
-  // The original background is captured on open and restored on close.
-  React.useEffect(() => {
-    if (typeof document === "undefined") return;
-    if (!isOpen) return;
-    const html = document.documentElement;
-    const body = document.body;
-    const root = document.getElementById("root");
-    const originalHtmlBg = html.style.backgroundColor;
-    const originalBg = body.style.backgroundColor;
-    const originalRootBg = root?.style.backgroundColor ?? "";
-    html.style.backgroundColor = "#000";
-    body.style.backgroundColor = "#000";
-    if (root) root.style.backgroundColor = "#000";
-    return () => {
-      html.style.backgroundColor = originalHtmlBg;
-      body.style.backgroundColor = originalBg;
-      if (root) root.style.backgroundColor = originalRootBg;
-    };
-  }, [isOpen]);
-
   // ── Pinch-to-open: hold thumbnail overlay until full image loads ────────────
   //
   // After fingers release and the lightbox opens, the full-resolution image
@@ -1307,6 +1325,8 @@ export function GalleryLightbox() {
   // Independent of PinchTransitionOverlay (gesture-driven). Both can coexist
   // for the brief 220ms commit animation — same thumb image, no visible duplication.
   const [pinchHoldDismissing, setPinchHoldDismissing] = React.useState(false);
+  const [pinchHoldFallbackVisible, setPinchHoldFallbackVisible] =
+    React.useState(false);
 
   // True once the full-resolution image in the current slide has finished
   // decoding. Reset on slide navigation and on lightbox open. Used as part
@@ -1317,6 +1337,7 @@ export function GalleryLightbox() {
     if (!isOpen || !pinchThumbSrc) {
       // Plain tap-open or lightbox closed — reset dismissal state.
       setPinchHoldDismissing(false);
+      setPinchHoldFallbackVisible(false);
       imageLoadedRef.current = false;
       return;
     }
@@ -1324,6 +1345,7 @@ export function GalleryLightbox() {
     // Pinch-committed open: reset dismissing flag (overlay is already at
     // opacity:1 from the first render — no setState needed to show it).
     setPinchHoldDismissing(false);
+    setPinchHoldFallbackVisible(false);
     imageLoadedRef.current = false;
 
     // Poll every rAF until yarl's current-slide img is fully loaded AND the
@@ -1343,10 +1365,20 @@ export function GalleryLightbox() {
     // drop back below threshold confirms the reset has settled.
     let stableFrames = 0;
     const STABLE_REQUIRED = 3;
+    let fallbackReleased = false;
+    const releaseTransitionToFallback = () => {
+      if (fallbackReleased) return;
+      fallbackReleased = true;
+      setPinchHoldFallbackVisible(true);
+      requestAnimationFrame(() => {
+        pinchOverlayRef.current?.dismiss();
+      });
+    };
     const pollImageLoad = () => {
       frameCount++;
       if (frameCount > MAX_FRAMES) {
         // Give up — release overlay so user is never stuck behind it.
+        releaseTransitionToFallback();
         setPinchHoldDismissing(true);
         return;
       }
@@ -1363,6 +1395,13 @@ export function GalleryLightbox() {
         if (img && img.complete && img.naturalWidth > 0) {
           imageLoadedRef.current = true;
         }
+      }
+      if (
+        !imageLoadedRef.current &&
+        frameCount >= 12 &&
+        pinchTransitionActiveRef.current
+      ) {
+        releaseTransitionToFallback();
       }
       // AND-gate: dismiss only when ALL conditions are met:
       //   1. Full image is loaded (imageLoadedRef.current = true)
@@ -1437,18 +1476,20 @@ export function GalleryLightbox() {
       cancelAnimationFrame(rafId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, pinchThumbSrc, isUnboundedSeedPainted, pinchOverlayRef]);
+  }, [
+    isOpen,
+    pinchThumbSrc,
+    isUnboundedSeedPainted,
+    pinchOverlayRef,
+    pinchTransitionActiveRef,
+  ]);
   // ────────────────────────────────────────────────────────────────────────────
 
   return (
     <>
-      {/* Full-screen black backdrop rendered behind the yarl portal (z=9998 < 9999).
-        Covers the Dynamic Island / status-bar safe-area zone (top ~47px) and the
-        home-indicator zone (bottom ~34px) where yarl's own background-color does
-        not paint on iOS Safari (overflow:hidden clips its render to the layout
-        viewport, not the physical screen).  Using background-image (gradient)
-        instead of background-color because iOS Safari reliably paints
-        background-image into the safe-area zones. */}
+      {/* Backdrop behind the yarl portal (z=9998 < 9999). It uses the same
+        fullscreen viewport CSS as the portal, so it is a real layer rather
+        than a repaint of the document canvas. */}
       {isOpen &&
         typeof document !== "undefined" &&
         createPortal(
@@ -1469,7 +1510,7 @@ export function GalleryLightbox() {
         background until the full image finishes loading AND pinch grace ends.
         pinchThumbSrc is null for plain tap opens — overlay not rendered. */}
       {pinchThumbSrc &&
-        !pinchTransitionActiveRef.current &&
+        (pinchHoldFallbackVisible || !pinchTransitionActiveRef.current) &&
         typeof document !== "undefined" &&
         createPortal(
           <div
@@ -1490,7 +1531,7 @@ export function GalleryLightbox() {
               // so there is no 0→1 fade-in that would produce a black flash.
               opacity: pinchHoldDismissing ? 0 : 1,
               transition: pinchHoldDismissing
-                ? "opacity 300ms ease-out"
+                ? "opacity 180ms ease-out"
                 : "none",
             }}
           />,
@@ -1604,7 +1645,10 @@ export function GalleryLightbox() {
             if (Math.abs(currentZoom - target) < 0.01) return;
             const z = zoomRef.current;
             if (z && !z.disabled) {
-              const pan = pendingPanRef.current;
+              const pan =
+                pendingThumbWidthRef.current > 0
+                  ? getEffectiveSeedPan()
+                  : pendingPanRef.current;
               // Same focal-point conversion as the rAF tick: pan.dx/dy is the
               // thumbnail centre offset (not a raw focal point) when
               // pendingThumbWidthRef > 0.

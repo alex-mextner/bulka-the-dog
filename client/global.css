@@ -125,6 +125,8 @@
       env(safe-area-max-inset-bottom, 0px),
       var(--safe-area-bottom-js, 0px)
     );
+    --bulka-viewport-height: 100dvh;
+    --bulka-viewport-bottom-inset: var(--safe-area-bottom);
   }
 
   html {
@@ -136,7 +138,7 @@
     overflow-x: clip;
     background-color: hsl(var(--background));
     min-height: 100vh;
-    min-height: max(100dvh, 100lvh);
+    min-height: max(100dvh, 100lvh, var(--bulka-viewport-height));
     /* Prevent overscroll-bounce from revealing the UA background behind the
        page. On iOS Safari, rubber-band scroll past the bottom (or top) briefly
        shows whatever is "behind" the document — either white (light UA) or the
@@ -153,13 +155,13 @@
     max-width: 100vw;
     position: relative;
     min-height: 100vh;
-    min-height: max(100dvh, 100lvh);
+    min-height: max(100dvh, 100lvh, var(--bulka-viewport-height));
     overscroll-behavior: none;
   }
 
   #root {
     min-height: 100vh;
-    min-height: max(100dvh, 100lvh);
+    min-height: max(100dvh, 100lvh, var(--bulka-viewport-height));
     background-color: hsl(var(--background));
   }
 
@@ -214,71 +216,41 @@
     scroll-margin-top: calc(72px + var(--safe-area-top));
   }
 
-  /* Fullscreen overlays are handled below with 100lvh + safe-area overscan.
-     Plain 100dvh equals Safari's current visual viewport and can stop above
-     the Dynamic Island / bottom toolbar. */
+  /* Fullscreen overlays are handled below with a shared viewport-height var.
+     CSS viewport units are the default; iOS Safari gets a resolved fallback
+     from App.tsx when browser chrome is translucent. */
 }
 
-/* ── Lightbox (yarl) iOS Safari safe-area fixes ──────────────────────────────
-   overflow:hidden on .yarl__portal combined with position:fixed + viewport-fit=cover
-   can clip portal rendering to the visual viewport on iOS Safari, leaving black
-   strips at the Dynamic Island (top) and home indicator (bottom) zones.
-   Setting overflow:visible on the portal removes this clip — .yarl__container
-   (position:absolute; inset:0 inside portal) takes over as the clip boundary
-   and correctly covers the full physical screen.
-
-   Safe-area padding on toolbar/captions ensures interactive elements remain
-   accessible below the Dynamic Island chip and above the home indicator. */
+/* ── Lightbox (yarl) fullscreen viewport ─────────────────────────────────────
+   Keep yarl's root as a real fullscreen layer. The portal, backdrop, and
+   pinch fallback all share the same viewport-height source; controls get
+   safe-area padding, but the photo layer itself is not shifted or cropped. */
 .yarl__portal {
   overflow: visible !important;
 }
 
-/* yarl's fixed portal is sized to Safari's visual viewport. On iOS Safari with
-   visible browser chrome this can be much shorter than the physical screen
-   (for example the remote inspector can show ~695px tall on a ~852px screen).
-   Move the portal up by the notch safe-area and size it from the large viewport
-   so the photo/backdrop paints behind the Dynamic Island and bottom toolbar.
-
-   The second height value is the modern path:
-   - 100lvh covers the large/physical viewport behind Safari chrome.
-   - + safe-area-top compensates for the negative top shift so the bottom still
-     reaches the large viewport bottom.
-   - the max(...100dvh + top + bottom) branch keeps Playwright and browsers
-     where lvh==dvh honest when we inject safe-area vars in tests. */
 .bulka-lightbox.yarl__portal {
-  top: calc(-1 * var(--safe-area-top, 0px)) !important;
-  bottom: auto !important;
-  height: calc(
-    100vh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
-  ) !important;
-  height: max(
-    calc(100lvh + var(--safe-area-top, 0px)),
-    calc(
-      100dvh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
-    )
-  ) !important;
-  min-height: calc(
-    100dvh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
-  ) !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: max(100dvh, 100lvh, var(--bulka-viewport-height)) !important;
+  min-height: max(100dvh, 100lvh, var(--bulka-viewport-height)) !important;
 }
 
 .bulka-lightbox .yarl__container {
-  height: 100% !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: max(100dvh, 100lvh, var(--bulka-viewport-height)) !important;
 }
 
 .bulka-lightbox-backdrop,
 .bulka-pinch-thumb-overlay {
-  top: calc(-1 * var(--safe-area-top, 0px)) !important;
-  bottom: auto !important;
-  height: calc(
-    100vh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
-  ) !important;
-  height: max(
-    calc(100lvh + var(--safe-area-top, 0px)),
-    calc(
-      100dvh + var(--safe-area-top, 0px) + var(--safe-area-bottom, 0px)
-    )
-  ) !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: max(100dvh, 100lvh, var(--bulka-viewport-height)) !important;
 }
 
 .bulka-lightbox .yarl__slide_image_cover {
@@ -294,7 +266,7 @@
 
 .yarl__slide_captions_container {
   padding-bottom: calc(
-    var(--yarl__slide_captions_container_padding, 16px) + 2 *
-      var(--safe-area-bottom, 0px)
+    var(--yarl__slide_captions_container_padding, 16px) +
+      var(--bulka-viewport-bottom-inset, var(--safe-area-bottom, 0px))
   ) !important;
 }
