@@ -58,9 +58,11 @@ test.describe("Lightbox browser history", () => {
     // the URL is intact, and the current state no longer carries __bulkaLightbox.
     const afterClose = await page.evaluate(() => ({
       href: window.location.href,
+      length: window.history.length,
       state: window.history.state as { __bulkaLightbox?: number } | null,
     }));
     expect(afterClose.href).toBe(before.href);
+    expect(afterClose.length).toBe(before.length + 1);
     expect(afterClose.state?.__bulkaLightbox).toBeUndefined();
   });
 

@@ -153,15 +153,13 @@ test.describe("Scroll stress: no state leakage after scroll and menu nav", () =>
 
     // Open the burger again and close it.
     const burgerOpen2 = page.getByRole("button", { name: "Открыть меню" });
-    if (await burgerOpen2.isVisible()) {
-      await burgerOpen2.tap();
-      await page.waitForTimeout(100);
-      const burgerClose = page.getByRole("button", { name: "Закрыть меню" });
-      if (await burgerClose.isVisible()) {
-        await burgerClose.tap();
-        await page.waitForTimeout(100);
-      }
-    }
+    await expect(burgerOpen2).toBeVisible({ timeout: 2_000 });
+    await burgerOpen2.tap();
+    await page.waitForTimeout(100);
+    const burgerClose = page.getByRole("button", { name: "Закрыть меню" });
+    await expect(burgerClose).toBeVisible({ timeout: 2_000 });
+    await burgerClose.tap();
+    await page.waitForTimeout(100);
 
     // After all interactions, verify no state leakage on body.
     const state = await page.evaluate(() => {

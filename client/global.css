@@ -278,7 +278,7 @@
 
    visibility:hidden is used instead of opacity:0 because iOS Safari still
    samples opacity:0 layers through its chrome compositing pass; visibility:hidden
-   removes the element from the paint tree entirely.
+   prevents the element from being painted while preserving its layout geometry.
 
    IMPORTANT: this rule hides #root, not document.body. The lightbox portal,
    backdrop, and pinch-transition overlay all mount into document.body (not
