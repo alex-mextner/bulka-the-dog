@@ -264,7 +264,11 @@
   height: 100% !important;
 }
 
-.yarl__toolbar {
+.bulka-lightbox .yarl__toolbar {
+  padding-top: var(--yarl__toolbar_padding, 8px) !important;
+}
+
+html[data-apple-touch="true"] .bulka-lightbox .yarl__toolbar {
   padding-top: calc(
     var(--yarl__toolbar_padding, 8px) + 2 * var(--safe-area-top, 0px)
   ) !important;

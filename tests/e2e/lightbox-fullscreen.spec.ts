@@ -247,6 +247,7 @@ test.describe("Lightbox fullscreen coverage", () => {
     page,
   }) => {
     await page.evaluate(() => {
+      document.documentElement.dataset.appleTouch = "true";
       document.documentElement.style.setProperty("--safe-area-top", "59px");
       document.documentElement.style.setProperty("--safe-area-bottom", "34px");
       document.documentElement.style.setProperty(
@@ -293,6 +294,40 @@ test.describe("Lightbox fullscreen coverage", () => {
     expect(result!.portalHeight).toBe("900px");
     expect(result!.toolbarPaddingTop).toBe("126px");
     expect(result!.captionsPaddingBottom).toBe("136px");
+  });
+
+  test("Android lightbox close button ignores accidental top safe-area values", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      delete document.documentElement.dataset.appleTouch;
+      document.documentElement.style.setProperty("--safe-area-top", "96px");
+    });
+
+    await tapFirstPhoto(page);
+    await page
+      .locator(".bulka-lightbox.yarl__portal")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    await page.waitForTimeout(200);
+
+    const result = await page.evaluate(() => {
+      const toolbar = document.querySelector(
+        ".bulka-lightbox .yarl__toolbar",
+      ) as HTMLElement | null;
+      const close = document.querySelector(
+        '.bulka-lightbox button[title="Close"]',
+      ) as HTMLElement | null;
+      if (!toolbar || !close) return null;
+      const rect = close.getBoundingClientRect();
+      return {
+        toolbarPaddingTop: window.getComputedStyle(toolbar).paddingTop,
+        closeTop: rect.top,
+      };
+    });
+
+    expect(result, "lightbox close button not found").not.toBeNull();
+    expect(result!.toolbarPaddingTop).toBe("8px");
+    expect(result!.closeTop).toBeLessThanOrEqual(12);
   });
 
   test("black backdrop shares the lightbox viewport height", async ({
