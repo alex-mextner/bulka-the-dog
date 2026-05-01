@@ -38,29 +38,21 @@ function Router({ children }: { children: React.ReactNode }) {
 }
 
 const App = () => {
-  // Block iOS Safari's native page-level pinch-zoom. Without this, a 2-finger
-  // pinch on a photo thumbnail simultaneously zooms the page AND the overlay,
-  // and the overlay's initial rect is computed post-zoom so its position is
-  // wrong. `gesturestart` + `gesturechange` cover the full gesture lifecycle.
-  // More reliable than `maximum-scale=1.0` in the viewport meta, which iOS 17+
-  // ignores in some configurations.
-  React.useEffect(() => {
-    if (typeof document === "undefined") return;
-    const prevent = (e: Event) => e.preventDefault();
-    document.addEventListener("gesturestart", prevent, { passive: false });
-    document.addEventListener("gesturechange", prevent, { passive: false });
-    return () => {
-      document.removeEventListener("gesturestart", prevent);
-      document.removeEventListener("gesturechange", prevent);
-    };
-  }, []);
-
   // Central viewport measurements for fullscreen mobile layers. CSS viewport
   // units remain the default path; JS only provides resolved values for iOS
   // Safari states where the browser chrome is translucent but the CSS viewport
   // exposed to fixed elements is shorter than the physical screen.
   React.useEffect(() => {
     if (typeof document === "undefined") return;
+
+    const lastValues = new Map<string, number>();
+    const setPxVar = (name: string, value: number, threshold = 0.5) => {
+      const rounded = Math.round(value);
+      const prev = lastValues.get(name);
+      if (prev != null && Math.abs(prev - rounded) < threshold) return;
+      lastValues.set(name, rounded);
+      document.documentElement.style.setProperty(name, `${rounded}px`);
+    };
 
     const measure = () => {
       const p = document.createElement("div");
@@ -84,11 +76,17 @@ const App = () => {
 
       document.body.removeChild(p);
 
-      const visualHeight = window.visualViewport?.height ?? window.innerHeight;
       const isAppleTouchDevice =
         /iP(ad|hone|od)/.test(window.navigator.userAgent) ||
         (window.navigator.platform === "MacIntel" &&
           window.navigator.maxTouchPoints > 1);
+      if (isAppleTouchDevice) {
+        document.documentElement.dataset.appleTouch = "true";
+      } else {
+        delete document.documentElement.dataset.appleTouch;
+      }
+
+      const visualHeight = window.visualViewport?.height ?? window.innerHeight;
       const screenHeight = (() => {
         if (!isAppleTouchDevice || !window.screen) return 0;
         const shortSide = Math.min(window.screen.width, window.screen.height);
@@ -101,22 +99,23 @@ const App = () => {
         screenHeight,
       );
       const bottomInset = Math.max(0, viewportHeight - top - visualHeight);
+      const visualBottomOffset = window.visualViewport
+        ? Math.max(
+            0,
+            window.innerHeight -
+              window.visualViewport.offsetTop -
+              window.visualViewport.height,
+          )
+        : 0;
 
-      document.documentElement.style.setProperty(
-        "--safe-area-top-js",
-        `${top}px`,
-      );
-      document.documentElement.style.setProperty(
-        "--safe-area-bottom-js",
-        `${bottom}px`,
-      );
-      document.documentElement.style.setProperty(
-        "--bulka-viewport-height",
-        `${viewportHeight}px`,
-      );
-      document.documentElement.style.setProperty(
-        "--bulka-viewport-bottom-inset",
-        `${Math.max(bottom, bottomInset)}px`,
+      setPxVar("--safe-area-top-js", top);
+      setPxVar("--safe-area-bottom-js", bottom);
+      setPxVar("--bulka-viewport-height", viewportHeight);
+      setPxVar("--bulka-viewport-bottom-inset", Math.max(bottom, bottomInset));
+      setPxVar(
+        "--bulka-mobile-fixed-bottom-offset",
+        Math.min(96, visualBottomOffset),
+        8,
       );
     };
 

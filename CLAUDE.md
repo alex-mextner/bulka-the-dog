@@ -68,6 +68,8 @@ Vercel читает `vercel.json`: `buildCommand: pnpm build:client`, `outputDir
 - `--safe-area-top/bottom` CSS vars в `:root` — используются в Header и footer
 - `gesturestart`/`gesturechange` preventDefault в `App.tsx` — блокирует page-zoom при pinch (надёжнее чем `maximum-scale=1.0`)
 - `theme-color` meta свитчится в `#000000` при открытии лайтбокса
+- `body.yarl__no_scroll #root { visibility: hidden }` в `client/global.css` — изолирует страницу при открытии лайтбокса. `visibility:hidden` (НЕ `opacity:0`): iOS Safari compositing обходит opacity, но не рисует элементы с visibility:hidden. Правило на `#root`, а не `body` — потому что lightbox portal, backdrop и pinch overlay маунтятся в `document.body` и должны оставаться видимыми. `html:has(body.yarl__no_scroll)` — дополнительный слой против compositing через html canvas; требует Safari 15.4+.
+- `body.yarl__no_scroll { background-color: #000 !important }` — второй обязательный слой: без него Safari chrome compositing показывает кремовый фон страницы (`#f9f5f0`) сквозь нижний address bar и top notch. `visibility:hidden` убирает `#root` из paint tree, но не меняет цвет canvas `body`. Оба правила нужны: одно скрывает контент, второе делает canvas чёрным.
 
 ---
 

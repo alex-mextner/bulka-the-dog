@@ -9,6 +9,17 @@
          gesture. Inside the lightbox yarl handles pinch on the photo, so
          users still have a zoom path for the actual content. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script>
+      (() => {
+        try {
+          const ua = navigator.userAgent;
+          const isAppleTouch =
+            /iP(ad|hone|od)/.test(ua) ||
+            (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+          if (isAppleTouch) document.documentElement.dataset.appleTouch = "true";
+        } catch {}
+      })();
+    </script>
     <meta name="theme-color" content="#f97316" />
 
     <title>Булка ищет дом — добрая собака из Белграда</title>

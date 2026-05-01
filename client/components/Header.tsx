@@ -206,10 +206,10 @@ export function Header() {
   // default content (logo + lang + sticky CTA) translates out & fades, and
   // a horizontal nav-scroll layer takes its place. The burger itself stays
   // anchored to the right and never animates away.
-  // `left-4` mirrors the parent's `px-4` so the logo doesn't kiss the edge
-  // on mobile; `right-14` reserves room for the absolute burger.
+  // The mobile insets keep the logo away from the edge and reserve room for
+  // the absolute burger; the tighter <360px values keep the row on one line.
   const defaultLayerCls = cn(
-    "absolute inset-y-0 left-4 right-14 flex items-center gap-3 transition-opacity duration-300 ease-out",
+    "absolute inset-y-0 left-3 right-12 flex min-w-0 items-center gap-2 transition-opacity duration-300 ease-out min-[360px]:left-4 min-[360px]:right-14 min-[360px]:gap-3",
     isMenuOpen
       ? "opacity-0 pointer-events-none nav:opacity-100 nav:pointer-events-auto"
       : "opacity-100",
@@ -228,7 +228,7 @@ export function Header() {
   // pan on. opacity alone is enough animation; the morphed nav is
   // pointer-events-none when closed so the user never sees the diff.
   const morphedNavCls = cn(
-    "absolute inset-y-0 left-4 right-0 flex items-center transition-opacity duration-300 ease-out nav:hidden",
+    "absolute inset-y-0 left-3 right-0 flex items-center transition-opacity duration-300 ease-out min-[360px]:left-4 nav:hidden",
     isMenuOpen
       ? "opacity-100 pointer-events-auto"
       : "opacity-0 pointer-events-none",
@@ -238,7 +238,7 @@ export function Header() {
     <header
       ref={headerRef}
       className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border"
-      style={{ paddingTop: "var(--safe-area-top)" }}
+      style={{ paddingTop: "var(--safe-area-header-top)" }}
     >
       <a
         href="#main"
@@ -246,16 +246,15 @@ export function Header() {
       >
         Перейти к содержимому
       </a>
-      {/* h-[60px]/h-[64px] is the nav bar height only. The header element itself
-          grows by --safe-area-top (padding-top above) to cover the notch zone.
-          The inner div stays at the fixed nav height so layout children don't
-          need to know about safe-area at all. */}
+      {/* h-[60px]/h-[64px] is the nav bar height only. On Apple touch devices
+          the header element grows by --safe-area-header-top to cover the notch
+          zone; Android keeps this at 0 to avoid a false top gap. */}
       <div className="max-w-6xl mx-auto py-4 relative h-[60px] md:h-[64px]">
         {/* Default layer: logo + (desktop) inline nav + sticky CTA + lang */}
         <div className={defaultLayerCls}>
           <button
             onClick={scrollToTop}
-            className="text-2xl font-bold text-primary hover:text-primary/80 transition-colors shrink-0"
+            className="shrink-0 whitespace-nowrap text-xl font-bold leading-none text-primary transition-colors hover:text-primary/80 min-[360px]:text-2xl"
             aria-label={`${t("brand.name")} — top`}
           >
             🐾 {t("brand.name")}
@@ -271,7 +270,7 @@ export function Header() {
               aria-haspopup="true"
               aria-expanded={isMenuOpen}
               aria-controls="mobile-nav"
-              className="nav:hidden min-w-0 truncate px-3 py-1.5 rounded-full text-sm font-medium bg-secondary/60 text-foreground/85 hover:bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="nav:hidden min-w-0 max-w-[8rem] truncate whitespace-nowrap rounded-full bg-secondary/60 px-2.5 py-1.5 text-sm font-medium text-foreground/85 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 min-[360px]:max-w-[10rem] min-[360px]:px-3"
             >
               {t("nav." + activeSection)}
             </button>
@@ -300,7 +299,7 @@ export function Header() {
             })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 min-[360px]:gap-2">
             <button
               type="button"
               onClick={() => handleNavClick("contact")}
@@ -320,14 +319,14 @@ export function Header() {
               role="group"
               aria-label="Сменить язык"
               className={cn(
-                "items-center gap-1 px-1.5 py-1 rounded-full bg-primary/5 border border-primary/20",
+                "items-center gap-0.5 rounded-full border border-primary/20 bg-primary/5 px-1 py-1 min-[360px]:gap-1 min-[360px]:px-1.5",
                 isScrolled ? "hidden" : "flex",
               )}
             >
               <Globe
                 size={16}
                 aria-hidden="true"
-                className="text-primary mx-1"
+                className="mx-1 hidden text-primary min-[360px]:block"
               />
               {languages.map((lang) => {
                 const isCurrent = language === lang.code;
@@ -338,7 +337,7 @@ export function Header() {
                     onClick={() => setLanguage(lang.code)}
                     aria-pressed={isCurrent}
                     className={cn(
-                      "px-2.5 py-1 rounded-full text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      "whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 min-[360px]:px-2.5",
                       isCurrent
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-primary hover:bg-primary/10",
@@ -363,7 +362,7 @@ export function Header() {
                   aria-haspopup="menu"
                   aria-expanded={isLangOpen}
                   aria-label="Сменить язык"
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-primary/5 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-primary/20 bg-primary/5 px-2 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 min-[360px]:px-2.5"
                 >
                   <Globe size={14} aria-hidden="true" />
                   {languages.find((l) => l.code === language)?.short ?? "RU"}
@@ -421,7 +420,10 @@ export function Header() {
           {/* pr-14 reserves the burger zone within the scroll container's
               own padding so the last chip can still come fully into view via
               swipe (it just lives under the gradient overlay + X). */}
-          <div className="flex items-center gap-2 overflow-x-auto pr-14 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x">
+          <div
+            data-mobile-nav-row=""
+            className="flex items-center gap-1.5 overflow-x-auto pr-12 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x min-[360px]:gap-2 min-[360px]:pr-14"
+          >
             {navItems.map((item) => {
               const isActive = activeSection === item.id;
               return (
@@ -430,7 +432,7 @@ export function Header() {
                   onClick={() => handleNavClick(item.id)}
                   aria-current={isActive ? "location" : undefined}
                   className={cn(
-                    "snap-start shrink-0 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+                    "snap-start shrink-0 whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium transition-colors min-[360px]:px-3",
                     isActive
                       ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 font-semibold"
                       : "bg-secondary/60 text-foreground/85 hover:bg-secondary",
@@ -454,7 +456,7 @@ export function Header() {
                   }}
                   aria-pressed={isCurrent}
                   className={cn(
-                    "shrink-0 px-3 py-2 rounded-full text-sm font-semibold transition-colors",
+                    "shrink-0 whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-semibold transition-colors min-[360px]:px-3",
                     isCurrent
                       ? "bg-primary text-primary-foreground"
                       : "bg-primary/10 text-primary hover:bg-primary/20",
@@ -483,7 +485,7 @@ export function Header() {
         {/* Burger — always anchored top-right, never animates away */}
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 nav:hidden p-2 rounded-lg hover:bg-secondary transition-colors z-10"
+          className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-lg p-2 transition-colors hover:bg-secondary min-[360px]:right-3 nav:hidden"
           aria-label={isMenuOpen ? "Закрыть меню" : "Открыть меню"}
           aria-expanded={isMenuOpen}
           aria-controls="mobile-nav"

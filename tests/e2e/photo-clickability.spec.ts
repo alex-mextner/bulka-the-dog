@@ -23,16 +23,33 @@ test.describe("Photo clickability", () => {
     await waitForPageReady(page);
   });
 
+  async function scrollToVisibleHabitsPhoto(page: Page) {
+    await page.evaluate(() => {
+      const items = document.querySelectorAll<HTMLElement>("[data-habit-item]");
+      const bar = document.querySelector<HTMLElement>("[data-mobile-photo-stick]");
+      if (!bar || !items[1]) return;
+      const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+      const readingLine = Math.max(headerBottom + 120, Math.min(window.innerHeight - 280, window.innerHeight * 0.45));
+      const rect = items[1].getBoundingClientRect();
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.top - readingLine),
+        behavior: "instant",
+      });
+    });
+    await page.waitForFunction(
+      () => {
+        const bar = document.querySelector("[data-mobile-photo-stick]");
+        return Boolean(bar && parseFloat(window.getComputedStyle(bar).opacity) > 0.9);
+      },
+      undefined,
+      { timeout: 3_000 },
+    );
+  }
+
   // ── Habits section: sticky photo opens lightbox on click ─────────────────
   test("habits photo is clickable and opens lightbox", async ({ page }) => {
-    // Scroll into the habits section so the sticky photo is visible.
-    await page.evaluate(() => {
-      const section = document.getElementById("habits");
-      if (section) section.scrollIntoView();
-      // Scroll a bit further so a habit item is in view and sticky photo shows.
-      window.scrollBy(0, 200);
-    });
-    await page.waitForTimeout(200);
+    // Scroll to a habit item that intentionally has photos.
+    await scrollToVisibleHabitsPhoto(page);
 
     // Find the clickable element in the mobile sticky photo container.
     // After fix: it should be a <button> wrapping the photo fader.
@@ -81,13 +98,8 @@ test.describe("Photo clickability", () => {
       { timeout: 10_000 },
     );
 
-    // Scroll into habits section.
-    await page.evaluate(() => {
-      const section = document.getElementById("habits");
-      if (section) section.scrollIntoView();
-      window.scrollBy(0, 200);
-    });
-    await page.waitForTimeout(200);
+    // Scroll to a habit item that intentionally has photos.
+    await scrollToVisibleHabitsPhoto(page);
 
     // Set seed zoom (mimics user having pinched to 2x).
     await page.evaluate(() => {
@@ -129,6 +141,95 @@ test.describe("Photo clickability", () => {
     });
     expect(scale, `Expected slide scale > 1.5 (seed=2.0), got ${scale}`).not.toBeNull();
     expect(scale!).toBeGreaterThan(1.5);
+  });
+
+  test("habits PhotoFader: pinch handoff opens the active sticky photo", async ({ page }) => {
+    await page.waitForFunction(
+      () => typeof (window as unknown as Record<string, unknown>).__bulkaTest === "object",
+      { timeout: 10_000 },
+    );
+    await scrollToVisibleHabitsPhoto(page);
+
+    await page.evaluate(() => {
+      const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+        | {
+            beginPinchHandoff: (
+              selector: string,
+              opts: { scale: number; dx?: number; dy?: number },
+            ) => void;
+            commitPinchHandoff: (selector: string) => void;
+          }
+        | undefined;
+      if (!t) throw new Error("__bulkaTest not present");
+      const selector = "[data-mobile-photo-stick] button";
+      t.beginPinchHandoff(selector, { scale: 2, dx: 8, dy: -6 });
+      t.commitPinchHandoff(selector);
+    });
+
+    await page.locator(".yarl__slide_current .yarl__fullsize").waitFor({
+      state: "attached",
+      timeout: 5_000,
+    });
+
+    const visibleSrc = await page.evaluate(() => {
+      const img = document.querySelector(
+        ".yarl__slide_current .yarl__fullsize img",
+      ) as HTMLImageElement | null;
+      return img?.currentSrc || img?.src || null;
+    });
+    expect(visibleSrc, "pinch from sticky PhotoFader did not open an image").not.toBeNull();
+    expect(visibleSrc!).toContain("ps_walk");
+  });
+
+  test("cropped thumbnails use generated subject focus metadata", async ({ page }) => {
+    await page.evaluate(() => {
+      document.getElementById("gallery")?.scrollIntoView({ behavior: "instant" });
+    });
+    await page.waitForTimeout(200);
+
+    const objectPosition = await page.evaluate(() => {
+      const imgs = Array.from(
+        document.querySelectorAll('[data-photo-strip] img'),
+      ) as HTMLImageElement[];
+      const img = imgs.find((candidate) => candidate.src.includes("ps_walk"));
+      return img ? getComputedStyle(img).objectPosition : null;
+    });
+
+    expect(objectPosition, "ps_walk thumbnail not found").not.toBeNull();
+    expect(objectPosition).not.toBe("50% 50%");
+  });
+
+  test("dev mode shows focus metadata overlay on thumbnails", async ({ page }) => {
+    await page.goto("/?touch=1&dev=1", { waitUntil: "load" });
+    await waitForPageReady(page);
+    await page.evaluate(() => {
+      document.getElementById("gallery")?.scrollIntoView({ behavior: "instant" });
+    });
+
+    const overlay = page.locator("[data-image-focus-debug]").first();
+    await overlay.waitFor({ state: "visible", timeout: 3_000 });
+    await expect(overlay).toBeVisible();
+
+    await page.locator("[data-habit-item]").nth(6).scrollIntoViewIfNeeded();
+    await page.waitForTimeout(700);
+
+    const colors = await page.evaluate(() => {
+      const colorFor = (kind: string) => {
+        const el = document.querySelector<HTMLElement>(
+          `[data-image-focus-debug-kind="${kind}"]`,
+        );
+        return el ? getComputedStyle(el).borderTopColor : null;
+      };
+      return {
+        dog: colorFor("dog"),
+        cat: colorFor("cat"),
+        human: colorFor("human"),
+      };
+    });
+
+    expect(colors.dog).toBe("rgb(154, 90, 46)");
+    expect(colors.cat).toBe("rgb(17, 17, 17)");
+    expect(colors.human).toBe("rgb(250, 204, 21)");
   });
 
   // ── PhotoStrip: at least one visible photo in strip is clickable ──────────

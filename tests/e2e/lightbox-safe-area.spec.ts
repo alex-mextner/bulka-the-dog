@@ -4,9 +4,12 @@ import type { Page } from "@playwright/test";
 // Tests that the lightbox fully covers the viewport including iOS safe-area
 // zones (notch / Dynamic Island on top, home-indicator strip on bottom).
 //
-// The lightbox should cover the viewport with its own fullscreen layers. The
-// page canvas must not be repainted black as a fallback; otherwise Safari can
-// still show clipped page content through translucent browser chrome.
+// Strategy (Task 2): canvas isolation via body.yarl__no_scroll.
+//   - body + html backgrounds become #000 when lightbox is open
+//   - #root visibility is set to hidden (removes it from paint tree)
+//   - portal + backdrop remain visible (mounted in body, not #root)
+// The "paint coverage" invariant is that no page canvas bleeds through
+// Safari's top/bottom chrome compositing while the modal is active.
 
 async function waitForGalleryReady(page: Page) {
   await page
@@ -39,15 +42,21 @@ test.describe("Lightbox safe-area coverage", () => {
     await waitForGalleryReady(page);
   });
 
-  test("opening lightbox does not repaint the page canvas as a fallback", async ({
+  // Task 2 strategy: canvas isolation via body.yarl__no_scroll.
+  // When the lightbox is open, body and html backgrounds become black so that
+  // any Safari chrome compositing bleed shows as black (matching the modal),
+  // not as cream page content. This test verifies the canvas isolation is
+  // applied on open and fully restored on close.
+  test("opening lightbox activates canvas isolation (body/html become black)", async ({
     page,
   }) => {
     const bgBefore = await page.evaluate(() => ({
       html: window.getComputedStyle(document.documentElement).backgroundColor,
       body: window.getComputedStyle(document.body).backgroundColor,
-      root: window.getComputedStyle(document.getElementById("root")!)
-        .backgroundColor,
     }));
+    expect(bgBefore.html).not.toBe("rgb(0, 0, 0)");
+    expect(bgBefore.body).not.toBe("rgb(0, 0, 0)");
+
     await tapFirstPhoto(page);
     await page
       .locator(".yarl__portal")
@@ -57,16 +66,15 @@ test.describe("Lightbox safe-area coverage", () => {
     const bgOpen = await page.evaluate(() => ({
       html: window.getComputedStyle(document.documentElement).backgroundColor,
       body: window.getComputedStyle(document.body).backgroundColor,
-      root: window.getComputedStyle(document.getElementById("root")!)
-        .backgroundColor,
     }));
-
-    expect(bgOpen.html).toBe(bgBefore.html);
-    expect(bgOpen.body).toBe(bgBefore.body);
-    expect(bgOpen.root).toBe(bgBefore.root);
-    expect(bgOpen.html).not.toBe("rgb(0, 0, 0)");
-    expect(bgOpen.body).not.toBe("rgb(0, 0, 0)");
-    expect(bgOpen.root).not.toBe("rgb(0, 0, 0)");
+    expect(
+      bgOpen.html,
+      "html background must be black while lightbox is open (canvas isolation)",
+    ).toBe("rgb(0, 0, 0)");
+    expect(
+      bgOpen.body,
+      "body background must be black while lightbox is open (canvas isolation)",
+    ).toBe("rgb(0, 0, 0)");
 
     await page.keyboard.press("Escape");
     await page
@@ -77,10 +85,15 @@ test.describe("Lightbox safe-area coverage", () => {
     const bgAfter = await page.evaluate(() => ({
       html: window.getComputedStyle(document.documentElement).backgroundColor,
       body: window.getComputedStyle(document.body).backgroundColor,
-      root: window.getComputedStyle(document.getElementById("root")!)
-        .backgroundColor,
     }));
-    expect(bgAfter).toEqual(bgBefore);
+    expect(
+      bgAfter.html,
+      "html background must be restored after lightbox closes",
+    ).toBe(bgBefore.html);
+    expect(
+      bgAfter.body,
+      "body background must be restored after lightbox closes",
+    ).toBe(bgBefore.body);
   });
 
   // ── .yarl__portal background is fully opaque ─────────────────────────────────
