@@ -37,7 +37,7 @@ test.describe("Nav chip scroll", () => {
     expect(totalDistance).toBeGreaterThan(1000); // sanity: real long-haul scroll
 
     // Tap the "Photos" chip (last in the morphed nav list).
-    const morphedNav = page.locator("#mobile-nav .flex.items-center.gap-2");
+    const morphedNav = page.locator("#mobile-nav [data-mobile-nav-row]");
     const photosChip = morphedNav.locator("button", { hasText: /Фото|Photos|Slike/ }).first();
     // The chip might be off-screen in the horizontal nav scroller; bring it in.
     await photosChip.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
@@ -65,7 +65,7 @@ test.describe("Nav chip scroll", () => {
     await page.waitForTimeout(100);
     await page.locator('[aria-label="Открыть меню"]').tap();
     await page.waitForTimeout(350);
-    const morphedNav = page.locator("#mobile-nav .flex.items-center.gap-2");
+    const morphedNav = page.locator("#mobile-nav [data-mobile-nav-row]");
     const photosChip = morphedNav.locator("button", { hasText: /Фото|Photos|Slike/ }).first();
     await photosChip.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
     await photosChip.tap();
@@ -120,7 +120,7 @@ test.describe("Nav chip scroll", () => {
       // scrollIntoView dance.
       const clicked = await page.evaluate((index) => {
         const row = document.querySelector(
-          "#mobile-nav .flex.items-center.gap-2",
+          "#mobile-nav [data-mobile-nav-row]",
         ) as HTMLElement | null;
         if (!row) return false;
         const btn = row.children[index];

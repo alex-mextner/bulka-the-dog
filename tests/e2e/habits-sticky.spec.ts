@@ -2,18 +2,9 @@ import { expect, test } from "@playwright/test";
 
 // Habits scrollytelling — sticky photo tests.
 //
-// Mobile: single photo at top, sticky top = 61px + safe-area-top.
-//   61px = h-[60px] inner div + 1px border-b.
-//   Previously was `4.5rem + safe-area` (72px) which left an 11px gap where
-//   the previous section's text was visible above the sticky photo.
+// Mobile: two low photos in a fixed bottom bar with an in-flow spacer.
 // Desktop: two stacked photos on left, sticky top = 6rem (top-24).
-//
-// Key invariant: after scrolling INTO the habits section (past the heading),
-// the sticky photo top must align with the header bottom (±5px).
-//
-// Chromium with iPhone UA: safe-area-inset-top = 0 (no notch emulation).
 
-const MOBILE_STICKY_TOP = 61; // 60px (h-[60px]) + 1px border-b = 61px
 const DESKTOP_STICKY_TOP = 96; // top-24 = 96px
 
 async function scrollPastHabitsHeading(page: import("@playwright/test").Page, extraPx = 300) {
@@ -39,45 +30,135 @@ test.describe("Habits sticky photo — mobile", () => {
     await page.waitForSelector("[data-habit-item]", { timeout: 10_000 });
   });
 
-  // ── sticky photo sticks at top:0, covering the full zone from top of viewport ─
-  // With top:0 + paddingTop = header height, the bg-background covers the gap
-  // between 0 and the photo content. The container itself should be at y=0.
-  test("sticky photo container is at y=0 after scrolling into section (no gap)", async ({ page }) => {
-    await scrollPastHabitsHeading(page, 200);
+  test("mobile photo bar stays hidden for the bathroom item", async ({ page }) => {
+    await page.evaluate(() => {
+      const items = document.querySelectorAll<HTMLElement>("[data-habit-item]");
+      const bar = document.querySelector<HTMLElement>("[data-mobile-photo-stick]");
+      if (!bar || !items[0]) return;
+      const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+      const readingLine = Math.max(headerBottom + 120, Math.min(window.innerHeight - 280, window.innerHeight * 0.45));
+      const rect = items[0].getBoundingClientRect();
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.top - readingLine),
+        behavior: "instant",
+      });
+    });
+    await page.waitForTimeout(250);
 
-    const { containerTop, photoContentTop, headerBottom } = await page.evaluate(() => {
-      const container = document.querySelector(
-        "[data-mobile-photo-stick]",
-      ) as HTMLElement | null;
-      const header = document.querySelector("header") as HTMLElement | null;
-      if (!container || !header) return { containerTop: null, photoContentTop: null, headerBottom: null };
-      const containerRect = container.getBoundingClientRect();
-      // Photo content starts after the padding-top, i.e. at the first child.
-      const firstChild = container.firstElementChild as HTMLElement | null;
-      const contentTop = firstChild ? firstChild.getBoundingClientRect().top : containerRect.top;
+    const state = await page.evaluate(() => {
+      const bar = document.querySelector("[data-mobile-photo-stick]") as HTMLElement | null;
+      if (!bar) return null;
+      const styles = window.getComputedStyle(bar);
       return {
-        containerTop: containerRect.top,
-        photoContentTop: contentTop,
-        headerBottom: header.getBoundingClientRect().bottom,
+        opacity: parseFloat(styles.opacity),
+        pointerEvents: styles.pointerEvents,
       };
     });
 
-    expect(containerTop, "mobile sticky photo container not found").not.toBeNull();
-    expect(headerBottom, "header not found").not.toBeNull();
-    // Container must be at top:0 — it covers the full gap from y=0.
-    expect(
-      containerTop!,
-      `sticky container top should be ~0 (got ${containerTop}px) — container doesn't start at viewport top`,
-    ).toBeLessThan(5);
-    // Photo content (after padding) must align with header bottom — no visible gap.
-    const contentGap = photoContentTop! - headerBottom!;
-    expect(
-      contentGap,
-      `photo content top (${photoContentTop}px) not aligned with header bottom (${headerBottom}px); gap=${contentGap}px`,
-    ).toBeLessThan(5);
+    expect(state, "mobile photo bar not found").not.toBeNull();
+    expect(state!.opacity, "bathroom item should not show photos").toBeLessThan(0.05);
+    expect(state!.pointerEvents).toBe("none");
   });
 
-  test("sticky photo is still visible halfway through the section", async ({ page }) => {
+  test("mobile photo bar stays hidden for the food item", async ({ page }) => {
+    await page.evaluate(() => {
+      const items = document.querySelectorAll<HTMLElement>("[data-habit-item]");
+      const bar = document.querySelector<HTMLElement>("[data-mobile-photo-stick]");
+      if (!bar || !items[5]) return;
+      const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+      const readingLine = Math.max(headerBottom + 120, Math.min(window.innerHeight - 280, window.innerHeight * 0.45));
+      const rect = items[5].getBoundingClientRect();
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.top - readingLine),
+        behavior: "instant",
+      });
+    });
+    await page.waitForTimeout(250);
+
+    const state = await page.evaluate(() => {
+      const bar = document.querySelector("[data-mobile-photo-stick]") as HTMLElement | null;
+      if (!bar) return null;
+      const styles = window.getComputedStyle(bar);
+      return {
+        opacity: parseFloat(styles.opacity),
+        pointerEvents: styles.pointerEvents,
+      };
+    });
+
+    expect(state, "mobile photo bar not found").not.toBeNull();
+    expect(state!.opacity, "food item should not show photos").toBeLessThan(0.05);
+    expect(state!.pointerEvents).toBe("none");
+  });
+
+  test("mobile sticky photo bar is pinned to the bottom", async ({ page }) => {
+    await page.evaluate(() => {
+      const items = document.querySelectorAll<HTMLElement>("[data-habit-item]");
+      const bar = document.querySelector<HTMLElement>("[data-mobile-photo-stick]");
+      if (!bar || !items[1]) return;
+      const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+      const readingLine = Math.max(headerBottom + 120, Math.min(window.innerHeight - 280, window.innerHeight * 0.45));
+      const rect = items[1].getBoundingClientRect();
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.top - readingLine),
+        behavior: "instant",
+      });
+    });
+    await page.waitForFunction(
+      () => {
+        const bar = document.querySelector("[data-mobile-photo-stick]");
+        return Boolean(bar && parseFloat(window.getComputedStyle(bar).opacity) > 0.9);
+      },
+      undefined,
+      { timeout: 3_000 },
+    );
+
+    const metrics = await page.evaluate(() => {
+      const container = document.querySelector(
+        "[data-mobile-photo-stick]",
+      ) as HTMLElement | null;
+      const spacer = document.querySelector(
+        "[data-mobile-photo-spacer]",
+      ) as HTMLElement | null;
+      if (!container) return null;
+      const rect = container.getBoundingClientRect();
+      const spacerRect = spacer?.getBoundingClientRect();
+      const styles = window.getComputedStyle(container);
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        height: rect.height,
+        spacerHeight: spacerRect?.height ?? 0,
+        viewportHeight: window.innerHeight,
+        opacity: parseFloat(styles.opacity),
+        position: styles.position,
+        computedBottom: styles.bottom,
+      };
+    });
+
+    expect(metrics, "mobile sticky photo bar not found").not.toBeNull();
+    expect(metrics!.opacity, "walks item should show photos").toBeGreaterThan(0.9);
+    expect(metrics!.position, "expected position:fixed").toBe("fixed");
+    expect(metrics!.computedBottom, "bottom should not be auto").not.toBe("auto");
+    expect(parseFloat(metrics!.computedBottom), "expected bottom:0").toBe(0);
+    expect(
+      metrics!.bottom,
+      `sticky bar should sit at viewport bottom, got bottom=${metrics!.bottom}`,
+    ).toBeGreaterThanOrEqual(metrics!.viewportHeight - 2);
+    expect(
+      metrics!.top,
+      `sticky bar should be near the bottom, got top=${metrics!.top}`,
+    ).toBeGreaterThan(metrics!.viewportHeight - 180);
+    expect(
+      metrics!.height,
+      `sticky bar is too tall (${metrics!.height}px)`,
+    ).toBeLessThanOrEqual(150);
+    expect(
+      Math.abs(metrics!.spacerHeight - metrics!.height),
+      `reserved spacer (${metrics!.spacerHeight}px) should match fixed bar (${metrics!.height}px)`,
+    ).toBeLessThanOrEqual(2);
+  });
+
+  test("mobile sticky bar contains two horizontal low photos", async ({ page }) => {
     // Scroll to the middle of the habit items — the 4th item.
     await page.evaluate(() => {
       const items = document.querySelectorAll("[data-habit-item]");
@@ -85,55 +166,41 @@ test.describe("Habits sticky photo — mobile", () => {
     });
     await page.waitForTimeout(150);
 
-    const { photoTop, photoBottom } = await page.evaluate(() => {
-      const el = document.querySelector(
+    const buttons = await page.evaluate(() => {
+      const container = document.querySelector(
         "[data-mobile-photo-stick]",
       ) as HTMLElement | null;
-      if (!el) return { photoTop: null, photoBottom: null };
-      const r = el.getBoundingClientRect();
-      return { photoTop: r.top, photoBottom: r.bottom };
+      if (!container) return null;
+      return Array.from(container.querySelectorAll("button")).map((button) => {
+        const rect = button.getBoundingClientRect();
+        return {
+          top: rect.top,
+          left: rect.left,
+          right: rect.right,
+          width: rect.width,
+          height: rect.height,
+        };
+      });
     });
 
-    expect(photoTop, "photo not found").not.toBeNull();
-    // Photo must still be inside the viewport (bottom > 0 and top < vh).
+    expect(buttons, "photo buttons not found").not.toBeNull();
+    expect(buttons!.length, "expected two mobile sticky photos").toBe(2);
+    const [first, second] = buttons!;
     expect(
-      photoBottom!,
-      `photo completely above viewport (bottom=${photoBottom})`,
-    ).toBeGreaterThan(0);
+      Math.abs(first.top - second.top),
+      `photos should share one row, got tops ${first.top} and ${second.top}`,
+    ).toBeLessThan(4);
+    expect(second.left, "second photo should be to the right").toBeGreaterThan(
+      first.right,
+    );
+    expect(first.height, `first photo is too tall (${first.height}px)`).toBeLessThanOrEqual(120);
     expect(
-      photoTop!,
-      `photo below viewport (top=${photoTop})`,
-    ).toBeLessThan(844);
+      second.height,
+      `second photo is too tall (${second.height}px)`,
+    ).toBeLessThanOrEqual(120);
   });
 
-  test("mobile sticky photo has position:sticky in computed style", async ({ page }) => {
-    const pos = await page.evaluate(() => {
-      const el = document.querySelector("[data-mobile-photo-stick]") as HTMLElement | null;
-      if (!el) return null;
-      return window.getComputedStyle(el).position;
-    });
-    expect(pos, "element not found").not.toBeNull();
-    expect(pos, "expected position:sticky").toBe("sticky");
-  });
-
-  test("mobile sticky photo computed top is 0px (container starts at viewport top)", async ({ page }) => {
-    // The container uses top:0 + paddingTop = header height so bg-background
-    // covers the full zone from y=0 and prevents text bleed-through.
-    const topValue = await page.evaluate(() => {
-      const el = document.querySelector("[data-mobile-photo-stick]") as HTMLElement | null;
-      if (!el) return null;
-      return window.getComputedStyle(el).top;
-    });
-    expect(topValue, "element not found").not.toBeNull();
-    expect(topValue, `top should not be 'auto', got '${topValue}'`).not.toBe("auto");
-    const px = parseFloat(topValue!);
-    expect(px, `top should be 0px (container at viewport top), got ${px}px`).toBe(0);
-  });
-
-  // ── RED: sticky photo container must have an opaque background ──────────────
-  // Without a background, scrolling content (h3 titles from habit items above)
-  // bleeds through the transparent container and is visible on top of the photo.
-  test("mobile sticky photo container has opaque background (no text bleed-through)", async ({
+  test("mobile sticky photo bar has opaque background", async ({
     page,
   }) => {
     const bg = await page.evaluate(() => {
@@ -144,43 +211,64 @@ test.describe("Habits sticky photo — mobile", () => {
       return window.getComputedStyle(el).backgroundColor;
     });
     expect(bg, "element not found").not.toBeNull();
-    // transparent / rgba(0,0,0,0) means content from behind will bleed through
     expect(
       bg,
-      `sticky container background is transparent ('${bg}') — scrolling content bleeds through`,
+      `sticky bar background is transparent ('${bg}')`,
     ).not.toBe("rgba(0, 0, 0, 0)");
-    expect(bg, "sticky container background must not be 'transparent'").not.toBe(
+    expect(bg, "sticky bar background must not be 'transparent'").not.toBe(
       "transparent",
     );
   });
 
-  // ── RED Bug 1: no bleed zone between header bottom and sticky photo top ────
-  // If sticky top = 4.5rem and the container starts exactly there, any habit
-  // item text that scrolls through the gap between headerBottom..photoTop is
-  // visible ON TOP of the sticky photo.  The fix is to make the container
-  // start at top:0 with padding-top:4.5rem so bg-background covers the gap.
-  test("no gap between header bottom and sticky photo top (text bleed bug)", async ({ page }) => {
-    await scrollPastHabitsHeading(page, 150);
+  test("mobile fixed photo bar does not drift during slow entry and exit", async ({ page }) => {
+    const samples = await page.evaluate(async () => {
+      const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+      const habits = document.getElementById("habits");
+      const skills = document.getElementById("skills");
+      const bar = document.querySelector("[data-mobile-photo-stick]") as HTMLElement | null;
+      if (!habits || !skills || !bar) return null;
 
-    const { headerBottom, photoTop } = await page.evaluate(() => {
-      const header = document.querySelector("header") as HTMLElement | null;
-      const photo = document.querySelector("[data-mobile-photo-stick]") as HTMLElement | null;
-      if (!header || !photo) return { headerBottom: null, photoTop: null };
-      return {
-        headerBottom: header.getBoundingClientRect().bottom,
-        photoTop: photo.getBoundingClientRect().top,
+      const read = () => {
+        const rect = bar.getBoundingClientRect();
+        const styles = window.getComputedStyle(bar);
+        return {
+          top: rect.top,
+          bottom: rect.bottom,
+          opacity: parseFloat(styles.opacity),
+          transform: styles.transform,
+        };
       };
+
+      const habitsTop =
+        window.scrollY + habits.getBoundingClientRect().top - window.innerHeight + 260;
+      const skillsTop =
+        window.scrollY + skills.getBoundingClientRect().top - window.innerHeight - 260;
+
+      const rows: ReturnType<typeof read>[] = [];
+      for (const start of [habitsTop, skillsTop]) {
+        window.scrollTo(0, Math.max(0, start));
+        await wait(180);
+        for (let i = 0; i < 12; i++) {
+          window.scrollBy(0, 60);
+          await wait(50);
+          rows.push(read());
+        }
+      }
+      return rows;
     });
 
-    expect(headerBottom, "header not found").not.toBeNull();
-    expect(photoTop, "sticky photo not found").not.toBeNull();
-    // The sticky container background must cover from the header bottom all the
-    // way to the photo content. If photoTop > headerBottom there is a transparent
-    // gap where text can bleed through.
+    expect(samples, "could not sample mobile fixed photo bar").not.toBeNull();
+    const visible = samples!.filter((sample) => sample.opacity > 0.05);
+    expect(visible.length, "bar never became visible").toBeGreaterThan(0);
+    for (const sample of visible) {
+      expect(sample.transform, "bar should fade only, not translate").toBe("none");
+      expect(Math.round(sample.bottom), "bar should stay pinned to viewport bottom").toBe(844);
+    }
+    const tops = visible.map((sample) => Math.round(sample.top));
     expect(
-      photoTop!,
-      `gap between header bottom (${headerBottom}px) and photo top (${photoTop}px) — text bleeds through`,
-    ).toBeLessThanOrEqual(headerBottom! + 4);
+      Math.max(...tops) - Math.min(...tops),
+      `bar top drifted during slow scroll: ${tops.join(", ")}`,
+    ).toBeLessThanOrEqual(1);
   });
 });
 
@@ -249,8 +337,8 @@ test.describe("Habits sticky photo — desktop", () => {
 
 // ── Bug 2: habitsActiveIdx must match the habit item currently in reading position ──
 // The "max visible pixels" algorithm picks the LONGEST item in view, not the one
-// the user is actually reading.  "In the car" (idx=3, lena_dogs) is short, so when
-// it and "At home" (idx=4, bulka_tv) overlap in the visible area, bulka_tv wins.
+// the user is actually reading. "In the car" (idx=3) is short, so when it and
+// "At home" (idx=4, bulka_tv) overlap in the visible area, bulka_tv can win.
 test.describe("Habits photo — correct active index (mobile)", () => {
   test.use({
     viewport: { width: 390, height: 844 },
@@ -263,27 +351,29 @@ test.describe("Habits photo — correct active index (mobile)", () => {
     await page.waitForSelector("[data-habit-item]", { timeout: 10_000 });
   });
 
-  // Scroll so the 4th habit item (🚗 car, idx=3) sits just below the sticky photo
-  // and is the first fully-entering item — then the visible photo must be lena_dogs,
-  // NOT bulka_tv (which is the next longer item).
-  test("car item (idx=3) triggers lena_dogs photo, not bulka_tv", async ({ page }) => {
-    // Step 1: scroll into habits section so the sticky photo is active (stuck at top:0).
+  // Scroll so the 4th habit item (🚗 car, idx=3) sits at the reading line
+  // just above the bottom photo bar — then the primary visible photo must be
+  // bulka_car_walk, NOT bulka_tv (which is the next longer item).
+  test("car item (idx=3) triggers car-walk photo, not bulka_tv", async ({ page }) => {
+    // Step 1: scroll into habits section so the sticky bottom photo bar is active.
     await page.evaluate(() => {
       const heading = document.getElementById("habits-title");
       if (heading) window.scrollBy(0, heading.getBoundingClientRect().bottom + 50);
     });
     await page.waitForTimeout(150);
 
-    // Pre-condition: lena_dogs must NOT be visible yet after the initial scroll.
+    // Pre-condition: bulka_car_walk must NOT be visible yet after the initial scroll.
     // If it is already visible here, waitForFunction below would resolve
     // immediately on stale state and the test would false-pass even if the
-    // "item[3] at reading position → lena_dogs" logic regressed.
+    // "item[3] at reading position → bulka_car_walk" logic regressed.
     const srcBeforeStep2 = await page.evaluate(() => {
       const container = document.querySelector(
         "[data-mobile-photo-stick]",
       ) as HTMLElement | null;
       if (!container) return null;
-      const imgs = Array.from(container.querySelectorAll("img"));
+      const primary = container.querySelector("button");
+      if (!primary) return null;
+      const imgs = Array.from(primary.querySelectorAll("img"));
       for (const img of imgs) {
         if ((img as HTMLImageElement).style.opacity === "1")
           return (img as HTMLImageElement).src;
@@ -292,22 +382,21 @@ test.describe("Habits photo — correct active index (mobile)", () => {
     });
     expect(
       srcBeforeStep2,
-      "lena_dogs must not already be visible before scroll-to-item[3] — " +
+      "bulka_car_walk must not already be visible before scroll-to-item[3] — " +
         "if it is, the waitForFunction below tests nothing",
-    ).not.toContain("lena_dogs");
+    ).not.toContain("bulka_car_walk");
 
-    // Step 2: now that sticky is active, measure its stuck height, then scroll
-    // so item[3]'s top lands just below the sticky photo bottom.
+    // Step 2: place item[3].top at the same reading line used by Index.tsx:
+    // just above the bottom sticky bar.
     await page.evaluate(() => {
       const items = document.querySelectorAll<HTMLElement>("[data-habit-item]");
       const sticky = document.querySelector<HTMLElement>("[data-mobile-photo-stick]");
       if (!sticky || !items[3]) return;
-      // Sticky is now stuck at y=0, so getBoundingClientRect().bottom = its rendered height.
-      const stickyBottom = sticky.getBoundingClientRect().bottom;
+      const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+      const readingLine = Math.max(headerBottom + 120, Math.min(window.innerHeight - 280, window.innerHeight * 0.45));
       const item = items[3];
       const rect = item.getBoundingClientRect();
-      // Place item[3].top exactly at stickyBottom so it's the first item in view.
-      const targetScrollY = window.scrollY + rect.top - stickyBottom;
+      const targetScrollY = window.scrollY + rect.top - readingLine;
       window.scrollTo({ top: Math.max(0, targetScrollY), behavior: "instant" });
     });
 
@@ -317,12 +406,16 @@ test.describe("Habits photo — correct active index (mobile)", () => {
       () => {
         const container = document.querySelector("[data-mobile-photo-stick]");
         if (!container) return false;
-        const imgs = Array.from(container.querySelectorAll("img")) as HTMLImageElement[];
-        // Resolve as soon as lena_dogs is the visible photo.
+        if (parseFloat(window.getComputedStyle(container).opacity) < 0.9) return false;
+        const primary = container.querySelector("button");
+        if (!primary) return false;
+        const imgs = Array.from(primary.querySelectorAll("img")) as HTMLImageElement[];
+        // Resolve as soon as bulka_car_walk is the visible photo.
         return imgs.some(
-          (img) => img.style.opacity === "1" && img.src.includes("lena_dogs"),
+          (img) => img.style.opacity === "1" && img.src.includes("bulka_car_walk"),
         );
       },
+      undefined,
       { timeout: 3_000 },
     ).catch(() => {
       // If we time out, fall through — the assertion below will report the
@@ -330,10 +423,12 @@ test.describe("Habits photo — correct active index (mobile)", () => {
     });
 
     const visibleSrc = await page.evaluate(() => {
-      // Find the img inside the MOBILE sticky photo container that has opacity 1.
+      // Find the visible img inside the primary MOBILE sticky photo.
       const container = document.querySelector("[data-mobile-photo-stick]") as HTMLElement | null;
       if (!container) return null;
-      const imgs = Array.from(container.querySelectorAll("img"));
+      const primary = container.querySelector("button");
+      if (!primary) return null;
+      const imgs = Array.from(primary.querySelectorAll("img"));
       for (const img of imgs) {
         if (img.style.opacity === "1") return img.src;
       }
@@ -343,36 +438,201 @@ test.describe("Habits photo — correct active index (mobile)", () => {
     expect(visibleSrc, "no visible photo found in sticky container").not.toBeNull();
     expect(
       visibleSrc!,
-      `expected lena_dogs photo when car item is at reading position, got: ${visibleSrc}`,
-    ).toContain("lena_dogs");
+      `expected bulka_car_walk photo when car item is at reading position, got: ${visibleSrc}`,
+    ).toContain("bulka_car_walk");
   });
 
-  // Active index must not skip backwards as user scrolls forward through all items.
+  test("cats item uses a home-with-cats secondary photo, not a dog-walk photo", async ({ page }) => {
+    await page.evaluate(() => {
+      const heading = document.getElementById("habits-title");
+      if (heading) window.scrollBy(0, heading.getBoundingClientRect().bottom + 50);
+    });
+    await page.waitForTimeout(150);
+
+    await page.evaluate(() => {
+      const items = document.querySelectorAll<HTMLElement>("[data-habit-item]");
+      const bar = document.querySelector<HTMLElement>("[data-mobile-photo-stick]");
+      if (!bar || !items[6]) return;
+      const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+      const readingLine = Math.max(headerBottom + 120, Math.min(window.innerHeight - 280, window.innerHeight * 0.45));
+      const rect = items[6].getBoundingClientRect();
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.top - readingLine),
+        behavior: "instant",
+      });
+    });
+
+    await page.waitForFunction(
+      () => {
+        const bar = document.querySelector("[data-mobile-photo-stick]");
+        if (!bar || parseFloat(window.getComputedStyle(bar).opacity) < 0.9) return false;
+        const buttons = Array.from(bar?.querySelectorAll("button") ?? []);
+        const secondary = buttons[1];
+        if (!secondary) return false;
+        return Array.from(secondary.querySelectorAll("img")).some(
+          (img) =>
+            img instanceof HTMLImageElement &&
+            img.style.opacity === "1" &&
+            img.src.includes("dog_home"),
+        );
+      },
+      undefined,
+      { timeout: 3_000 },
+    );
+
+    const secondarySrc = await page.evaluate(() => {
+      const bar = document.querySelector("[data-mobile-photo-stick]");
+      const secondary = bar?.querySelectorAll("button")[1];
+      if (!secondary) return null;
+      const imgs = Array.from(secondary.querySelectorAll("img"));
+      for (const img of imgs) {
+        if (img.style.opacity === "1") return img.src;
+      }
+      return null;
+    });
+
+    expect(secondarySrc, "no visible secondary cats photo found").not.toBeNull();
+    expect(secondarySrc!).toContain("dog_home");
+    expect(secondarySrc!).not.toContain("dogs_public");
+  });
+
+  test("home item uses a home photo without cats as secondary", async ({ page }) => {
+    await page.evaluate(() => {
+      const heading = document.getElementById("habits-title");
+      if (heading) window.scrollBy(0, heading.getBoundingClientRect().bottom + 50);
+    });
+    await page.waitForTimeout(150);
+
+    await page.evaluate(() => {
+      const items = document.querySelectorAll<HTMLElement>("[data-habit-item]");
+      const bar = document.querySelector<HTMLElement>("[data-mobile-photo-stick]");
+      if (!bar || !items[4]) return;
+      const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+      const readingLine = Math.max(headerBottom + 120, Math.min(window.innerHeight - 280, window.innerHeight * 0.45));
+      const rect = items[4].getBoundingClientRect();
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.top - readingLine),
+        behavior: "instant",
+      });
+    });
+
+    await page.waitForFunction(
+      () => {
+        const bar = document.querySelector("[data-mobile-photo-stick]");
+        if (!bar || parseFloat(window.getComputedStyle(bar).opacity) < 0.9) return false;
+        const secondary = bar.querySelectorAll("button")[1];
+        if (!secondary) return false;
+        return Array.from(secondary.querySelectorAll("img")).some(
+          (img) =>
+            img instanceof HTMLImageElement &&
+            img.style.opacity === "1" &&
+            img.src.includes("ps_balcony_sun"),
+        );
+      },
+      undefined,
+      { timeout: 3_000 },
+    );
+
+    const secondarySrc = await page.evaluate(() => {
+      const bar = document.querySelector("[data-mobile-photo-stick]");
+      const secondary = bar?.querySelectorAll("button")[1];
+      if (!secondary) return null;
+      const imgs = Array.from(secondary.querySelectorAll("img"));
+      for (const img of imgs) {
+        if (img.style.opacity === "1") return img.src;
+      }
+      return null;
+    });
+
+    expect(secondarySrc, "no visible secondary home photo found").not.toBeNull();
+    expect(secondarySrc!).toContain("ps_balcony_sun");
+    expect(secondarySrc!).not.toContain("dog_home");
+  });
+
+  test("walks item uses a dog-walk secondary photo, not a home photo", async ({ page }) => {
+    await page.evaluate(() => {
+      const items = document.querySelectorAll<HTMLElement>("[data-habit-item]");
+      const bar = document.querySelector<HTMLElement>("[data-mobile-photo-stick]");
+      if (!bar || !items[1]) return;
+      const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+      const readingLine = Math.max(headerBottom + 120, Math.min(window.innerHeight - 280, window.innerHeight * 0.45));
+      const rect = items[1].getBoundingClientRect();
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.top - readingLine),
+        behavior: "instant",
+      });
+    });
+
+    await page.waitForFunction(
+      () => {
+        const bar = document.querySelector("[data-mobile-photo-stick]");
+        if (!bar || parseFloat(window.getComputedStyle(bar).opacity) < 0.9) return false;
+        const secondary = bar.querySelectorAll("button")[1];
+        if (!secondary) return false;
+        return Array.from(secondary.querySelectorAll("img")).some(
+          (img) =>
+            img instanceof HTMLImageElement &&
+            img.style.opacity === "1" &&
+            img.src.includes("dogs_public"),
+        );
+      },
+      undefined,
+      { timeout: 3_000 },
+    );
+
+    const secondarySrc = await page.evaluate(() => {
+      const bar = document.querySelector("[data-mobile-photo-stick]");
+      const secondary = bar?.querySelectorAll("button")[1];
+      if (!secondary) return null;
+      const imgs = Array.from(secondary.querySelectorAll("img"));
+      for (const img of imgs) {
+        if (img.style.opacity === "1") return img.src;
+      }
+      return null;
+    });
+
+    expect(secondarySrc, "no visible secondary walks photo found").not.toBeNull();
+    expect(secondarySrc!).toContain("dogs_public");
+    expect(secondarySrc!).not.toContain("dog_home");
+    expect(secondarySrc!).not.toContain("bulka_tv");
+  });
+
+  // Active index must not skip backwards during a real forward scroll.
   test("active index is monotonically non-decreasing while scrolling forward", async ({ page }) => {
     const indices: number[] = [];
 
-    // Scroll through the entire habits section step by step.
-    const itemCount = await page.evaluate(() =>
-      document.querySelectorAll("[data-habit-item]").length,
-    );
+    const range = await page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll<HTMLElement>("[data-habit-item]"));
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) return null;
+      return {
+        start: window.scrollY + first.getBoundingClientRect().top - 220,
+        end: window.scrollY + last.getBoundingClientRect().top - 220,
+      };
+    });
+    expect(range, "could not compute habits scroll range").not.toBeNull();
 
-    for (let i = 0; i < itemCount; i++) {
-      await page.evaluate((idx) => {
-        const items = document.querySelectorAll("[data-habit-item]");
-        items[idx]?.scrollIntoView({ block: "start" });
-      }, i);
+    for (let i = 0; i <= 14; i++) {
+      const y = range!.start + ((range!.end - range!.start) * i) / 14;
+      await page.evaluate((targetY) => {
+        window.scrollTo({ top: Math.max(0, targetY), behavior: "instant" });
+      }, y);
       await page.waitForTimeout(150);
 
-      const activeIdx = await page.evaluate(() => {
+      const activeState = await page.evaluate(() => {
         const container = document.querySelector("[data-mobile-photo-stick]") as HTMLElement | null;
-        if (!container) return -1;
-        const imgs = Array.from(container.querySelectorAll("img"));
+        if (!container) return { idx: -1, visible: false };
+        const visible = parseFloat(window.getComputedStyle(container).opacity) > 0.9;
+        const primary = container.querySelector("button");
+        if (!primary) return { idx: -1, visible };
+        const imgs = Array.from(primary.querySelectorAll("img"));
         for (let j = 0; j < imgs.length; j++) {
-          if (imgs[j].style.opacity === "1") return j;
+          if (imgs[j].style.opacity === "1") return { idx: j, visible };
         }
-        return -1;
+        return { idx: -1, visible };
       });
-      indices.push(activeIdx);
+      if (activeState.visible) indices.push(activeState.idx);
     }
 
     // Verify no backward jumps.

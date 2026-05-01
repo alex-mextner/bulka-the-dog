@@ -290,7 +290,6 @@ test.describe("Seed zoom carries through to lightbox", () => {
       // Thumb centre relative to viewport centre — same semantics as real gesture.
       t.setPendingPan(thumbCx - vw / 2, thumbCy - vh / 2);
       t.setPinchActive(true);
-      window.setTimeout(() => t.setPinchActive(false), 600);
     }, { scale: pinchScale, thumbCx: thumbCenter!.centerX, thumbCy: thumbCenter!.centerY });
 
     // Click the same button we measured (centre in viewport).
@@ -313,9 +312,26 @@ test.describe("Seed zoom carries through to lightbox", () => {
     await page
       .locator(".yarl__slide_current .yarl__fullsize")
       .waitFor({ state: "attached", timeout: 5_000 });
-    // Wait for rAF poll to apply zoom+pan (allow up to 800ms including yarl's
-    // post-decode reset cycle).
-    await page.waitForTimeout(800);
+    // While the opening pinch is still active, the lightbox image should stay
+    // aligned to the thumbnail centre. This is the pixel-perfect handoff frame.
+    await page.waitForFunction(
+      ({ expectedX, expectedY }) => {
+        const img = document.querySelector(
+          ".yarl__slide_current .yarl__fullsize img",
+        ) as HTMLImageElement | null;
+        if (!img) return false;
+        const r = img.getBoundingClientRect();
+        return (
+          Math.abs(r.left + r.width / 2 - expectedX) < 40 &&
+          Math.abs(r.top + r.height / 2 - expectedY) < 40
+        );
+      },
+      {
+        expectedX: thumbCenter!.centerX,
+        expectedY: thumbCenter!.centerY,
+      },
+      { timeout: 3_000 },
+    );
 
     // Read the centre of the full-resolution image in the lightbox.
     const imgCenter = await page.evaluate(() => {
@@ -343,5 +359,47 @@ test.describe("Seed zoom carries through to lightbox", () => {
       `image centre Y (${imgCenter!.y.toFixed(1)}) vs thumb centre Y (${thumbCenter!.centerY.toFixed(1)}): ` +
         `delta ${dyPos.toFixed(1)}px exceeds 40px tolerance`,
     ).toBeLessThan(40);
+
+    await page.evaluate(() => {
+      const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+        | { setPinchActive: (b: boolean) => void }
+        | undefined;
+      if (!t) throw new Error("__bulkaTest hook not present");
+      t.setPinchActive(false);
+    });
+
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector(".yarl__slide_current .yarl__fullsize")
+          ?.getAttribute("data-bulka-seed-centered") === "true",
+      undefined,
+      { timeout: 3_000 },
+    );
+
+    const centeredDelta = await page.evaluate(() => {
+      const img = document.querySelector(
+        ".yarl__slide_current .yarl__fullsize img",
+      ) as HTMLImageElement | null;
+      const container = document.querySelector(".yarl__container") as HTMLElement | null;
+      if (!img || !container) return null;
+      const imgRect = img.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      return {
+        dx: Math.abs(
+          imgRect.left +
+            imgRect.width / 2 -
+            (containerRect.left + containerRect.width / 2),
+        ),
+        dy: Math.abs(
+          imgRect.top +
+            imgRect.height / 2 -
+            (containerRect.top + containerRect.height / 2),
+        ),
+      };
+    });
+    expect(centeredDelta, "could not measure centered image after release").not.toBeNull();
+    expect(centeredDelta!.dx).toBeLessThan(3);
+    expect(centeredDelta!.dy).toBeLessThan(3);
   });
 });

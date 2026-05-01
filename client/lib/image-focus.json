@@ -1,0 +1,2468 @@
+{
+  "generatedAt": "2026-05-01T16:29:09.067874+00:00",
+  "model": "google/owlvit-base-patch32",
+  "prompts": [
+    "dog face",
+    "dog head",
+    "dog muzzle",
+    "face of a dog",
+    "head of a dog",
+    "cat face",
+    "cat head",
+    "face of a cat",
+    "head of a cat",
+    "human face",
+    "person face",
+    "face of a person"
+  ],
+  "images": {
+    "images/bulka_car_walk.webp": {
+      "x": 0.4064,
+      "y": 0.7711,
+      "confidence": 0.0662,
+      "kind": "dog",
+      "label": "dog muzzle",
+      "box": [
+        415.94,
+        1499.24,
+        498.39,
+        1585.08
+      ],
+      "width": 1125,
+      "height": 2000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.0662,
+          "x": 0.4064,
+          "y": 0.7711,
+          "box": [
+            415.94,
+            1499.24,
+            498.39,
+            1585.08
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.3093,
+          "x": 0.7036,
+          "y": 0.0698,
+          "box": [
+            735.46,
+            34.96,
+            847.56,
+            244.2
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/bulka_car_walk_thumb.webp": {
+      "x": 0.4068,
+      "y": 0.7703,
+      "confidence": 0.0684,
+      "kind": "dog",
+      "label": "dog muzzle",
+      "box": [
+        258.82,
+        931.51,
+        310.7,
+        986.45
+      ],
+      "width": 700,
+      "height": 1245,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.0684,
+          "x": 0.4068,
+          "y": 0.7703,
+          "box": [
+            258.82,
+            931.51,
+            310.7,
+            986.45
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.312,
+          "x": 0.7036,
+          "y": 0.07,
+          "box": [
+            457.7,
+            22.05,
+            527.38,
+            152.33
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/bulka_face.webp": {
+      "x": 0.51,
+      "y": 0.35,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        161.28,
+        86.4,
+        426.24,
+        316.8
+      ],
+      "width": 576,
+      "height": 576,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.51,
+          "y": 0.35,
+          "box": [
+            161.28,
+            86.4,
+            426.24,
+            316.8
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/bulka_friends.webp": {
+      "x": 0.6098,
+      "y": 0.6677,
+      "confidence": 0.0573,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        308.28,
+        642.38,
+        394.21,
+        724.97
+      ],
+      "width": 576,
+      "height": 1024,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0573,
+          "x": 0.6098,
+          "y": 0.6677,
+          "box": [
+            308.28,
+            642.38,
+            394.21,
+            724.97
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1972,
+          "x": 0.6691,
+          "y": 0.3985,
+          "box": [
+            361.05,
+            368.64,
+            409.77,
+            447.54
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1851,
+          "x": 0.3089,
+          "y": 0.4188,
+          "box": [
+            156.69,
+            397.56,
+            199.12,
+            460.14
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/bulka_tv.webp": {
+      "x": 0.47,
+      "y": 0.7,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        172.8,
+        563.2,
+        368.64,
+        870.4
+      ],
+      "width": 576,
+      "height": 1024,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.47,
+          "y": 0.7,
+          "box": [
+            172.8,
+            563.2,
+            368.64,
+            870.4
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/cardiology.webp": {
+      "x": 0.5,
+      "y": 0.5,
+      "confidence": 0,
+      "kind": "none",
+      "label": "non-photo-center",
+      "box": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "width": 0,
+      "height": 0,
+      "detections": []
+    },
+    "images/dog_apartment.webp": {
+      "x": 0.7689,
+      "y": 0.3897,
+      "confidence": 0.2434,
+      "kind": "human",
+      "label": "human face",
+      "box": [
+        424.04,
+        366.42,
+        461.76,
+        431.62
+      ],
+      "width": 576,
+      "height": 1024,
+      "detections": [
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.2434,
+          "x": 0.7689,
+          "y": 0.3897,
+          "box": [
+            424.04,
+            366.42,
+            461.76,
+            431.62
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1752,
+          "x": 0.1121,
+          "y": 0.3649,
+          "box": [
+            45.42,
+            345.25,
+            83.77,
+            401.99
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1587,
+          "x": 0.1282,
+          "y": 0.3576,
+          "box": [
+            63.1,
+            334.68,
+            84.55,
+            397.77
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.0856,
+          "x": 0.6164,
+          "y": 0.3147,
+          "box": [
+            338.26,
+            305.36,
+            371.88,
+            339.15
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/dog_car.webp": {
+      "x": 0.59,
+      "y": 0.37,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        218.88,
+        225.28,
+        460.8,
+        532.48
+      ],
+      "width": 576,
+      "height": 1024,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.59,
+          "y": 0.37,
+          "box": [
+            218.88,
+            225.28,
+            460.8,
+            532.48
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/dog_home.webp": {
+      "x": 0.7775,
+      "y": 0.6644,
+      "confidence": 0.0806,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        519.06,
+        788.48,
+        600.49,
+        912.31
+      ],
+      "width": 720,
+      "height": 1280,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.0806,
+          "x": 0.7775,
+          "y": 0.6644,
+          "box": [
+            519.06,
+            788.48,
+            600.49,
+            912.31
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "cat",
+          "label": "cat head",
+          "confidence": 0.0837,
+          "x": 0.7718,
+          "y": 0.6605,
+          "box": [
+            507.41,
+            779.62,
+            604.0,
+            911.19
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/dog_vet.webp": {
+      "x": 0.5391,
+      "y": 0.5738,
+      "confidence": 0.0592,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        332.82,
+        674.07,
+        443.47,
+        794.89
+      ],
+      "width": 720,
+      "height": 1280,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0592,
+          "x": 0.5391,
+          "y": 0.5738,
+          "box": [
+            332.82,
+            674.07,
+            443.47,
+            794.89
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1154,
+          "x": 0.4252,
+          "y": 0.2922,
+          "box": [
+            299.67,
+            361.13,
+            312.65,
+            386.8
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/dog_vet2.webp": {
+      "x": 0.9361,
+      "y": 0.05,
+      "confidence": 0.1887,
+      "kind": "human",
+      "label": "human face",
+      "box": [
+        512.4,
+        6.66,
+        566.0,
+        65.86
+      ],
+      "width": 576,
+      "height": 1024,
+      "detections": [
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1887,
+          "x": 0.9361,
+          "y": 0.05,
+          "box": [
+            512.4,
+            6.66,
+            566.0,
+            65.86
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/dogs_public.webp": {
+      "x": 0.4801,
+      "y": 0.4347,
+      "confidence": 0.0579,
+      "kind": "dog",
+      "label": "head of a dog",
+      "box": [
+        240.66,
+        416.21,
+        312.37,
+        473.97
+      ],
+      "width": 576,
+      "height": 1024,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "head of a dog",
+          "confidence": 0.0579,
+          "x": 0.4801,
+          "y": 0.4347,
+          "box": [
+            240.66,
+            416.21,
+            312.37,
+            473.97
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.2225,
+          "x": 0.1891,
+          "y": 0.3699,
+          "box": [
+            98.93,
+            335.18,
+            118.92,
+            422.43
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.0808,
+          "x": 0.7746,
+          "y": 0.4156,
+          "box": [
+            426.44,
+            364.5,
+            465.9,
+            486.61
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/health1.webp": {
+      "x": 0.5,
+      "y": 0.5,
+      "confidence": 0,
+      "kind": "none",
+      "label": "non-photo-center",
+      "box": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "width": 0,
+      "height": 0,
+      "detections": []
+    },
+    "images/health2.webp": {
+      "x": 0.5,
+      "y": 0.5,
+      "confidence": 0,
+      "kind": "none",
+      "label": "non-photo-center",
+      "box": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "width": 0,
+      "height": 0,
+      "detections": []
+    },
+    "images/lena_dogs.webp": {
+      "x": 0.79,
+      "y": 0.525,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        446.4,
+        499.2,
+        691.2,
+        844.8
+      ],
+      "width": 720,
+      "height": 1280,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.79,
+          "y": 0.525,
+          "box": [
+            446.4,
+            499.2,
+            691.2,
+            844.8
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.98,
+          "x": 0.28,
+          "y": 0.345,
+          "box": [
+            14.4,
+            217.6,
+            388.8,
+            665.6
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/map.webp": {
+      "x": 0.5,
+      "y": 0.5,
+      "confidence": 0,
+      "kind": "none",
+      "label": "non-photo-center",
+      "box": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "width": 0,
+      "height": 0,
+      "detections": []
+    },
+    "images/person_dog.webp": {
+      "x": 0.361,
+      "y": 0.5682,
+      "confidence": 0.0695,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        173.4,
+        657.32,
+        346.41,
+        797.28
+      ],
+      "width": 720,
+      "height": 1280,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0695,
+          "x": 0.361,
+          "y": 0.5682,
+          "box": [
+            173.4,
+            657.32,
+            346.41,
+            797.28
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.2269,
+          "x": 0.5588,
+          "y": 0.5035,
+          "box": [
+            377.62,
+            602.18,
+            427.0,
+            686.81
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/20260427716964060718862522.jpg": {
+      "x": 0.4043,
+      "y": 0.4684,
+      "confidence": 0.1322,
+      "kind": "dog",
+      "label": "dog muzzle",
+      "box": [
+        1218.17,
+        2157.21,
+        1368.79,
+        2337.86
+      ],
+      "width": 3199,
+      "height": 4798,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.1322,
+          "x": 0.4043,
+          "y": 0.4684,
+          "box": [
+            1218.17,
+            2157.21,
+            1368.79,
+            2337.86
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.1436,
+          "x": 0.3948,
+          "y": 0.4482,
+          "box": [
+            958.2,
+            1879.83,
+            1567.93,
+            2420.83
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.466,
+          "x": 0.4774,
+          "y": 0.3259,
+          "box": [
+            1290.37,
+            1211.57,
+            1763.87,
+            1915.83
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/202604277764325385984095593.jpg": {
+      "x": 0.3697,
+      "y": 0.638,
+      "confidence": 0.0952,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        754.73,
+        2789.41,
+        1639.2,
+        3407.64
+      ],
+      "width": 3238,
+      "height": 4857,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0952,
+          "x": 0.3697,
+          "y": 0.638,
+          "box": [
+            754.73,
+            2789.41,
+            1639.2,
+            3407.64
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.3964,
+          "x": 0.5721,
+          "y": 0.2614,
+          "box": [
+            1665.89,
+            1026.19,
+            2038.74,
+            1512.65
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "head of a dog",
+          "confidence": 0.0606,
+          "x": 0.6106,
+          "y": 0.3848,
+          "box": [
+            1633.12,
+            1530.06,
+            2321.29,
+            2208.03
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0598,
+          "x": 0.6609,
+          "y": 0.4823,
+          "box": [
+            1578.15,
+            1548.53,
+            2701.9,
+            3136.84
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.2701,
+          "x": 0.5185,
+          "y": 0.3349,
+          "box": [
+            1556.7,
+            1443.25,
+            1800.88,
+            1810.19
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1319,
+          "x": 0.6057,
+          "y": 0.4784,
+          "box": [
+            1785.49,
+            2152.99,
+            2137.04,
+            2494.02
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.0921,
+          "x": 0.3917,
+          "y": 0.4973,
+          "box": [
+            1132.68,
+            2293.65,
+            1404.08,
+            2537.31
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/DSC01824.jpg": {
+      "x": 0.8536,
+      "y": 0.5519,
+      "confidence": 0.2024,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        2308.4,
+        2019.15,
+        2594.83,
+        2394.81
+      ],
+      "width": 2872,
+      "height": 3999,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.2024,
+          "x": 0.8536,
+          "y": 0.5519,
+          "box": [
+            2308.4,
+            2019.15,
+            2594.83,
+            2394.81
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.0796,
+          "x": 0.8533,
+          "y": 0.5815,
+          "box": [
+            2362.58,
+            2249.64,
+            2538.74,
+            2400.83
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.0627,
+          "x": 0.8911,
+          "y": 0.4944,
+          "box": [
+            2463.09,
+            1856.33,
+            2655.36,
+            2097.73
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0686,
+          "x": 0.7193,
+          "y": 0.3679,
+          "box": [
+            1973.04,
+            1367.52,
+            2158.52,
+            1575.02
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0553,
+          "x": 0.869,
+          "y": 0.567,
+          "box": [
+            2280.87,
+            1719.54,
+            2710.73,
+            2815.13
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.153,
+          "x": 0.2837,
+          "y": 0.2035,
+          "box": [
+            722.39,
+            674.4,
+            907.37,
+            953.22
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/DSC01851.jpg": {
+      "x": 0.52,
+      "y": 0.35,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        400.0,
+        240.0,
+        3760.0,
+        3960.0
+      ],
+      "width": 4000,
+      "height": 6000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.52,
+          "y": 0.35,
+          "box": [
+            400.0,
+            240.0,
+            3760.0,
+            3960.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/DSC01856.jpg": {
+      "x": 0.51,
+      "y": 0.23,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        1200.0,
+        360.0,
+        2880.0,
+        2400.0
+      ],
+      "width": 4000,
+      "height": 6000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.51,
+          "y": 0.23,
+          "box": [
+            1200.0,
+            360.0,
+            2880.0,
+            2400.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/DSC01859.jpg": {
+      "x": 0.515,
+      "y": 0.23,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        1980.0,
+        240.0,
+        4200.0,
+        1600.0
+      ],
+      "width": 6000,
+      "height": 4000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.515,
+          "y": 0.23,
+          "box": [
+            1980.0,
+            240.0,
+            4200.0,
+            1600.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/DSC01871.jpg": {
+      "x": 0.4529,
+      "y": 0.2093,
+      "confidence": 0.1108,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        1005.98,
+        486.1,
+        2617.09,
+        2024.98
+      ],
+      "width": 4000,
+      "height": 6000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.1108,
+          "x": 0.4529,
+          "y": 0.2093,
+          "box": [
+            1005.98,
+            486.1,
+            2617.09,
+            2024.98
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1537,
+          "x": 0.9465,
+          "y": 0.0992,
+          "box": [
+            3580.78,
+            140.26,
+            3991.31,
+            1050.41
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/DSC01878.jpg": {
+      "x": 0.485,
+      "y": 0.27,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        1000.0,
+        480.0,
+        2880.0,
+        2760.0
+      ],
+      "width": 4000,
+      "height": 6000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.485,
+          "y": 0.27,
+          "box": [
+            1000.0,
+            480.0,
+            2880.0,
+            2760.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/DSC01897.jpg": {
+      "x": 0.7115,
+      "y": 0.3322,
+      "confidence": 0.0578,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        1745.44,
+        924.45,
+        3188.26,
+        2530.06
+      ],
+      "width": 3467,
+      "height": 5200,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.0578,
+          "x": 0.7115,
+          "y": 0.3322,
+          "box": [
+            1745.44,
+            924.45,
+            3188.26,
+            2530.06
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/DSC01902.jpg": {
+      "x": 0.649,
+      "y": 0.269,
+      "confidence": 0.1006,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        2140.75,
+        389.02,
+        3742.81,
+        1236.66
+      ],
+      "width": 4533,
+      "height": 3022,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.1006,
+          "x": 0.649,
+          "y": 0.269,
+          "box": [
+            2140.75,
+            389.02,
+            3742.81,
+            1236.66
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/DSC01931.jpg": {
+      "x": 0.4166,
+      "y": 0.6927,
+      "confidence": 0.0737,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        1550.17,
+        1655.52,
+        3448.99,
+        3886.38
+      ],
+      "width": 6000,
+      "height": 4000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0737,
+          "x": 0.4166,
+          "y": 0.6927,
+          "box": [
+            1550.17,
+            1655.52,
+            3448.99,
+            3886.38
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_balcony_sun.webp": {
+      "x": 0.485,
+      "y": 0.27,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        1000.0,
+        480.0,
+        2880.0,
+        2760.0
+      ],
+      "width": 4000,
+      "height": 6000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.485,
+          "y": 0.27,
+          "box": [
+            1000.0,
+            480.0,
+            2880.0,
+            2760.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_ball.webp": {
+      "x": 0.515,
+      "y": 0.23,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        1980.0,
+        240.0,
+        4200.0,
+        1600.0
+      ],
+      "width": 6000,
+      "height": 4000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.515,
+          "y": 0.23,
+          "box": [
+            1980.0,
+            240.0,
+            4200.0,
+            1600.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_belly.webp": {
+      "x": 0.4171,
+      "y": 0.6936,
+      "confidence": 0.0634,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        1555.58,
+        1662.15,
+        3450.12,
+        3886.79
+      ],
+      "width": 6000,
+      "height": 4000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0634,
+          "x": 0.4171,
+          "y": 0.6936,
+          "box": [
+            1555.58,
+            1662.15,
+            3450.12,
+            3886.79
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_cat_balcony.webp": {
+      "x": 0.385,
+      "y": 0.6873,
+      "confidence": 0.1368,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        762.14,
+        2198.78,
+        1547.78,
+        3299.9
+      ],
+      "width": 3000,
+      "height": 4000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.1368,
+          "x": 0.385,
+          "y": 0.6873,
+          "box": [
+            762.14,
+            2198.78,
+            1547.78,
+            3299.9
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "cat",
+          "label": "cat head",
+          "confidence": 0.1341,
+          "x": 0.661,
+          "y": 0.3019,
+          "box": [
+            1858.29,
+            1078.33,
+            2108.0,
+            1336.53
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.0921,
+          "x": 0.3894,
+          "y": 0.7396,
+          "box": [
+            949.8,
+            2581.5,
+            1386.75,
+            3335.12
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.0649,
+          "x": 0.38,
+          "y": 0.7961,
+          "box": [
+            981.0,
+            3027.58,
+            1299.28,
+            3341.35
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "cat",
+          "label": "cat head",
+          "confidence": 0.0955,
+          "x": 0.6985,
+          "y": 0.3054,
+          "box": [
+            1867.72,
+            1064.1,
+            2323.22,
+            1378.98
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "cat",
+          "label": "cat face",
+          "confidence": 0.0744,
+          "x": 0.6514,
+          "y": 0.3106,
+          "box": [
+            1871.93,
+            1159.63,
+            2036.55,
+            1325.04
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.0552,
+          "x": 0.438,
+          "y": 0.6018,
+          "box": [
+            1190.92,
+            2217.72,
+            1437.16,
+            2597.01
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "cat",
+          "label": "cat head",
+          "confidence": 0.0661,
+          "x": 0.7342,
+          "y": 0.2792,
+          "box": [
+            2124.3,
+            1036.11,
+            2280.97,
+            1197.19
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_family.webp": {
+      "x": 0.3699,
+      "y": 0.6381,
+      "confidence": 0.0937,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        756.15,
+        2789.42,
+        1639.64,
+        3408.76
+      ],
+      "width": 3238,
+      "height": 4857,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0937,
+          "x": 0.3699,
+          "y": 0.6381,
+          "box": [
+            756.15,
+            2789.42,
+            1639.64,
+            3408.76
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.3958,
+          "x": 0.5721,
+          "y": 0.2613,
+          "box": [
+            1665.84,
+            1025.81,
+            2038.84,
+            1512.35
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "head of a dog",
+          "confidence": 0.0582,
+          "x": 0.6096,
+          "y": 0.3868,
+          "box": [
+            1629.41,
+            1527.42,
+            2318.1,
+            2230.22
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.058,
+          "x": 0.6659,
+          "y": 0.4831,
+          "box": [
+            1576.48,
+            1542.24,
+            2736.09,
+            3150.17
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.265,
+          "x": 0.5183,
+          "y": 0.335,
+          "box": [
+            1556.96,
+            1444.0,
+            1799.59,
+            1810.58
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1257,
+          "x": 0.6055,
+          "y": 0.4769,
+          "box": [
+            1787.22,
+            2151.22,
+            2133.82,
+            2481.6
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.0905,
+          "x": 0.392,
+          "y": 0.4975,
+          "box": [
+            1135.23,
+            2296.2,
+            1403.65,
+            2536.39
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_hug.webp": {
+      "x": 0.4043,
+      "y": 0.4685,
+      "confidence": 0.1237,
+      "kind": "dog",
+      "label": "dog muzzle",
+      "box": [
+        1218.08,
+        2157.63,
+        1368.81,
+        2338.02
+      ],
+      "width": 3199,
+      "height": 4798,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.1237,
+          "x": 0.4043,
+          "y": 0.4685,
+          "box": [
+            1218.08,
+            2157.63,
+            1368.81,
+            2338.02
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.1329,
+          "x": 0.3949,
+          "y": 0.4484,
+          "box": [
+            959.43,
+            1880.57,
+            1567.02,
+            2422.14
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.4653,
+          "x": 0.4775,
+          "y": 0.3259,
+          "box": [
+            1291.06,
+            1211.79,
+            1763.71,
+            1915.92
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_lick.webp": {
+      "x": 0.7107,
+      "y": 0.3324,
+      "confidence": 0.0713,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        1743.63,
+        926.53,
+        3184.33,
+        2530.83
+      ],
+      "width": 3467,
+      "height": 5200,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.0713,
+          "x": 0.7107,
+          "y": 0.3324,
+          "box": [
+            1743.63,
+            926.53,
+            3184.33,
+            2530.83
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_paw.webp": {
+      "x": 0.453,
+      "y": 0.2094,
+      "confidence": 0.1091,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        1006.16,
+        487.22,
+        2618.14,
+        2025.5
+      ],
+      "width": 4000,
+      "height": 6000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.1091,
+          "x": 0.453,
+          "y": 0.2094,
+          "box": [
+            1006.16,
+            487.22,
+            2618.14,
+            2025.5
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1527,
+          "x": 0.9463,
+          "y": 0.1004,
+          "box": [
+            3579.63,
+            141.04,
+            3990.94,
+            1063.54
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_portrait.webp": {
+      "x": 0.52,
+      "y": 0.35,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        400.0,
+        240.0,
+        3760.0,
+        3960.0
+      ],
+      "width": 4000,
+      "height": 6000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.52,
+          "y": 0.35,
+          "box": [
+            400.0,
+            240.0,
+            3760.0,
+            3960.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_rug.webp": {
+      "x": 0.51,
+      "y": 0.23,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        1200.0,
+        360.0,
+        2880.0,
+        2400.0
+      ],
+      "width": 4000,
+      "height": 6000,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.51,
+          "y": 0.23,
+          "box": [
+            1200.0,
+            360.0,
+            2880.0,
+            2400.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_scratch.webp": {
+      "x": 0.6496,
+      "y": 0.2686,
+      "confidence": 0.095,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        2144.85,
+        389.67,
+        3744.33,
+        1233.51
+      ],
+      "width": 4533,
+      "height": 3022,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.095,
+          "x": 0.6496,
+          "y": 0.2686,
+          "box": [
+            2144.85,
+            389.67,
+            3744.33,
+            1233.51
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/ps_walk.webp": {
+      "x": 0.8551,
+      "y": 0.5499,
+      "confidence": 0.2297,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        2299.33,
+        1996.42,
+        2612.43,
+        2401.99
+      ],
+      "width": 2872,
+      "height": 3999,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.2297,
+          "x": 0.8551,
+          "y": 0.5499,
+          "box": [
+            2299.33,
+            1996.42,
+            2612.43,
+            2401.99
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.0855,
+          "x": 0.8534,
+          "y": 0.5815,
+          "box": [
+            2363.8,
+            2250.36,
+            2538.23,
+            2400.31
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.0552,
+          "x": 0.8689,
+          "y": 0.5642,
+          "box": [
+            2463.51,
+            2216.25,
+            2527.53,
+            2296.62
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.0662,
+          "x": 0.8917,
+          "y": 0.4931,
+          "box": [
+            2461.19,
+            1842.48,
+            2660.76,
+            2101.34
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0721,
+          "x": 0.7195,
+          "y": 0.3681,
+          "box": [
+            1973.04,
+            1367.06,
+            2159.69,
+            1576.71
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0594,
+          "x": 0.8692,
+          "y": 0.567,
+          "box": [
+            2281.27,
+            1719.2,
+            2711.18,
+            2815.4
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1521,
+          "x": 0.2838,
+          "y": 0.2035,
+          "box": [
+            723.1,
+            674.54,
+            907.2,
+            953.45
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_balcony_sun.webp": {
+      "x": 0.485,
+      "y": 0.28,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        168.0,
+        84.0,
+        511.0,
+        504.0
+      ],
+      "width": 700,
+      "height": 1050,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.485,
+          "y": 0.28,
+          "box": [
+            168.0,
+            84.0,
+            511.0,
+            504.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_ball.webp": {
+      "x": 0.51,
+      "y": 0.225,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        210.0,
+        23.35,
+        504.0,
+        186.8
+      ],
+      "width": 700,
+      "height": 467,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.51,
+          "y": 0.225,
+          "box": [
+            210.0,
+            23.35,
+            504.0,
+            186.8
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_belly.webp": {
+      "x": 0.4238,
+      "y": 0.6801,
+      "confidence": 0.0603,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        185.18,
+        182.83,
+        408.17,
+        452.35
+      ],
+      "width": 700,
+      "height": 467,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0603,
+          "x": 0.4238,
+          "y": 0.6801,
+          "box": [
+            185.18,
+            182.83,
+            408.17,
+            452.35
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_cat_balcony.webp": {
+      "x": 0.4367,
+      "y": 0.6304,
+      "confidence": 0.291,
+      "kind": "dog",
+      "label": "dog muzzle",
+      "box": [
+        158.12,
+        226.34,
+        191.22,
+        277.98
+      ],
+      "width": 400,
+      "height": 400,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.291,
+          "x": 0.4367,
+          "y": 0.6304,
+          "box": [
+            158.12,
+            226.34,
+            191.22,
+            277.98
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.2234,
+          "x": 0.3777,
+          "y": 0.9016,
+          "box": [
+            140.09,
+            344.17,
+            162.04,
+            377.11
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "cat",
+          "label": "cat head",
+          "confidence": 0.3512,
+          "x": 0.6643,
+          "y": 0.2366,
+          "box": [
+            248.99,
+            77.24,
+            282.41,
+            112.07
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.3371,
+          "x": 0.3864,
+          "y": 0.728,
+          "box": [
+            110.38,
+            224.97,
+            198.74,
+            357.4
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.2074,
+          "x": 0.4328,
+          "y": 0.6037,
+          "box": [
+            162.02,
+            228.05,
+            184.2,
+            254.9
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.3067,
+          "x": 0.6924,
+          "y": 0.241,
+          "box": [
+            249.0,
+            75.69,
+            304.9,
+            117.14
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.1738,
+          "x": 0.6562,
+          "y": 0.2586,
+          "box": [
+            250.81,
+            93.91,
+            274.15,
+            112.98
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "cat",
+          "label": "face of a cat",
+          "confidence": 0.1891,
+          "x": 0.3872,
+          "y": 0.809,
+          "box": [
+            124.37,
+            273.42,
+            185.35,
+            373.79
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_family.webp": {
+      "x": 0.37,
+      "y": 0.6374,
+      "confidence": 0.0752,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        165.03,
+        603.36,
+        352.95,
+        735.17
+      ],
+      "width": 700,
+      "height": 1050,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.0752,
+          "x": 0.37,
+          "y": 0.6374,
+          "box": [
+            165.03,
+            603.36,
+            352.95,
+            735.17
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.3988,
+          "x": 0.5722,
+          "y": 0.2612,
+          "box": [
+            360.08,
+            221.64,
+            440.96,
+            326.95
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.28,
+          "x": 0.5192,
+          "y": 0.3343,
+          "box": [
+            336.19,
+            310.96,
+            390.66,
+            391.01
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1489,
+          "x": 0.6054,
+          "y": 0.4811,
+          "box": [
+            384.85,
+            465.44,
+            462.71,
+            544.96
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.0943,
+          "x": 0.394,
+          "y": 0.4968,
+          "box": [
+            247.34,
+            494.93,
+            304.22,
+            548.35
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_hug.webp": {
+      "x": 0.4044,
+      "y": 0.4672,
+      "confidence": 0.0619,
+      "kind": "dog",
+      "label": "dog muzzle",
+      "box": [
+        266.07,
+        469.84,
+        300.11,
+        511.19
+      ],
+      "width": 700,
+      "height": 1050,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog muzzle",
+          "confidence": 0.0619,
+          "x": 0.4044,
+          "y": 0.4672,
+          "box": [
+            266.07,
+            469.84,
+            300.11,
+            511.19
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.4304,
+          "x": 0.4787,
+          "y": 0.326,
+          "box": [
+            283.94,
+            266.24,
+            386.21,
+            418.34
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.0591,
+          "x": 0.3936,
+          "y": 0.4482,
+          "box": [
+            206.53,
+            410.86,
+            344.51,
+            530.41
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_lick.webp": {
+      "x": 0.6878,
+      "y": 0.3188,
+      "confidence": 0.056,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        284.62,
+        153.12,
+        678.29,
+        516.43
+      ],
+      "width": 700,
+      "height": 1050,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.056,
+          "x": 0.6878,
+          "y": 0.3188,
+          "box": [
+            284.62,
+            153.12,
+            678.29,
+            516.43
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_paw.webp": {
+      "x": 0.4526,
+      "y": 0.2119,
+      "confidence": 0.056,
+      "kind": "dog",
+      "label": "dog head",
+      "box": [
+        174.33,
+        86.65,
+        459.36,
+        358.27
+      ],
+      "width": 700,
+      "height": 1050,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog head",
+          "confidence": 0.056,
+          "x": 0.4526,
+          "y": 0.2119,
+          "box": [
+            174.33,
+            86.65,
+            459.36,
+            358.27
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1447,
+          "x": 0.944,
+          "y": 0.1016,
+          "box": [
+            623.19,
+            21.44,
+            698.36,
+            191.86
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_portrait.webp": {
+      "x": 0.52,
+      "y": 0.36,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        56.0,
+        21.0,
+        672.0,
+        735.0
+      ],
+      "width": 700,
+      "height": 1050,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.52,
+          "y": 0.36,
+          "box": [
+            56.0,
+            21.0,
+            672.0,
+            735.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_rug.webp": {
+      "x": 0.51,
+      "y": 0.23,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        196.0,
+        42.0,
+        518.0,
+        441.0
+      ],
+      "width": 700,
+      "height": 1050,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.51,
+          "y": 0.23,
+          "box": [
+            196.0,
+            42.0,
+            518.0,
+            441.0
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_scratch.webp": {
+      "x": 0.61,
+      "y": 0.27,
+      "confidence": 0.99,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        294.0,
+        46.7,
+        560.0,
+        205.48
+      ],
+      "width": 700,
+      "height": 467,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.99,
+          "x": 0.61,
+          "y": 0.27,
+          "box": [
+            294.0,
+            46.7,
+            560.0,
+            205.48
+          ],
+          "inferred": false
+        }
+      ]
+    },
+    "images/photo-set/thumbs/ps_walk.webp": {
+      "x": 0.8543,
+      "y": 0.5473,
+      "confidence": 0.0679,
+      "kind": "dog",
+      "label": "dog face",
+      "box": [
+        556.49,
+        477.93,
+        639.59,
+        589.21
+      ],
+      "width": 700,
+      "height": 975,
+      "detections": [
+        {
+          "kind": "dog",
+          "label": "dog face",
+          "confidence": 0.0679,
+          "x": 0.8543,
+          "y": 0.5473,
+          "box": [
+            556.49,
+            477.93,
+            639.59,
+            589.21
+          ],
+          "inferred": false
+        },
+        {
+          "kind": "human",
+          "label": "human face",
+          "confidence": 0.1457,
+          "x": 0.2833,
+          "y": 0.2044,
+          "box": [
+            175.96,
+            165.5,
+            220.6,
+            232.99
+          ],
+          "inferred": false
+        }
+      ]
+    }
+  }
+}

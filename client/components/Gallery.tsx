@@ -9,7 +9,12 @@ import "yet-another-react-lightbox/styles.css";
 import "yet-another-react-lightbox/plugins/captions.css";
 import "yet-another-react-lightbox/plugins/counter.css";
 
+import { ImageFocusDebugOverlay } from "@/components/ImageFocusDebugOverlay";
+import { getImageFocusStyle } from "@/lib/imageFocus";
 import { cn } from "@/lib/utils";
+
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect;
 
 // ---------------------------------------------------------------------------
 // Pinch-to-open transition overlay
@@ -56,6 +61,7 @@ const PINCH_MAX_SCALE = 2.5;
 const PINCH_CANCEL_MS = 220;
 
 const PINCH_DISMISS_MS = 180;
+const PINCH_CENTER_MS = 240;
 
 const PinchTransitionOverlay = React.forwardRef<
   PinchOverlayHandle,
@@ -106,7 +112,7 @@ const PinchTransitionOverlay = React.forwardRef<
         // the visible "thumb disappears, then lightbox appears" gap.
         setTransitioning(false);
         if (dimRef.current) {
-          dimRef.current.style.backgroundColor = "rgba(0,0,0,0.92)";
+          dimRef.current.style.backgroundColor = "rgba(0,0,0,1)";
         }
       },
       dismiss: () => {
@@ -129,7 +135,7 @@ const PinchTransitionOverlay = React.forwardRef<
           // intentionally separate and is driven by GalleryLightbox after
           // the target zoom/pan has painted underneath.
           if (dimRef.current) {
-            dimRef.current.style.backgroundColor = "rgba(0,0,0,0.92)";
+            dimRef.current.style.backgroundColor = "rgba(0,0,0,1)";
           }
         } else {
           // Animate back to identity (= thumbnail rect) over PINCH_CANCEL_MS,
@@ -717,6 +723,7 @@ export function usePinchToOpen(
         if (e.touches.length < 2) return;
         // Block page-zoom and page-pan throughout the gesture.
         if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         const dist = distance(t1, t2);
@@ -822,6 +829,7 @@ export function usePinchToOpen(
         if (e.touches.length !== 2) return;
         if (active) return;
         if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
         const t1 = e.touches[0];
         const t2 = e.touches[1];
         initialDist = distance(t1, t2);
@@ -892,9 +900,22 @@ export function usePinchToOpen(
         };
       };
 
+      const onLocalGesture = (e: Event) => {
+        // Safari's non-standard gesture events are what turn a two-finger
+        // gesture into page zoom. Prevent them only on gallery triggers, so a
+        // user who zoomed the whole page can still pinch the rest of the page
+        // back down normally.
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
+      };
+
       el.addEventListener("touchstart", onNativeTouchStart, { passive: false });
+      el.addEventListener("gesturestart", onLocalGesture, { passive: false });
+      el.addEventListener("gesturechange", onLocalGesture, { passive: false });
       return () => {
         el.removeEventListener("touchstart", onNativeTouchStart);
+        el.removeEventListener("gesturestart", onLocalGesture);
+        el.removeEventListener("gesturechange", onLocalGesture);
         cleanup?.();
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -934,6 +955,8 @@ export function GalleryImage({
   const { register, update, unregister, open, setTrigger } = useGallery();
   const idRef = React.useRef<number | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
+  const { style: imgStyle, ...restImgProps } = imgProps;
+  const focusStyle = getImageFocusStyle(thumbSrc ?? src) ?? getImageFocusStyle(src);
 
   // Register exactly once per mount; unregister on unmount.
   React.useEffect(() => {
@@ -979,6 +1002,7 @@ export function GalleryImage({
       ref={buttonRef}
       type="button"
       data-gallery-image=""
+      data-pinch-open-root=""
       onClick={handleOpen}
       aria-label={`Открыть фото: ${caption || alt}`}
       // `appearance-none` + zero padding/border keeps tailwind sizing on the
@@ -990,7 +1014,7 @@ export function GalleryImage({
         // panning", which blocks horizontal swipe for the parent scroll
         // engine. Default touch-action lets iOS pick: tap if the finger
         // doesn't move, pan if it does.
-        "appearance-none p-0 m-0 border-0 bg-transparent block w-full cursor-zoom-in",
+        "relative appearance-none p-0 m-0 border-0 bg-transparent block w-full cursor-zoom-in",
         className,
       )}
     >
@@ -1001,8 +1025,10 @@ export function GalleryImage({
         decoding="async"
         draggable={false}
         className={cn("block w-full h-auto", imgClassName)}
-        {...imgProps}
+        style={focusStyle ? { ...focusStyle, ...imgStyle } : imgStyle}
+        {...restImgProps}
       />
+      <ImageFocusDebugOverlay src={thumbSrc ?? src} />
     </button>
   );
 }
@@ -1088,12 +1114,21 @@ export function GalleryLightbox() {
       const pan = pendingPanRef.current;
       const targetCenterX = window.innerWidth / 2 + pan.dx;
       const targetCenterY = window.innerHeight / 2 + pan.dy;
+      const expectedWidth =
+        fitWidthCacheRef.current > 0
+          ? fitWidthCacheRef.current * targetZoom
+          : pendingZoomRef.current;
+      const scalePainted =
+        expectedWidth <= 0 ||
+        Math.abs(rect.width - expectedWidth) <=
+          Math.max(4, expectedWidth * 0.04);
       return (
+        scalePainted &&
         Math.abs(rect.left + rect.width / 2 - targetCenterX) <= 2 &&
         Math.abs(rect.top + rect.height / 2 - targetCenterY) <= 2
       );
     },
-    [pendingPanRef, pendingThumbWidthRef],
+    [pendingPanRef, pendingThumbWidthRef, pendingZoomRef],
   );
 
   const scheduleUnboundedSeedTransform = React.useCallback(
@@ -1105,6 +1140,76 @@ export function GalleryLightbox() {
     },
     [applyUnboundedSeedTransform],
   );
+
+  const centerSeededPan = React.useCallback(() => {
+    if (pendingThumbWidthRef.current <= 0) return;
+    const z = zoomRef.current;
+    const fullsize = document.querySelector(
+      ".yarl__slide_current .yarl__fullsize",
+    ) as HTMLElement | null;
+    if (!fullsize) return;
+
+    fullsize.dataset.bulkaSeedCentering = "true";
+    const finish = () => {
+      fullsize.dataset.bulkaSeedCentered = "true";
+      delete fullsize.dataset.bulkaSeedCentering;
+    };
+
+    if (
+      !z ||
+      z.disabled ||
+      z.zoom <= 1.01 ||
+      (Math.abs(z.offsetX) < 1 && Math.abs(z.offsetY) < 1)
+    ) {
+      finish();
+      return;
+    }
+
+    let nextZoom =
+      z.zoom < z.maxZoom * 0.999
+        ? Math.min(z.maxZoom, z.zoom * 1.001)
+        : Math.max(z.minZoom, z.zoom * 0.999);
+    let denominator = 1 / z.zoom - 1 / nextZoom;
+    if (Math.abs(denominator) < 0.000001) {
+      nextZoom = Math.max(z.minZoom, z.zoom * 0.995);
+      denominator = 1 / z.zoom - 1 / nextZoom;
+    }
+    if (Math.abs(denominator) < 0.000001) {
+      finish();
+      return;
+    }
+
+    // Stop the seed guard before centering; otherwise the rAF poll would keep
+    // re-applying the under-finger pan while we animate back to center.
+    ownsZoomRef.current = false;
+
+    const focalDx = z.offsetX / denominator;
+    const focalDy = z.offsetY / denominator;
+    const fromTransform =
+      window.getComputedStyle(fullsize).transform || fullsize.style.transform;
+    const toTransform = `scale(${nextZoom}) translateX(0px) translateY(0px)`;
+    fullsize.getAnimations().forEach((animation) => animation.cancel());
+    const animation = fullsize.animate(
+      [
+        {
+          transform:
+            fromTransform === "none" ? fullsize.style.transform : fromTransform,
+        },
+        { transform: toTransform },
+      ],
+      {
+        duration: PINCH_CENTER_MS,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "forwards",
+      },
+    );
+    animation.onfinish = () => {
+      z.changeZoom(nextZoom, true, focalDx, focalDy);
+      fullsize.style.transform = toTransform;
+      finish();
+    };
+    animation.oncancel = finish;
+  }, [pendingThumbWidthRef]);
 
   // After the lightbox opens, if there's a pending zoom from a pinch gesture
   // (set by GalleryImage's commit path), feed it to yarl. We can't do this
@@ -1128,7 +1233,7 @@ export function GalleryLightbox() {
   // Continuous poll covers both. Frame work is cheap (one ref read +
   // one comparison) and stops as soon as we lose ownership (user
   // touched the lightbox to drive their own zoom).
-  React.useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!isOpen) return;
     // Set ownership sync at effect-entry. The other useEffect that
     // attaches the touchstart-release listener also sets this — both
@@ -1213,7 +1318,7 @@ export function GalleryLightbox() {
       }
       rafId = requestAnimationFrame(tick);
     };
-    rafId = requestAnimationFrame(tick);
+    tick();
     return () => cancelAnimationFrame(rafId);
   }, [
     isOpen,
@@ -1481,6 +1586,10 @@ export function GalleryLightbox() {
         stableFrames++;
         if (stableFrames >= STABLE_REQUIRED) {
           // All conditions met for N consecutive frames → overlay safe to fade.
+          // While it fades, animate the seeded under-finger pan back to the
+          // centered lightbox position so the final frame feels intentional.
+          releaseTransitionToFallback();
+          centerSeededPan();
           pinchOverlayRef.current?.dismiss();
           setPinchHoldDismissing(true);
           return;
@@ -1500,6 +1609,7 @@ export function GalleryLightbox() {
     isOpen,
     pinchThumbSrc,
     isUnboundedSeedPainted,
+    centerSeededPan,
     pinchOverlayRef,
     pinchTransitionActiveRef,
   ]);
@@ -1569,6 +1679,7 @@ export function GalleryLightbox() {
         )}
         // ESC + backdrop-click are yarl defaults; restated for clarity.
         controller={{ closeOnBackdropClick: true, closeOnPullDown: true }}
+        animation={{ zoom: PINCH_CENTER_MS }}
         // Loop arrows: with finite=false there's never an "end", so both
         // prev/next arrows render on every slide when there are 2+ slides.
         // Tap-open uses full-bleed cover so Safari chrome / Dynamic Island zones

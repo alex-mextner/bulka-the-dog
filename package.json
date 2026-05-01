@@ -12,7 +12,9 @@
     "test:e2e": "playwright test",
     "test:e2e:prod": "E2E_BASE_URL=https://www.bulka.rs playwright test",
     "format.fix": "prettier --write .",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "focus:build": "docker build -f scripts/image-focus/Dockerfile -t bulka-image-focus:latest .",
+    "focus:generate": "docker run --rm -v \"$PWD:/work\" -v bulka-hf-cache:/cache/huggingface bulka-image-focus:latest --public-dir /work/public --output /work/client/lib/image-focus.json"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

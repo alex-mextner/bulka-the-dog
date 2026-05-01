@@ -125,8 +125,14 @@
       env(safe-area-max-inset-bottom, 0px),
       var(--safe-area-bottom-js, 0px)
     );
+    --safe-area-header-top: 0px;
     --bulka-viewport-height: 100dvh;
     --bulka-viewport-bottom-inset: var(--safe-area-bottom);
+    --bulka-mobile-fixed-bottom-offset: 0px;
+  }
+
+  html[data-apple-touch="true"] {
+    --safe-area-header-top: var(--safe-area-top);
   }
 
   html {
@@ -210,10 +216,10 @@
   /* Sections scroll-target offset so the sticky header doesn't cover their
      top edge when navigated to via element.scrollIntoView() / anchor links.
      72px = 60px sticky header + 12px breathing room (mirror of md: 64+8).
-     On notch/Dynamic Island devices the header is taller by --safe-area-top,
+     On notch/Dynamic Island devices the header is taller by --safe-area-header-top,
      so we add it here so anchor links don't land behind the nub. */
   section[id] {
-    scroll-margin-top: calc(72px + var(--safe-area-top));
+    scroll-margin-top: calc(72px + var(--safe-area-header-top));
   }
 
   /* Fullscreen overlays are handled below with a shared viewport-height var.

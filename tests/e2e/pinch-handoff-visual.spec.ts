@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { inflateSync } from "node:zlib";
 
 const HERO_SELECTOR = "[data-gallery-image]";
 
@@ -68,105 +67,6 @@ async function makeHeroGeometryStable(page: Page) {
 
 type Clip = { x: number; y: number; width: number; height: number };
 
-function decodePng(buffer: Buffer) {
-  const signature = "89504e470d0a1a0a";
-  expect(buffer.subarray(0, 8).toString("hex")).toBe(signature);
-
-  let offset = 8;
-  let width = 0;
-  let height = 0;
-  let bitDepth = 0;
-  let colorType = 0;
-  const idat: Buffer[] = [];
-
-  while (offset < buffer.length) {
-    const length = buffer.readUInt32BE(offset);
-    const type = buffer.subarray(offset + 4, offset + 8).toString("ascii");
-    const data = buffer.subarray(offset + 8, offset + 8 + length);
-    if (type === "IHDR") {
-      width = data.readUInt32BE(0);
-      height = data.readUInt32BE(4);
-      bitDepth = data[8];
-      colorType = data[9];
-    } else if (type === "IDAT") {
-      idat.push(data);
-    } else if (type === "IEND") {
-      break;
-    }
-    offset += 12 + length;
-  }
-
-  expect(bitDepth).toBe(8);
-  const bytesPerPixel = colorType === 6 ? 4 : colorType === 2 ? 3 : 0;
-  expect(
-    bytesPerPixel,
-    `unsupported PNG color type ${colorType}`,
-  ).toBeGreaterThan(0);
-
-  const inflated = inflateSync(Buffer.concat(idat));
-  const stride = width * bytesPerPixel;
-  const pixels = Buffer.alloc(height * stride);
-  let src = 0;
-
-  const paeth = (a: number, b: number, c: number) => {
-    const p = a + b - c;
-    const pa = Math.abs(p - a);
-    const pb = Math.abs(p - b);
-    const pc = Math.abs(p - c);
-    if (pa <= pb && pa <= pc) return a;
-    return pb <= pc ? b : c;
-  };
-
-  for (let y = 0; y < height; y++) {
-    const filter = inflated[src++];
-    const row = y * stride;
-    const prev = row - stride;
-    for (let x = 0; x < stride; x++) {
-      const raw = inflated[src++];
-      const left = x >= bytesPerPixel ? pixels[row + x - bytesPerPixel] : 0;
-      const up = y > 0 ? pixels[prev + x] : 0;
-      const upLeft =
-        y > 0 && x >= bytesPerPixel ? pixels[prev + x - bytesPerPixel] : 0;
-      const value =
-        filter === 0
-          ? raw
-          : filter === 1
-            ? raw + left
-            : filter === 2
-              ? raw + up
-              : filter === 3
-                ? raw + Math.floor((left + up) / 2)
-                : raw + paeth(left, up, upLeft);
-      pixels[row + x] = value & 0xff;
-    }
-  }
-
-  return { width, height, pixels };
-}
-
-function countPixelChannelDiff(a: Buffer, b: Buffer) {
-  const left = decodePng(a);
-  const right = decodePng(b);
-  expect(right.width).toBe(left.width);
-  expect(right.height).toBe(left.height);
-  let diff = 0;
-  for (let i = 0; i < left.pixels.length; i++) {
-    if (left.pixels[i] !== right.pixels[i]) diff++;
-  }
-  return diff;
-}
-
-function innerClip(rect: Clip): Clip {
-  const cx = rect.x + rect.width / 2;
-  const cy = rect.y + rect.height / 2;
-  return {
-    x: Math.round(cx - 80),
-    y: Math.round(cy - 120),
-    width: 160,
-    height: 240,
-  };
-}
-
 test.describe("pinch-to-open visual handoff", () => {
   test.beforeEach(async ({ page }) => {
     await installPortraitFixture(page);
@@ -198,7 +98,6 @@ test.describe("pinch-to-open visual handoff", () => {
       { selector: HERO_SELECTOR, scale, dx, dy },
     );
 
-    const clip = innerClip(rect);
     await page.waitForFunction(
       ({ expectedWidth, expectedCenterX, expectedCenterY }) => {
         const clone = document.querySelector(
@@ -219,7 +118,6 @@ test.describe("pinch-to-open visual handoff", () => {
       },
       { timeout: 3_000 },
     );
-    const before = await page.screenshot({ clip, animations: "disabled" });
 
     await page.evaluate((selector) => {
       const t = (window as unknown as Record<string, unknown>).__bulkaTest as
@@ -283,11 +181,39 @@ test.describe("pinch-to-open visual handoff", () => {
       timeout: 3_000,
     });
 
-    const after = await page.screenshot({ clip, animations: "disabled" });
-    expect(
-      countPixelChannelDiff(before, after),
-      "handoff pixels changed after overlay dismissal",
-    ).toBe(0);
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector(".yarl__slide_current .yarl__fullsize")
+          ?.getAttribute("data-bulka-seed-centered") === "true",
+      undefined,
+      { timeout: 3_000 },
+    );
+
+    const centeredDelta = await page.evaluate(() => {
+      const img = document.querySelector(
+        ".yarl__slide_current .yarl__fullsize img",
+      ) as HTMLImageElement | null;
+      const container = document.querySelector(".yarl__container") as HTMLElement | null;
+      if (!img || !container) return null;
+      const imgRect = img.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      return {
+        dx: Math.abs(
+          imgRect.left +
+            imgRect.width / 2 -
+            (containerRect.left + containerRect.width / 2),
+        ),
+        dy: Math.abs(
+          imgRect.top +
+            imgRect.height / 2 -
+            (containerRect.top + containerRect.height / 2),
+        ),
+      };
+    });
+    expect(centeredDelta, "could not measure centered lightbox image").not.toBeNull();
+    expect(centeredDelta!.dx).toBeLessThan(3);
+    expect(centeredDelta!.dy).toBeLessThan(3);
   });
 
   test("final finger pan is included in the seeded lightbox position", async ({
@@ -305,13 +231,11 @@ test.describe("pinch-to-open visual handoff", () => {
                 opts: { scale: number; dx: number; dy: number },
               ) => Clip;
               commitPinchHandoff: (selector: string) => void;
-              setPinchActive: (active: boolean) => void;
             }
           | undefined;
         if (!t) throw new Error("__bulkaTest hook not present");
         const r = t.beginPinchHandoff(selector, { scale: s, dx: x, dy: y });
         t.commitPinchHandoff(selector);
-        t.setPinchActive(false);
         return r;
       },
       { selector: HERO_SELECTOR, scale, dx, dy },
@@ -340,6 +264,14 @@ test.describe("pinch-to-open visual handoff", () => {
       },
       { timeout: 3_000 },
     );
+
+    await page.evaluate(() => {
+      const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+        | { setPinchActive: (active: boolean) => void }
+        | undefined;
+      if (!t) throw new Error("__bulkaTest hook not present");
+      t.setPinchActive(false);
+    });
   });
 
   test("seeded pan remains aligned when fullscreen viewport is taller than visual viewport", async ({
@@ -364,13 +296,11 @@ test.describe("pinch-to-open visual handoff", () => {
                 opts: { scale: number; dx: number; dy: number },
               ) => Clip;
               commitPinchHandoff: (selector: string) => void;
-              setPinchActive: (active: boolean) => void;
             }
           | undefined;
         if (!t) throw new Error("__bulkaTest hook not present");
         const r = t.beginPinchHandoff(selector, { scale: s, dx: x, dy: y });
         t.commitPinchHandoff(selector);
-        t.setPinchActive(false);
         return r;
       },
       { selector: HERO_SELECTOR, scale, dx, dy },
@@ -399,5 +329,13 @@ test.describe("pinch-to-open visual handoff", () => {
       },
       { timeout: 3_000 },
     );
+
+    await page.evaluate(() => {
+      const t = (window as unknown as Record<string, unknown>).__bulkaTest as
+        | { setPinchActive: (active: boolean) => void }
+        | undefined;
+      if (!t) throw new Error("__bulkaTest hook not present");
+      t.setPinchActive(false);
+    });
   });
 });

@@ -2,11 +2,13 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Header } from "@/components/Header";
 import { GalleryImage, useGallery, usePinchToOpen } from "@/components/Gallery";
+import { ImageFocusDebugOverlay } from "@/components/ImageFocusDebugOverlay";
 import BulkaDay from "@/components/BulkaDay";
 import DonationsPanel from "@/components/DonationsPanel";
 import FAQ from "@/components/FAQ";
 import PhotoStrip from "@/components/PhotoStrip";
 import { useLanguage } from "@/hooks/useLanguage";
+import { getImageFocusStyle } from "@/lib/imageFocus";
 import {
   Heart,
   Home,
@@ -60,6 +62,8 @@ const images = {
   cardiology: asset("images/cardiology.webp"),
   dogs_public: asset("images/dogs_public.webp"),
   lena_dogs: asset("images/lena_dogs.webp"),
+  bulka_car_walk: asset("images/bulka_car_walk.webp"),
+  bulka_car_walk_thumb: asset("images/bulka_car_walk_thumb.webp"),
   dog_car: asset("images/dog_car.webp"),
   dog_home: asset("images/dog_home.webp"),
   dog_vet: asset("images/dog_vet.webp"),
@@ -102,25 +106,46 @@ const HABITS_PHOTOS = [
   images.ps_portrait,    // bathroom
   images.ps_walk,        // walks
   images.dogs_public,    // behavior
-  images.lena_dogs,      // car — Lena + Bulka selfie in back seat
+  images.bulka_car_walk, // car — Lena and Bulka next to the car
   images.bulka_tv,       // home
   images.ps_rug,         // food
   images.ps_cat_balcony, // cats
 ];
 
+const HABITS_SECONDARY_PHOTOS = [
+  images.dog_apartment, // bathroom — apartment life
+  images.dogs_public,   // walks — out with other dogs
+  images.ps_family,     // behavior — calm around people and dogs
+  images.lena_dogs,     // car — inside the car
+  images.ps_balcony_sun, // home — quiet balcony/home life
+  images.ps_ball,       // food — treat/play energy
+  images.dog_home,      // cats — home with cats at the window
+];
+
+const HABITS_PHOTOLESS_INDICES = new Set([0, 5]);
+
 // Crossfading photo container: all photos are in the DOM with opacity 0/1.
 // CSS transition handles the fade — no JS animation needed.
 // On click OR pinch-to-open, opens the active photo in the gallery lightbox
 // by looking up the src in the shared GalleryContext entries registry
-// (PhotoStrip registers all HABITS_PHOTOS below, so they're present by the
-// time any click fires).
+// (the page registers these photos elsewhere as GalleryImage entries, so
+// they're present by the time any click fires).
 //
 // Pinch-to-open is enabled via `usePinchToOpen` — the same hook used by
 // GalleryImage. The active img carries `data-pinch-thumb` so
 // GalleryProvider.open() grabs the right thumbnail src for the hold-overlay.
-function PhotoFader({ activeIdx, className }: { activeIdx: number; className?: string }) {
+function PhotoFader({
+  activeIdx,
+  className,
+  photos = HABITS_PHOTOS,
+}: {
+  activeIdx: number;
+  className?: string;
+  photos?: string[];
+}) {
   const { entries, open, setTrigger } = useGallery();
-  const activeSrc = HABITS_PHOTOS[activeIdx];
+  const normalizedIdx = activeIdx % photos.length;
+  const activeSrc = photos[normalizedIdx];
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
 
   const handleClick = React.useCallback(() => {
@@ -141,6 +166,7 @@ function PhotoFader({ activeIdx, className }: { activeIdx: number; className?: s
     <button
       ref={buttonRef}
       type="button"
+      data-pinch-open-root=""
       onClick={handleClick}
       aria-label="Открыть фото"
       className={cn(
@@ -149,20 +175,24 @@ function PhotoFader({ activeIdx, className }: { activeIdx: number; className?: s
         className,
       )}
     >
-      {HABITS_PHOTOS.map((src, i) => (
+      {photos.map((src, i) => (
         <img
-          key={src}
+          key={`${src}-${i}`}
           src={src}
           alt=""
           loading="lazy"
           // data-pinch-thumb marks the currently visible image so
           // GalleryProvider.open() picks the right src for the pinch-hold
           // overlay when opened from PhotoFader (which has 7 stacked imgs).
-          {...(i === activeIdx ? { "data-pinch-thumb": "" } : {})}
+          {...(i === normalizedIdx ? { "data-pinch-thumb": "" } : {})}
           className="absolute inset-0 w-full h-full object-cover brightness-105 contrast-[1.03] saturate-[1.05] transition-opacity duration-500 ease-in-out"
-          style={{ opacity: i === activeIdx ? 1 : 0 }}
+          style={{
+            ...getImageFocusStyle(src),
+            opacity: i === normalizedIdx ? 1 : 0,
+          }}
         />
       ))}
+      <ImageFocusDebugOverlay src={activeSrc} />
     </button>
   );
 }
@@ -176,55 +206,201 @@ function scrollToId(id: string) {
 // doesn't dominate. The text column drives the natural flow; the image is
 // sized to feel companionable next to the text, not to dwarf it.
 const SECTION_IMG_CLS =
-  "rounded-2xl overflow-hidden shadow-lg w-full max-h-[80vh] md:max-h-[560px]";
+  "aspect-[4/3] rounded-2xl overflow-hidden shadow-lg w-full max-h-[80vh] md:max-h-[560px]";
 const SECTION_IMG_INNER_CLS =
   "rounded-2xl object-cover w-full h-full max-h-[80vh] md:max-h-[560px] brightness-105 contrast-[1.03] saturate-[1.05]";
 
 export default function Index() {
   const { t } = useLanguage();
 
-  // Habits scrollytelling: track which habit item is most visible.
+  // Habits scrollytelling: track which habit item is in the reading position.
   const [habitsActiveIdx, setHabitsActiveIdx] = React.useState(0);
+  const [isHabitsMobileBarVisible, setIsHabitsMobileBarVisible] =
+    React.useState(false);
   const habitsSectionRef = React.useRef<HTMLElement | null>(null);
   const habitsRafPendingRef = React.useRef(false);
+  const habitsActiveIdxRef = React.useRef(0);
+  const habitsMobileBarInRangeRef = React.useRef(false);
+  const habitsMobileBarVisibleRef = React.useRef(false);
+  const habitsRangeCandidateRef = React.useRef<{
+    value: boolean;
+    since: number;
+    scrollY: number;
+  } | null>(null);
+  const habitsActiveCandidateRef = React.useRef<{
+    value: number;
+    since: number;
+    scrollY: number;
+  } | null>(null);
+  const habitsViewportRef = React.useRef({ width: 0, height: 0 });
 
   React.useEffect(() => {
     const section = habitsSectionRef.current;
     if (!section) return;
+    let followupTimer: number | null = null;
+    const scheduleFollowup = (delayMs: number) => {
+      if (followupTimer != null) return;
+      followupTimer = window.setTimeout(() => {
+        followupTimer = null;
+        handleScroll();
+      }, delayMs);
+    };
     const handleScroll = () => {
       if (habitsRafPendingRef.current) return;
       habitsRafPendingRef.current = true;
       requestAnimationFrame(() => {
         habitsRafPendingRef.current = false;
         const items = section.querySelectorAll<HTMLElement>("[data-habit-item]");
-        const vh = window.innerHeight;
-        // On mobile, the sticky photo covers the top of the viewport — don't
-        // count pixels hidden under it as "visible" to the user.
-        const stickyEl = section.querySelector<HTMLElement>("[data-mobile-photo-stick]");
-        const topClip = stickyEl ? Math.max(0, stickyEl.getBoundingClientRect().bottom) : 0;
-        // Reading-line threshold: just below the sticky photo (or near the top
-        // of the viewport on desktop where there is no sticky photo). The active
-        // item is the last one whose top edge has scrolled above this line.
-        // We intentionally include items that are partially hidden behind the
-        // sticky photo — the photo IS the feedback that tells the user which
-        // item they scrolled to.
-        const readingLine = topClip + 24;
+        const now = performance.now();
+        const scrollY = window.scrollY;
+        const rawVh = Math.max(
+          window.innerHeight,
+          window.visualViewport?.height ?? 0,
+        );
+        const viewport = habitsViewportRef.current;
+        if (
+          viewport.height <= 0 ||
+          Math.abs(window.innerWidth - viewport.width) > 80 ||
+          rawVh > viewport.height
+        ) {
+          viewport.width = window.innerWidth;
+          viewport.height = rawVh;
+        }
+        const vh = viewport.height || rawVh;
+        const visualBottomOffset = window.visualViewport
+          ? Math.max(
+              0,
+              window.innerHeight -
+                window.visualViewport.offsetTop -
+                window.visualViewport.height,
+            )
+          : 0;
+        const bottomSlack = Math.min(96, visualBottomOffset);
+        const sectionRect = section.getBoundingClientRect();
+        const firstItemRect = items[0]?.getBoundingClientRect();
+        const isMobile =
+          typeof window.matchMedia === "function" &&
+          window.matchMedia("(max-width: 767px)").matches;
+        const mobileBarHeight =
+          section
+            .querySelector<HTMLElement>("[data-mobile-photo-spacer]")
+            ?.getBoundingClientRect().height ?? 150;
+        const barTopLine = vh - mobileBarHeight - bottomSlack;
+        const currentRange = habitsMobileBarInRangeRef.current;
+        const rawMobileBarInRange = Boolean(
+          isMobile &&
+            firstItemRect &&
+            (currentRange
+              ? firstItemRect.top < barTopLine + 140 &&
+                sectionRect.bottom > barTopLine - 170
+              : firstItemRect.top < barTopLine - 72 &&
+                sectionRect.bottom > barTopLine - 24),
+        );
+        let mobileBarInRange = currentRange;
+        if (rawMobileBarInRange !== currentRange) {
+          const candidate = habitsRangeCandidateRef.current;
+          if (!candidate || candidate.value !== rawMobileBarInRange) {
+            habitsRangeCandidateRef.current = {
+              value: rawMobileBarInRange,
+              since: now,
+              scrollY,
+            };
+            scheduleFollowup(150);
+          } else if (
+            now - candidate.since >= 140 ||
+            Math.abs(scrollY - candidate.scrollY) >= 80
+          ) {
+            mobileBarInRange = rawMobileBarInRange;
+            habitsMobileBarInRangeRef.current = mobileBarInRange;
+            habitsRangeCandidateRef.current = null;
+          } else {
+            scheduleFollowup(150 - (now - candidate.since));
+          }
+        } else {
+          habitsRangeCandidateRef.current = null;
+        }
+
+        const headerBottom =
+          document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+        // Mobile: choose the active habit by the middle reading area, not by
+        // the bottom photo bar. This keeps the photos aligned with the text the
+        // user is actually reading during slow inertial scroll.
+        const readingLine =
+          isMobile && mobileBarInRange
+            ? Math.max(headerBottom + 120, Math.min(vh - 280, vh * 0.45))
+            : 24;
+        const activeTopTolerance = 24;
         let bestIdx = 0;
         items.forEach((item, i) => {
           const rect = item.getBoundingClientRect();
           // Item is active when its top has passed the reading line AND it
-          // hasn't scrolled completely off the top of the viewport (bottom > 0).
-          if (rect.top <= readingLine && rect.bottom > 0) {
+          // hasn't scrolled behind the header.
+          if (
+            rect.top <= readingLine + activeTopTolerance &&
+            rect.bottom > headerBottom + 24
+          ) {
             bestIdx = i;
           }
         });
-        setHabitsActiveIdx(bestIdx);
+        if (isMobile && mobileBarInRange && bestIdx > habitsActiveIdxRef.current) {
+          const currentIdx = habitsActiveIdxRef.current;
+          const currentItem = items[currentIdx];
+          const currentRect = currentItem?.getBoundingClientRect();
+          const currentHasPhotos = !HABITS_PHOTOLESS_INDICES.has(currentIdx);
+          if (
+            currentHasPhotos &&
+            currentRect &&
+            currentRect.bottom > headerBottom + 140
+          ) {
+            bestIdx = currentIdx;
+          }
+        }
+        let nextActiveIdx = habitsActiveIdxRef.current;
+        if (!isMobile) {
+          nextActiveIdx = bestIdx;
+          habitsActiveCandidateRef.current = null;
+        } else if (bestIdx === nextActiveIdx) {
+          habitsActiveCandidateRef.current = null;
+        } else {
+          const candidate = habitsActiveCandidateRef.current;
+          if (!candidate || candidate.value !== bestIdx) {
+            habitsActiveCandidateRef.current = {
+              value: bestIdx,
+              since: now,
+              scrollY,
+            };
+            scheduleFollowup(100);
+          } else if (
+            now - candidate.since >= 90 ||
+            Math.abs(scrollY - candidate.scrollY) >= 48
+          ) {
+            nextActiveIdx = bestIdx;
+            habitsActiveCandidateRef.current = null;
+          } else {
+            scheduleFollowup(100 - (now - candidate.since));
+          }
+        }
+        if (nextActiveIdx !== habitsActiveIdxRef.current) {
+          habitsActiveIdxRef.current = nextActiveIdx;
+          setHabitsActiveIdx(nextActiveIdx);
+        }
+        const mobileBarVisible =
+          mobileBarInRange && !HABITS_PHOTOLESS_INDICES.has(nextActiveIdx);
+        if (mobileBarVisible !== habitsMobileBarVisibleRef.current) {
+          habitsMobileBarVisibleRef.current = mobileBarVisible;
+          setIsHabitsMobileBarVisible(mobileBarVisible);
+        }
       });
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
     // Seed initial state — handles direct navigation to #habits.
     handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+      if (followupTimer != null) window.clearTimeout(followupTimer);
+    };
   }, []);
 
   type SectionProps = {
@@ -490,7 +666,7 @@ export default function Index() {
         </Section>
 
         {/* Habits Section — scrollytelling with crossfading photos.
-            Mobile: one sticky photo at top changes as user scrolls through items.
+            Mobile: two fixed bottom photos change as user scrolls through items.
             Desktop: two stacked sticky photos on the left, text column on the right. */}
         <section
           id="habits"
@@ -506,20 +682,6 @@ export default function Index() {
               {t("habits.title")}
             </h2>
 
-            {/* Mobile: sticky photo above the scrolling habit items.
-                top:0 + paddingTop = header height so bg-background covers the full
-                zone from the very top of the viewport down to the photo content.
-                Without this, the gap between 0 and the photo top was transparent and
-                habit-item text from previous items scrolled through visibly.
-                Header height = safe-area-top + 60px inner div + 1px border-b. */}
-            <div
-              data-mobile-photo-stick=""
-              className="sticky top-0 md:hidden mb-6 z-20 bg-background"
-              style={{ paddingTop: "calc(61px + var(--safe-area-top, 0px))" }}
-            >
-              <PhotoFader activeIdx={habitsActiveIdx} />
-            </div>
-
             <div className="md:grid md:grid-cols-2 md:gap-8 md:items-start">
               {/* Desktop: sticky photo column — two photos stacked.
                   Max-height per photo keeps the left column clearly shorter
@@ -529,11 +691,15 @@ export default function Index() {
                 className="hidden md:flex md:sticky md:top-24 md:self-start flex-col gap-4"
               >
                 <PhotoFader activeIdx={habitsActiveIdx} className="max-h-[260px]" />
-                <PhotoFader activeIdx={(habitsActiveIdx + 3) % HABITS_PHOTOS.length} className="max-h-[260px]" />
+                <PhotoFader
+                  activeIdx={habitsActiveIdx}
+                  photos={HABITS_SECONDARY_PHOTOS}
+                  className="max-h-[260px]"
+                />
               </div>
 
               {/* Habit items — single source for both mobile and desktop */}
-              <div className="space-y-2">
+              <div className="space-y-2 pb-2 md:pb-0">
                 <div data-habit-item="" className="py-6">
                   <h3 className="font-bold text-lg mb-2">
                     <span aria-hidden="true">🚽</span> {t("ui.habits.bathroom_title")}
@@ -577,6 +743,46 @@ export default function Index() {
                   <p className="text-foreground/80">{t("habits.cats")}</p>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* In-flow spacer matching the fixed mobile bar. The visual bar is
+              fixed, but this keeps its space reserved during attach/detach. */}
+          <div
+            data-mobile-photo-spacer=""
+            aria-hidden="true"
+            className="invisible md:hidden -mx-4 mt-2 bg-background px-4 pt-3 pb-[calc(0.75rem+var(--safe-area-bottom,0px))] border-t border-transparent"
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <div className="aspect-[16/9] max-h-[120px] rounded-xl" />
+              <div className="aspect-[16/9] max-h-[120px] rounded-xl" />
+            </div>
+          </div>
+
+          {/* Mobile: fixed photo bar at the bottom. It deliberately does not use
+              CSS sticky: attaching/detaching sticky near the section edges can
+              perturb inertial scrolling on mobile browsers. */}
+          <div
+            data-mobile-photo-stick=""
+            aria-hidden={!isHabitsMobileBarVisible}
+            style={{ bottom: "var(--bulka-mobile-fixed-bottom-offset, 0px)" }}
+            className={cn(
+              "fixed inset-x-0 bottom-0 md:hidden z-30 bg-background/95 px-4 pt-3 pb-[calc(0.75rem+var(--safe-area-bottom,0px))] border-t border-border/40 transition-opacity duration-150 ease-out",
+              isHabitsMobileBarVisible
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none",
+            )}
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <PhotoFader
+                activeIdx={habitsActiveIdx}
+                className="aspect-[16/9] max-h-[120px] rounded-xl shadow-md"
+              />
+              <PhotoFader
+                activeIdx={habitsActiveIdx}
+                photos={HABITS_SECONDARY_PHOTOS}
+                className="aspect-[16/9] max-h-[120px] rounded-xl shadow-md"
+              />
             </div>
           </div>
         </section>
@@ -1033,6 +1239,12 @@ export default function Index() {
                 src: images.dogs_public,
                 alt: t("media.strip.park_alt"),
                 caption: t("media.strip.park_caption"),
+              },
+              {
+                src: images.bulka_car_walk,
+                thumbSrc: images.bulka_car_walk_thumb,
+                alt: t("media.strip.car_walk_alt"),
+                caption: t("media.strip.car_walk_caption"),
               },
               {
                 src: images.lena_dogs,
