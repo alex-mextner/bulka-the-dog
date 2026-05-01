@@ -274,7 +274,14 @@ html[data-apple-touch="true"] .bulka-lightbox .yarl__toolbar {
   ) !important;
 }
 
-.yarl__slide_captions_container {
+.bulka-lightbox .yarl__slide_captions_container {
+  padding-bottom: var(
+    --yarl__slide_captions_container_padding,
+    16px
+  ) !important;
+}
+
+html[data-apple-touch="true"] .bulka-lightbox .yarl__slide_captions_container {
   padding-bottom: calc(
     var(--yarl__slide_captions_container_padding, 16px) +
       var(--bulka-viewport-bottom-inset, var(--safe-area-bottom, 0px))

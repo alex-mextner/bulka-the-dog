@@ -330,6 +330,42 @@ test.describe("Lightbox fullscreen coverage", () => {
     expect(result!.closeTop).toBeLessThanOrEqual(12);
   });
 
+  test("Android lightbox caption ignores accidental bottom safe-area values", async ({
+    page,
+  }) => {
+    await page.evaluate(() => {
+      delete document.documentElement.dataset.appleTouch;
+      document.documentElement.style.setProperty(
+        "--bulka-viewport-bottom-inset",
+        "120px",
+      );
+      document.documentElement.style.setProperty("--safe-area-bottom", "80px");
+    });
+
+    await tapFirstPhoto(page);
+    await page
+      .locator(".bulka-lightbox.yarl__portal")
+      .waitFor({ state: "attached", timeout: 5_000 });
+    await page.waitForTimeout(200);
+
+    const result = await page.evaluate(() => {
+      const captions = document.querySelector(
+        ".bulka-lightbox .yarl__slide_captions_container",
+      ) as HTMLElement | null;
+      if (!captions) return null;
+      const rect = captions.getBoundingClientRect();
+      return {
+        captionsPaddingBottom: window.getComputedStyle(captions).paddingBottom,
+        captionsBottom: rect.bottom,
+        viewportBottom: window.innerHeight,
+      };
+    });
+
+    expect(result, "lightbox captions not found").not.toBeNull();
+    expect(result!.captionsPaddingBottom).toBe("16px");
+    expect(result!.captionsBottom).toBe(result!.viewportBottom);
+  });
+
   test("black backdrop shares the lightbox viewport height", async ({
     page,
   }) => {
