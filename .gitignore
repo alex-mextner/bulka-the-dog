@@ -34,3 +34,12 @@ playwright-report/
 test-results/
 .playwright-mcp/
 public/photos/yandex-import/
+
+# HyperIDE canvas-preview generator scratch (auto-generated, never committed)
+.hyperide/
+**/__canvas_preview__.tsx
+**/__canvas_preview_standalone__.tsx
+**/__canvas_samples__.tsx
+**/test-preview.tsx
+**/test-preview.astro
+**/test-preview/
