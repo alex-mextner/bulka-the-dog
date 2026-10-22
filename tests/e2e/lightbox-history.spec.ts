@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { translations } from "../../client/lib/translations";
 
 async function waitForGalleryReady(page: Page) {
   await page
@@ -28,8 +29,11 @@ async function tapFirstPhoto(page: Page) {
 
 test.describe("Lightbox browser history", () => {
   test.beforeEach(async ({ page }) => {
+    // Keep accessible button names deterministic while testing browser history.
+    await page.addInitScript(() => localStorage.setItem("bulka-language", "ru"));
     await page.goto("/?touch=1", { waitUntil: "load" });
     await waitForGalleryReady(page);
+    await expect(page.locator("html")).toHaveAttribute("lang", "ru");
   });
 
   test("close button calls history.back() to dismiss lightbox without navigating away from page", async ({
@@ -48,7 +52,7 @@ test.describe("Lightbox browser history", () => {
     const afterOpen = await page.evaluate(() => window.history.length);
     expect(afterOpen).toBe(before.length + 1);
 
-    await page.locator('button[title="Close"]').click({ force: true });
+    await page.getByRole("button", { name: translations.ru.accessibility.close, exact: true }).click({ force: true });
     await page
       .locator(".yarl__portal")
       .waitFor({ state: "detached", timeout: 5_000 });
@@ -88,8 +92,9 @@ test.describe("Lightbox browser history", () => {
     expect(afterOpen.length).toBe(before.length + 1);
     expect(afterOpen.state?.__bulkaLightbox).toBeGreaterThan(0);
 
-    await page.locator('button[title="Next"]').click({ force: true });
-    await page.locator('button[title="Next"]').click({ force: true });
+    const next = page.getByRole("button", { name: translations.ru.accessibility.next, exact: true });
+    await next.click({ force: true });
+    await next.click({ force: true });
 
     const afterSlides = await page.evaluate(() => ({
       length: window.history.length,

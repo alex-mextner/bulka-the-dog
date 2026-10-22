@@ -1,6 +1,8 @@
+import { useSiteRuntime } from "@/cms/SiteRuntimeContext";
 import * as React from "react";
 
 import { GalleryImage } from "@/components/Gallery";
+import { hasPhotoSource } from "@/cms/content-model";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -30,7 +32,7 @@ export type PhotoStripItem = {
   src: string;
   /** Small thumbnail shown in the strip; lightbox uses `src`. */
   thumbSrc?: string;
-  alt: string;
+  alt?: string;
   caption?: string;
 };
 
@@ -112,6 +114,7 @@ export function PhotoStrip({
   maxBoost = 90,
   className,
 }: PhotoStripProps) {
+  const interactive = useSiteRuntime();
   const viewportRef = React.useRef<HTMLDivElement | null>(null);
   const trackRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -186,6 +189,7 @@ export function PhotoStrip({
 
   // Debug hook for e2e tests. Installed only in non-production builds.
   React.useEffect(() => {
+    if (!interactive) return;
     if (typeof window === "undefined") return;
     if (process.env.NODE_ENV === "production") return;
     (window as unknown as Record<string, unknown>).__photoStripDebug = {
@@ -203,6 +207,7 @@ export function PhotoStrip({
   // in Node where window is undefined and returned false; without this the
   // strip would forever stay in desktop mode on iPhones.
   React.useEffect(() => {
+    if (!interactive) return;
     if (typeof window === "undefined") return;
     setTouchMode(isTouchDevice());
     setReducedMotion(prefersReducedMotion());
@@ -242,6 +247,7 @@ export function PhotoStrip({
   }, []);
 
   React.useEffect(() => {
+    if (!interactive) return;
     measure();
     if (typeof window === "undefined") return;
     const ro = new ResizeObserver(() => measure());
@@ -259,6 +265,7 @@ export function PhotoStrip({
   // Unified rAF loop. ALWAYS writes transform on the track (no scrollLeft).
   // Stopped while the user is touching; re-armed by the resume timer.
   React.useEffect(() => {
+    if (!interactive) return;
     if (reducedMotion) return;
 
     const step = (ts: number) => {
@@ -379,6 +386,7 @@ export function PhotoStrip({
   // some setups, which makes preventDefault a no-op and lets the page
   // scroll horizontally instead of (or in addition to) the strip.
   React.useEffect(() => {
+    if (!interactive) return;
     if (!touchMode) return;
     const v = viewportRef.current;
     if (!v) return;
@@ -570,6 +578,7 @@ export function PhotoStrip({
   // page motion. IntersectionObserver guards against boosting while the strip
   // is fully off-screen.
   React.useEffect(() => {
+    if (!interactive) return;
     if (!touchMode || reducedMotion) return;
     const vp = viewportRef.current;
     if (!vp) return;
@@ -698,7 +707,7 @@ export function PhotoStrip({
   }, []);
 
   const items = React.useMemo(
-    () => images.map((it, i) => ({ ...it, _k: `${i}-${it.src}` })),
+    () => images.flatMap((it, i) => hasPhotoSource(it.src) ? [{ ...it, _k: `${i}-${it.src}` }] : []),
     [images],
   );
 

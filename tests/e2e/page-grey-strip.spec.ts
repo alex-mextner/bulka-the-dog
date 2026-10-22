@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { translations } from "../../client/lib/translations";
 
 // Tests targeting the "grey strip at bottom" symptom seen intermittently on
 // iOS Safari after repeated scrolls and menu navigation.
@@ -114,7 +115,12 @@ test.describe("Scroll stress: no state leakage after scroll and menu nav", () =>
   test("html/body retain correct styles after repeated scrolls and burger menu open/close", async ({
     page,
   }) => {
+    await page.addInitScript(() => localStorage.setItem("bulka-language", "ru"));
     await page.goto("/", { waitUntil: "load" });
+    await page.waitForFunction(() =>
+      typeof (window as unknown as Record<string, unknown>).__bulkaTest === "object",
+    );
+    await expect(page.locator("html")).toHaveAttribute("lang", "ru");
 
     // Scroll to the bottom and back three times to stress the layout.
     for (let i = 0; i < 3; i++) {
@@ -135,7 +141,7 @@ test.describe("Scroll stress: no state leakage after scroll and menu nav", () =>
     await page.waitForTimeout(150);
 
     // Open the burger menu.
-    const burgerOpen = page.getByRole("button", { name: "Открыть меню" });
+    const burgerOpen = page.getByRole("button", { name: translations.ru.accessibility.open_menu, exact: true });
     await burgerOpen.waitFor({ state: "visible", timeout: 3_000 });
     await burgerOpen.tap();
     await page.waitForTimeout(100);
@@ -148,11 +154,11 @@ test.describe("Scroll stress: no state leakage after scroll and menu nav", () =>
     await page.waitForTimeout(200);
 
     // Open the burger again and close it.
-    const burgerOpen2 = page.getByRole("button", { name: "Открыть меню" });
+    const burgerOpen2 = page.getByRole("button", { name: translations.ru.accessibility.open_menu, exact: true });
     await expect(burgerOpen2).toBeVisible({ timeout: 2_000 });
     await burgerOpen2.tap();
     await page.waitForTimeout(100);
-    const burgerClose = page.getByRole("button", { name: "Закрыть меню" });
+    const burgerClose = page.getByRole("button", { name: translations.ru.accessibility.close_menu, exact: true });
     await expect(burgerClose).toBeVisible({ timeout: 2_000 });
     await burgerClose.tap();
     await page.waitForTimeout(100);

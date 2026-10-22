@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Heart, PawPrint } from "lucide-react";
+import { publicEnvironment } from '../../src/generated/public-environment';
+import { useSiteRuntime } from '@/cms/SiteRuntimeContext';
 
 // TODO(i18n): RS/EN parity. Сейчас панель только на русском —
 // когда дойдут руки до переводов, перенести строки в translations.ts
 // под ключ donations.* и обернуть useLanguage().
 
-// Env gating. Vite exposes only VITE_*-prefixed vars to the client.
-// Read once at module scope so the component is fully tree-shakable
-// when the flag is off (component returns null, no DOM, no listeners).
-const RAW_FLAG = import.meta.env.VITE_ENABLE_DONATIONS as string | undefined;
-const ENABLED = RAW_FLAG === "1" || RAW_FLAG === "true";
-
-const DONATION_URL =
-  (import.meta.env.VITE_DONATION_URL as string | undefined) || "";
+// Public constants work in both the Astro site and the native ESM editor bundle.
+const ENABLED = publicEnvironment.enableDonations;
+const DONATION_URL = publicEnvironment.donationUrl;
 
 // Goal: 12 vet visits × ~5000 RSD (meds inclusive). Conservative.
 const GOAL_RSD = 60_000;
@@ -68,7 +65,8 @@ function clampAmount(n: number): number {
 }
 
 export default function DonationsPanel() {
-  if (!ENABLED) return null;
+  const interactive = useSiteRuntime();
+  if (!ENABLED || !interactive) return null;
 
   const [selectedPreset, setSelectedPreset] = useState<number | null>(1000);
   const [customAmount, setCustomAmount] = useState<string>("");

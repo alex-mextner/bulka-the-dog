@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { translations } from "../../client/lib/translations";
 
 const FIRST_STRIP_BUTTON = '[data-photo-strip] div.flex.flex-nowrap button';
 const portraitFixtureSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000">
@@ -301,9 +302,12 @@ test.describe("Pinch thumb overlay persists until full image loads", () => {
 
 test.describe("Pinch thumb overlay on cold full-size image", () => {
   test.beforeEach(async ({ page }) => {
+    // This scenario uses English controls; make that explicit before hydration.
+    await page.addInitScript(() => localStorage.setItem("bulka-language", "en"));
     await installColdPortraitRoute(page);
     await page.goto("/?touch=1", { waitUntil: "load" });
     await waitForGalleryReady(page);
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });
 
   test("lightbox opens immediately, shows stretched thumb fallback, and can close before full image loads", async ({
@@ -334,7 +338,7 @@ test.describe("Pinch thumb overlay on cold full-size image", () => {
       .locator('[data-testid="pinch-transition-overlay"]')
       .waitFor({ state: "detached", timeout: 2_000 });
 
-    await page.locator('button[title="Close"]').click({ force: true });
+    await page.getByRole("button", { name: translations.en.accessibility.close, exact: true }).click({ force: true });
     await page
       .locator(".yarl__portal")
       .waitFor({ state: "detached", timeout: 2_000 });

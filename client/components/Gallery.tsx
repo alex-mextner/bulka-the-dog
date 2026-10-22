@@ -12,6 +12,10 @@ import "yet-another-react-lightbox/plugins/counter.css";
 import { ImageFocusDebugOverlay } from "@/components/ImageFocusDebugOverlay";
 import { getImageFocusStyle } from "@/lib/imageFocus";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/hooks/useLanguage";
+import { useSiteRuntime } from "@/cms/SiteRuntimeContext";
+import { hasPhotoSource, selectPhotoThumbnail } from "@/cms/content-model";
+import { publicEnvironment } from "../../src/generated/public-environment";
 
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect;
@@ -301,6 +305,22 @@ export function useGallery(): GalleryContextValue {
 // ---------------------------------------------------------------------------
 
 export function GalleryProvider({ children }: { children: React.ReactNode }) {
+  const interactive = useSiteRuntime();
+  return interactive ? <InteractiveGalleryProvider>{children}</InteractiveGalleryProvider> : <StaticGalleryProvider>{children}</StaticGalleryProvider>;
+}
+
+function StaticGalleryProvider({ children }: { children: React.ReactNode }) {
+  const value = React.useMemo<GalleryContextValue>(() => ({
+    register: () => 0, update: () => {}, unregister: () => {}, open: () => {}, close: () => {},
+    entries: [], isOpen: false, index: 0, triggerRef: { current: null }, setTrigger: () => {},
+    pinchOverlayRef: { current: null }, pinchTransitionActiveRef: { current: false },
+    pendingZoomRef: { current: 1 }, pendingThumbWidthRef: { current: 0 }, pendingPanRef: { current: { dx: 0, dy: 0 } },
+    pinchActiveRef: { current: false }, holdPinchOverlayRef: { current: false }, pinchThumbSrc: null,
+  }), []);
+  return <GalleryContext.Provider value={value}>{children}</GalleryContext.Provider>;
+}
+
+function InteractiveGalleryProvider({ children }: { children: React.ReactNode }) {
   // Stable monotonically increasing ids — the registry preserves the
   // *registration order*, which is the React mount order, which (for normal
   // top-down trees) matches DOM/reading order.
@@ -672,6 +692,7 @@ export function usePinchToOpen(
   meta: PinchToOpenMeta,
   onCommit: () => void,
 ) {
+  const interactive = useSiteRuntime();
   const {
     setTrigger,
     pinchOverlayRef,
@@ -695,6 +716,7 @@ export function usePinchToOpen(
 
   React.useEffect(
     () => {
+      if (!interactive) return;
       const el = elementRef.current;
       if (!el) return;
 
@@ -932,7 +954,7 @@ export type GalleryImageProps = {
   src: string;
   /** Displayed in the thumbnail; lightbox uses `src`. Defaults to `src`. */
   thumbSrc?: string;
-  alt: string;
+  alt?: string;
   caption?: string;
   className?: string;
   imgClassName?: string;
@@ -942,21 +964,30 @@ export type GalleryImageProps = {
   "src" | "alt" | "loading" | "className"
 >;
 
-export function GalleryImage({
+export function GalleryImage(props: GalleryImageProps) {
+  // Mount the photo lifecycle only while a source exists. Clearing unregisters
+  // it; restoring mounts fresh pinch listeners on the new button element.
+  return hasPhotoSource(props.src) ? <GalleryImageWithSource {...props} /> : null;
+}
+
+function GalleryImageWithSource({
   src,
   thumbSrc,
-  alt,
+  alt = "",
   caption,
   className,
   imgClassName,
   loading = "lazy",
   ...imgProps
 }: GalleryImageProps) {
+  const interactive = useSiteRuntime();
+  const { t } = useLanguage();
   const { register, update, unregister, open, setTrigger } = useGallery();
   const idRef = React.useRef<number | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
   const { style: imgStyle, ...restImgProps } = imgProps;
-  const focusStyle = getImageFocusStyle(thumbSrc ?? src) ?? getImageFocusStyle(src);
+  const displayThumb = selectPhotoThumbnail(src, thumbSrc, publicEnvironment.publicBaseUrl);
+  const focusStyle = getImageFocusStyle(displayThumb ?? src) ?? getImageFocusStyle(src);
 
   // Register exactly once per mount; unregister on unmount.
   React.useEffect(() => {
@@ -995,16 +1026,17 @@ export function GalleryImage({
   // passive) so we keep tracking even if a finger leaves the button rect.
   // Per-frame updates push directly into the overlay's imperative API —
   // no React rerenders during the gesture.
-  usePinchToOpen(buttonRef, { src, thumbSrc, alt }, handleOpen);
+  usePinchToOpen(buttonRef, { src, thumbSrc: displayThumb, alt }, handleOpen);
 
   return (
     <button
       ref={buttonRef}
       type="button"
       data-gallery-image=""
+      disabled={!interactive}
       data-pinch-open-root=""
       onClick={handleOpen}
-      aria-label={`Открыть фото: ${caption || alt}`}
+      aria-label={`${t("accessibility.open_photo")}: ${caption || alt}`}
       // `appearance-none` + zero padding/border keeps tailwind sizing on the
       // outer className intact. `block w-full` so width-based utilities work.
       className={cn(
@@ -1019,7 +1051,7 @@ export function GalleryImage({
       )}
     >
       <img
-        src={thumbSrc ?? src}
+        src={displayThumb ?? src}
         alt={alt}
         loading={loading}
         decoding="async"
@@ -1028,7 +1060,7 @@ export function GalleryImage({
         style={focusStyle ? { ...focusStyle, ...imgStyle } : imgStyle}
         {...restImgProps}
       />
-      <ImageFocusDebugOverlay src={thumbSrc ?? src} />
+      <ImageFocusDebugOverlay src={displayThumb ?? src} />
     </button>
   );
 }
@@ -1038,6 +1070,7 @@ export function GalleryImage({
 // ---------------------------------------------------------------------------
 
 export function GalleryLightbox() {
+  const { t } = useLanguage();
   const {
     entries,
     isOpen,
@@ -1668,6 +1701,15 @@ export function GalleryLightbox() {
           document.body,
         )}
       <Lightbox
+        labels={{
+          Lightbox: t("accessibility.lightbox"),
+          "Photo gallery": t("accessibility.photo_gallery"),
+          Close: t("accessibility.close"),
+          Next: t("accessibility.next"),
+          Previous: t("accessibility.previous"),
+          "Zoom in": t("accessibility.zoom_in"),
+          "Zoom out": t("accessibility.zoom_out"),
+        }}
         open={isOpen}
         close={close}
         index={index}

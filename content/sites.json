@@ -1,0 +1,17 @@
+{
+  "sites": {
+    "default": {
+      "locales": [
+        "ru",
+        "rs",
+        "en"
+      ],
+      "defaultLocale": "ru"
+    }
+  },
+  "globalLocales": [
+    "ru",
+    "rs",
+    "en"
+  ]
+}

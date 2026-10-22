@@ -8,6 +8,22 @@ export interface Translations {
 
 export const translations: Translations = {
   ru: {
+    accessibility: {
+          "sections": "Разделы страницы",
+          "change_language": "Сменить язык",
+          "open_menu": "Открыть меню",
+          "close_menu": "Закрыть меню",
+          "back_to_top": "В начало страницы",
+          "skip_content": "К моему рассказу",
+          "open_photo": "Открыть фото",
+          "lightbox": "Просмотр фото",
+          "photo_gallery": "Фотогалерея",
+          "close": "Закрыть",
+          "next": "Следующее фото",
+          "previous": "Предыдущее фото",
+          "zoom_in": "Увеличить",
+          "zoom_out": "Уменьшить"
+    },
     brand: {
       name: "Булка",
     },
@@ -266,6 +282,22 @@ export const translations: Translations = {
     },
   },
   rs: {
+    accessibility: {
+          "sections": "Delovi stranice",
+          "change_language": "Promeni jezik",
+          "open_menu": "Otvori meni",
+          "close_menu": "Zatvori meni",
+          "back_to_top": "Na vrh stranice",
+          "skip_content": "Na moju priču",
+          "open_photo": "Otvori fotografiju",
+          "lightbox": "Pregled fotografije",
+          "photo_gallery": "Galerija fotografija",
+          "close": "Zatvori",
+          "next": "Sledeća fotografija",
+          "previous": "Prethodna fotografija",
+          "zoom_in": "Uvećaj",
+          "zoom_out": "Umanji"
+    },
     brand: {
       name: "Bulka",
     },
@@ -523,6 +555,22 @@ export const translations: Translations = {
     },
   },
   en: {
+    accessibility: {
+          "sections": "Page sections",
+          "change_language": "Change language",
+          "open_menu": "Open menu",
+          "close_menu": "Close menu",
+          "back_to_top": "Back to top",
+          "skip_content": "Skip to my story",
+          "open_photo": "Open photo",
+          "lightbox": "Photo viewer",
+          "photo_gallery": "Photo gallery",
+          "close": "Close",
+          "next": "Next photo",
+          "previous": "Previous photo",
+          "zoom_in": "Zoom in",
+          "zoom_out": "Zoom out"
+    },
     brand: {
       name: "Bulka",
     },

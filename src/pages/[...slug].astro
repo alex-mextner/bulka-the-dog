@@ -1,0 +1,27 @@
+---
+import type { GetStaticPaths } from 'astro';
+import type { LocalizedPages } from '../../client/cms/types';
+import type { Locale } from '../../client/cms/content-model';
+interface Props {
+  pages: LocalizedPages;
+  locale: Locale;
+  pathname: string;
+  alternatives: { language: Locale; href: string }[];
+}
+import BulkaPage from '../../client/cms/BulkaPage';
+import PageLayout from '../layouts/PageLayout.astro';
+import { loadSitePages } from '../lib/pages';
+
+export const getStaticPaths: GetStaticPaths = async () => (await loadSitePages()).map(route => ({
+  params: { slug: route.path.replace(/^\/+|\/+$/g, '') || undefined },
+  props: route,
+}));
+
+const { pages, locale, pathname, alternatives } = Astro.props;
+// Every generated route is added together with its matching locale in loadSitePages.
+const root = pages[locale]!.root.props;
+---
+
+<PageLayout {...root} alternatives={alternatives}>
+  <BulkaPage pages={pages} initialLanguage={locale} autoDetect={pathname === '/' && locale === 'ru'} client:load />
+</PageLayout>

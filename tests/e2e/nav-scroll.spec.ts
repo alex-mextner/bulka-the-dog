@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { translations } from "../../client/lib/translations";
 
 // Bug repro: tapping a nav chip should jump near the target instantly,
 // then ease in over the last stretch. On the current build a fresh
@@ -11,10 +12,19 @@ import { expect, test } from "@playwright/test";
 // lazy-load reflow.
 
 test.describe("Nav chip scroll", () => {
+  test.beforeEach(async ({ page }) => {
+    // Pin the language before hydration so measurements do not race a locale swap.
+    await page.addInitScript(() => localStorage.setItem("bulka-language", "ru"));
+    await page.goto("/?touch=1", { waitUntil: "load" });
+    await page.waitForFunction(() =>
+      typeof (window as unknown as Record<string, unknown>).__bulkaTest === "object",
+    );
+    await expect(page.locator("html")).toHaveAttribute("lang", "ru");
+  });
+
   test("instant jump consumes >70% of distance within 200ms", async ({
     page,
   }) => {
-    await page.goto("/?touch=1", { waitUntil: "load" });
     // Reach a state where the burger menu is visible (isScrolled true).
     await page.evaluate(() => window.scrollTo(0, 200));
     await page.waitForTimeout(100);
@@ -23,7 +33,7 @@ test.describe("Nav chip scroll", () => {
     expect(startY).toBeGreaterThanOrEqual(150);
 
     // Open menu.
-    await page.locator('[aria-label="Открыть меню"]').tap();
+    await page.getByRole("button", { name: translations.ru.accessibility.open_menu, exact: true }).tap();
     await page.waitForTimeout(350);
 
     // Estimate target (gallery section, far end of page) before tap.
@@ -60,10 +70,9 @@ test.describe("Nav chip scroll", () => {
   test("settles on the target section within tolerance after lazy-load shifts", async ({
     page,
   }) => {
-    await page.goto("/?touch=1", { waitUntil: "load" });
     await page.evaluate(() => window.scrollTo(0, 200));
     await page.waitForTimeout(100);
-    await page.locator('[aria-label="Открыть меню"]').tap();
+    await page.getByRole("button", { name: translations.ru.accessibility.open_menu, exact: true }).tap();
     await page.waitForTimeout(350);
     const morphedNav = page.locator("#mobile-nav [data-mobile-nav-row]");
     const photosChip = morphedNav.locator("button", { hasText: /Фото|Photos|Slike/ }).first();
@@ -100,13 +109,11 @@ test.describe("Nav chip scroll", () => {
       "gallery",
     ] as const;
 
-    await page.goto("/?touch=1", { waitUntil: "load" });
-
     for (const id of sections) {
       // Re-open menu each time (it auto-closes on chip tap).
       await page.evaluate(() => window.scrollTo(0, 200));
       await page.waitForTimeout(80);
-      await page.locator('[aria-label="Открыть меню"]').tap();
+      await page.getByRole("button", { name: translations.ru.accessibility.open_menu, exact: true }).tap();
       await page.waitForTimeout(350);
       const idx = sections.indexOf(id);
       // Bring the chip into view via a JS click on it directly. We

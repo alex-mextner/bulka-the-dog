@@ -43,3 +43,7 @@ public/photos/yandex-import/
 **/test-preview.tsx
 **/test-preview.astro
 **/test-preview/
+
+# Astro-generated cache and explicit public build constants
+.astro/
+src/generated/public-environment.ts

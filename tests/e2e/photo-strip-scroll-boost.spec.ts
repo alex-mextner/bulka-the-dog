@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // Helper: parse the X offset from "translate3d(-Xpx, 0, 0)".
 // Returns NaN if the transform is not in that form.
@@ -8,7 +8,7 @@ function parseOffset(transform: string): number {
 }
 
 // Helper: read the current strip track transform via the DOM.
-async function getOffset(page: Parameters<typeof test>[1]["page"]): Promise<number> {
+async function getOffset(page: Page): Promise<number> {
   return page.evaluate(() => {
     const vp = document.querySelector('[data-photo-strip]') as HTMLElement | null;
     const track = vp?.firstElementChild as HTMLElement | null;
@@ -23,7 +23,7 @@ async function getOffset(page: Parameters<typeof test>[1]["page"]): Promise<numb
 // `steps` increments with `delayMs` between each, simulating continuous
 // vertical swipe.
 async function simulatePageScroll(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
   totalDelta: number,
   steps: number,
   delayMs: number,

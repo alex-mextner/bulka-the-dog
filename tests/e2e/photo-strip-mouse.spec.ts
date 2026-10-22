@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // Desktop-only tests for PhotoStrip mouse behaviour.
 // Uses a desktop viewport + non-touch UA so isTouchDevice() returns false and
@@ -11,33 +11,54 @@ test.use({
   hasTouch: false,
   isMobile: false,
   deviceScaleFactor: 1,
+  contextOptions: { reducedMotion: "no-preference" },
 });
 
 // ---- helpers ----------------------------------------------------------------
 
-/** Read current strip offset via the debug hook. */
-async function getOffset(page: Parameters<typeof test>[1]["page"]): Promise<number> {
-  return page.evaluate(() => (window as unknown as { __photoStripDebug?: { getOffset: () => number } }).__photoStripDebug?.getOffset() ?? NaN);
+/** Read the rendered track position in the production build. */
+async function getOffset(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const track = document.querySelector('[data-photo-strip] > div');
+    if (!(track instanceof HTMLElement)) throw new Error('PhotoStrip track not found');
+    const transform = getComputedStyle(track).transform;
+    const offset = transform === 'none' ? 0 : -new DOMMatrixReadOnly(transform).m41;
+    if (!Number.isFinite(offset)) throw new Error('PhotoStrip transform is not a finite offset');
+    return offset;
+  });
 }
 
-/** Read entryX from the debug hook. */
-async function getEntryX(page: Parameters<typeof test>[1]["page"]): Promise<number | null> {
-  return page.evaluate(() => (window as unknown as { __photoStripDebug?: { getEntryX: () => number | null } }).__photoStripDebug?.getEntryX() ?? null);
-}
-
-/** True if mouse drift is currently suppressed by the post-wheel cooldown. */
-async function isMouseBlocked(page: Parameters<typeof test>[1]["page"]): Promise<boolean> {
-  return page.evaluate(() => (window as unknown as { __photoStripDebug?: { getMouseBlocked: () => boolean } }).__photoStripDebug?.getMouseBlocked() ?? false);
+/** Measure visible velocity over real animation frames, without private state. */
+async function sampleMotion(page: Page, durationMs = 250): Promise<{ delta: number; velocity: number }> {
+  return page.evaluate(duration => new Promise<{ delta: number; velocity: number }>(resolve => {
+    const track = document.querySelector('[data-photo-strip] > div');
+    if (!(track instanceof HTMLElement)) throw new Error('PhotoStrip track not found');
+    const read = () => {
+      const transform = getComputedStyle(track).transform;
+      return transform === 'none' ? 0 : -new DOMMatrixReadOnly(transform).m41;
+    };
+    const before = read();
+    const startedAt = performance.now();
+    const sample = (now: number) => {
+      if (now - startedAt < duration) { requestAnimationFrame(sample); return; }
+      const delta = read() - before;
+      resolve({ delta, velocity: delta / ((now - startedAt) / 1000) });
+    };
+    requestAnimationFrame(sample);
+  }), durationMs);
 }
 
 /** Wait N milliseconds. */
-async function wait(page: Parameters<typeof test>[1]["page"], ms: number): Promise<void> {
+async function wait(page: Page, ms: number): Promise<void> {
   await page.waitForTimeout(ms);
 }
 
 /** Load the page (desktop mode) and scroll the strip into view. */
-async function setup(page: Parameters<typeof test>[1]["page"]): Promise<void> {
+async function setup(page: Page): Promise<void> {
+  await page.addInitScript(() => localStorage.setItem('bulka-language', 'en'));
   await page.goto("/", { waitUntil: "load" });
+  await page.waitForFunction(() => Boolean((window as unknown as Record<string, unknown>).__bulkaTest));
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   // Confirm desktop mode — data-touch-mode should be "false".
   await page.waitForSelector('[data-photo-strip][data-touch-mode="false"]', {
     timeout: 8_000,
@@ -48,11 +69,12 @@ async function setup(page: Parameters<typeof test>[1]["page"]): Promise<void> {
   });
   // Let IO settle.
   await page.waitForTimeout(300);
+  expect(await getOffset(page), 'hydrated track exposes a finite rendered position').toBeGreaterThanOrEqual(0);
 }
 
 /** Return the bounding rect of the strip viewport element. */
 async function stripRect(
-  page: Parameters<typeof test>[1]["page"],
+  page: Page,
 ): Promise<{ x: number; y: number; width: number; height: number }> {
   return page.evaluate(() => {
     const el = document.querySelector("[data-photo-strip]") as HTMLElement | null;
@@ -85,10 +107,6 @@ test.describe("Bug A — post-wheel mouse drift suppressed for 1500ms", () => {
     // Wait for wheel 600ms timeout to expire, stay within 1500ms cooldown.
     await wait(page, 700);
 
-    // Confirm we are still in the cooldown.
-    const blocked = await isMouseBlocked(page);
-    expect(blocked, "mouse drift should be blocked within 1500ms of wheel").toBe(true);
-
     // Measure drift rate BEFORE moving mouse (purely auto-drift or leftover inertia).
     const o1 = await getOffset(page);
     await wait(page, 150);
@@ -101,6 +119,11 @@ test.describe("Bug A — post-wheel mouse drift suppressed for 1500ms", () => {
     await wait(page, 150);
     const o3 = await getOffset(page);
     const rateAfter = (o3 - o2) / 150;
+
+    // The cooldown is observable: a leftward mouse move must not reverse
+    // the existing auto-drift. No production-only debug hook is required.
+    expect(rateAfter, 'mouse drift remains suppressed within 1500ms of wheel')
+      .toBeGreaterThanOrEqual(Math.min(0, rateBefore) - 0.005);
 
     // Mouse should NOT have injected leftward velocity during cooldown.
     // rateBefore and rateAfter should be similar (both near-zero auto-drift).
@@ -128,8 +151,11 @@ test.describe("Bug A — post-wheel mouse drift suppressed for 1500ms", () => {
     // Wait past the full 1500ms cooldown.
     await wait(page, 1600);
 
-    const blocked = await isMouseBlocked(page);
-    expect(blocked, "mouse drift should be unblocked after 1600ms").toBe(false);
+    const beforeMove = await getOffset(page);
+    await page.mouse.move(rect.x + 10, midY);
+    await wait(page, 200);
+    expect(await getOffset(page), 'leftward mouse drift resumes after the cooldown')
+      .toBeLessThan(beforeMove);
   });
 });
 
@@ -163,7 +189,7 @@ test.describe("Bug B — no jump on mouse enter", () => {
     ).toBeLessThan(5);
   });
 
-  test("entryX is null before entering, set after first move inside", async ({
+  test("first entry establishes the cursor anchor for later movement in both directions", async ({
     page,
   }) => {
     await setup(page);
@@ -172,15 +198,18 @@ test.describe("Bug B — no jump on mouse enter", () => {
 
     // Outside the strip.
     await page.mouse.move(rect.x - 50, midY);
-    const entryBefore = await getEntryX(page);
-    expect(entryBefore, "entryX should be null when mouse is outside").toBeNull();
-
     // Enter the strip.
     await page.mouse.move(rect.x + 300, midY);
     await wait(page, 50);
 
-    const entryAfter = await getEntryX(page);
-    expect(entryAfter, "entryX should be set after entering strip").not.toBeNull();
+    const atEntry = await getOffset(page);
+    await page.mouse.move(rect.x + 400, midY);
+    await wait(page, 150);
+    const afterRight = await getOffset(page);
+    expect(afterRight, 'moving right of the new anchor moves the strip right').toBeGreaterThan(atEntry);
+    await page.mouse.move(rect.x + 200, midY);
+    await wait(page, 150);
+    expect(await getOffset(page), 'moving left of the new anchor moves the strip left').toBeLessThan(afterRight);
   });
 });
 
@@ -239,7 +268,7 @@ test.describe("Bug C — asymmetric velocity projection from entry point", () =>
     ).toBeGreaterThan(offsetAtEntry);
   });
 
-  test("velocity is 0 when cursor is exactly at entry point", async ({
+  test("mouse velocity disappears at the entry point, leaving only normal auto-drift", async ({
     page,
   }) => {
     await setup(page);
@@ -251,21 +280,17 @@ test.describe("Bug C — asymmetric velocity projection from entry point", () =>
     await page.mouse.move(entryClientX, midY);
     await wait(page, 80);
 
-    // Move away then return to entryX.
+    const baseline = await sampleMotion(page);
+    // Move away then return to entryX. Auto-drift still runs at the anchor;
+    // the visible velocity must return to that baseline, with no mouse boost.
     await page.mouse.move(entryClientX + 100, midY);
     await wait(page, 30);
     await page.mouse.move(entryClientX, midY);
     await wait(page, 30);
 
-    const vel = await page.evaluate(
-      () =>
-        (
-          window as unknown as {
-            __photoStripDebug?: { getMouseVelocity: () => number };
-          }
-        ).__photoStripDebug?.getMouseVelocity() ?? 0,
-    );
-    expect(Math.abs(vel), "velocity at entry point should be 0").toBeLessThan(0.1);
+    const returned = await sampleMotion(page);
+    expect(Math.abs(returned.velocity - baseline.velocity), 'returning to the anchor removes mouse velocity')
+      .toBeLessThan(2);
   });
 
   test("asymmetric magnitude: equal cursor displacement produces different velocity near left vs right edge", async ({
@@ -281,30 +306,30 @@ test.describe("Bug C — asymmetric velocity projection from entry point", () =>
 
     // Enter near the left edge (leftDist ≈ 100, rightDist ≈ 1180).
     const entryClientX = rect.x + 100;
+    // Create room to move left through the same real pointer interaction.
+    // Otherwise the left measurement would clamp at offset=0 and hide its speed.
+    await page.mouse.move(entryClientX, midY);
+    await page.mouse.move(rect.x + rect.width - 20, midY);
+    await wait(page, 700);
+    await page.mouse.move(rect.x - 50, midY);
+    await wait(page, 30);
     await page.mouse.move(entryClientX, midY);
     await wait(page, 80); // seed entryX
-
-    const getVel = () =>
-      page.evaluate(
-        () =>
-          (
-            window as unknown as {
-              __photoStripDebug?: { getMouseVelocity: () => number };
-            }
-          ).__photoStripDebug?.getMouseVelocity() ?? 0,
-      );
 
     // Move 50px left from entryX.
     await page.mouse.move(entryClientX - 50, midY);
     await wait(page, 20);
-    const velLeft = await getVel();
+    const velLeft = (await sampleMotion(page)).velocity;
 
     // Return to entryX, then move 50px right.
     await page.mouse.move(entryClientX, midY);
     await wait(page, 20);
     await page.mouse.move(entryClientX + 50, midY);
     await wait(page, 20);
-    const velRight = await getVel();
+    const velRight = (await sampleMotion(page)).velocity;
+
+    expect(velLeft, 'left sample must move left').toBeLessThan(0);
+    expect(velRight, 'right sample must move right').toBeGreaterThan(0);
 
     // Asymmetric formula: |vel_left| / |vel_right| ≈ rightDist/leftDist ≈ 11.8×
     // Symmetric formula: both equal ≈ 50/W * maxBoost ≈ same magnitude.
@@ -327,27 +352,23 @@ test.describe("Bug B+C — re-entry reseeds X0, no jump", () => {
     // First entry.
     await page.mouse.move(rect.x + 300, midY);
     await wait(page, 80);
-    const entryFirst = await getEntryX(page);
+    await page.mouse.move(rect.x + 400, midY);
+    const firstMotion = await sampleMotion(page);
+    expect(firstMotion.delta, 'x=400 is right of the first x=300 anchor').toBeGreaterThan(0);
 
     // Leave the strip.
     await page.mouse.move(rect.x - 50, midY);
     await wait(page, 30);
-    const entryAfterLeave = await getEntryX(page);
-    expect(entryAfterLeave, "entryX cleared on leave").toBeNull();
 
     // Re-enter at a different X.
     const reentryX = rect.x + 700;
     await page.mouse.move(reentryX, midY);
     await wait(page, 80);
-    const entrySecond = await getEntryX(page);
-
-    expect(entryFirst).not.toBeNull();
-    expect(entrySecond).not.toBeNull();
-    // The two entry points should differ (entered at different X).
-    expect(
-      Math.abs((entrySecond ?? 0) - (entryFirst ?? 0)),
-      "second entryX should differ from first after re-entry",
-    ).toBeGreaterThan(50);
+    // The same x=400 is now LEFT of the new x=700 anchor. Its visible response
+    // must reverse; keeping the old anchor would still move right.
+    await page.mouse.move(rect.x + 400, midY);
+    const secondMotion = await sampleMotion(page);
+    expect(secondMotion.delta, 're-entry replaces the previous cursor anchor').toBeLessThan(0);
   });
 
   test("no jump on re-entry: offset stable for 50ms right after second mouseenter", async ({

@@ -1,0 +1,471 @@
+{
+  "Hero": {
+    "kind": "hero",
+    "label": "Hero",
+    "copyKeys": [
+      "hero.title",
+      "hero.intro",
+      "hero.story",
+      "hero.current",
+      "hero.question",
+      "cta.adopt_aria",
+      "cta.adopt",
+      "cta.learn_more"
+    ],
+    "photos": {
+      "ps_portrait": {
+        "src": "/images/photo-set/ps_portrait.webp",
+        "altKey": "media.photoset.portrait_alt",
+        "captionKey": "media.photoset.portrait_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_portrait.webp",
+        "thumbKey": "ps_portrait_thumb"
+      }
+    }
+  },
+  "Appearance": {
+    "kind": "appearance",
+    "label": "Appearance",
+    "copyKeys": [
+      "appearance.title",
+      "ui.appearance.kg_value",
+      "ui.appearance.kg_unit",
+      "ui.appearance.kg_label",
+      "ui.appearance.cm_value",
+      "ui.appearance.cm_unit",
+      "ui.appearance.cm_label",
+      "ui.appearance.sex_value",
+      "ui.appearance.sex_label",
+      "ui.appearance.ears",
+      "ui.appearance.tail",
+      "ui.appearance.face",
+      "ui.appearance.face_sub"
+    ],
+    "photos": {
+      "ps_rug": {
+        "src": "/images/photo-set/ps_rug.webp",
+        "altKey": "media.photoset.rug_alt",
+        "captionKey": "media.photoset.rug_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_rug.webp",
+        "thumbKey": "ps_rug_thumb"
+      }
+    }
+  },
+  "Habits": {
+    "kind": "habits",
+    "label": "Habits",
+    "copyKeys": [
+      "habits.title"
+    ],
+    "photos": {},
+    "itemDefaults": [
+      {
+        "id": "bathroom",
+        "emoji": "🚽",
+        "photo": {
+          "src": "/images/photo-set/ps_portrait.webp",
+          "altKey": "media.photoset.portrait_alt",
+          "captionKey": "media.photoset.portrait_caption",
+          "thumbSrc": "/images/photo-set/thumbs/ps_portrait.webp",
+          "thumbKey": "ps_portrait_thumb"
+        },
+        "secondaryPhoto": {
+          "src": "/images/dog_apartment.webp",
+          "altKey": "media.conditions_alt",
+          "captionKey": "media.conditions_caption"
+        },
+        "showPhotos": false
+      },
+      {
+        "id": "walks",
+        "emoji": "🚶",
+        "photo": {
+          "src": "/images/photo-set/ps_walk.webp",
+          "altKey": "media.photoset.walk_alt",
+          "captionKey": "media.photoset.walk_caption",
+          "thumbSrc": "/images/photo-set/thumbs/ps_walk.webp",
+          "thumbKey": "ps_walk_thumb"
+        },
+        "secondaryPhoto": {
+          "src": "/images/dogs_public.webp",
+          "altKey": "media.strip.park_alt",
+          "captionKey": "media.strip.park_caption"
+        },
+        "showPhotos": true
+      },
+      {
+        "id": "behavior",
+        "emoji": "🐕",
+        "photo": {
+          "src": "/images/dogs_public.webp",
+          "altKey": "media.strip.park_alt",
+          "captionKey": "media.strip.park_caption"
+        },
+        "secondaryPhoto": {
+          "src": "/images/photo-set/ps_family.webp",
+          "altKey": "media.photoset.family_alt",
+          "captionKey": "media.photoset.family_caption",
+          "thumbSrc": "/images/photo-set/thumbs/ps_family.webp",
+          "thumbKey": "ps_family_thumb"
+        },
+        "showPhotos": true
+      },
+      {
+        "id": "car",
+        "emoji": "🚗",
+        "photo": {
+          "src": "/images/bulka_car_walk.webp",
+          "altKey": "media.strip.car_walk_alt",
+          "captionKey": "media.strip.car_walk_caption",
+          "thumbSrc": "/images/bulka_car_walk_thumb.webp",
+          "thumbKey": "bulka_car_walk_thumb"
+        },
+        "secondaryPhoto": {
+          "src": "/images/lena_dogs.webp",
+          "altKey": "media.strip.car_alt",
+          "captionKey": "media.strip.car_caption"
+        },
+        "showPhotos": true
+      },
+      {
+        "id": "home",
+        "emoji": "🏠",
+        "photo": {
+          "src": "/images/bulka_tv.webp",
+          "altKey": "media.skills_alt",
+          "captionKey": "media.skills_caption"
+        },
+        "secondaryPhoto": {
+          "src": "/images/photo-set/ps_balcony_sun.webp",
+          "altKey": "media.photoset.balcony_sun_alt",
+          "captionKey": "media.photoset.balcony_sun_caption",
+          "thumbSrc": "/images/photo-set/thumbs/ps_balcony_sun.webp",
+          "thumbKey": "ps_balcony_sun_thumb"
+        },
+        "showPhotos": true
+      },
+      {
+        "id": "food",
+        "emoji": "🍖",
+        "photo": {
+          "src": "/images/photo-set/ps_rug.webp",
+          "altKey": "media.photoset.rug_alt",
+          "captionKey": "media.photoset.rug_caption",
+          "thumbSrc": "/images/photo-set/thumbs/ps_rug.webp",
+          "thumbKey": "ps_rug_thumb"
+        },
+        "secondaryPhoto": {
+          "src": "/images/photo-set/ps_ball.webp",
+          "altKey": "media.photoset.ball_alt",
+          "captionKey": "media.photoset.ball_caption",
+          "thumbSrc": "/images/photo-set/thumbs/ps_ball.webp",
+          "thumbKey": "ps_ball_thumb"
+        },
+        "showPhotos": false
+      },
+      {
+        "id": "cats",
+        "emoji": "🐱",
+        "photo": {
+          "src": "/images/photo-set/ps_cat_balcony.webp",
+          "altKey": "media.photoset.cat_balcony_alt",
+          "captionKey": "media.photoset.cat_balcony_caption",
+          "thumbSrc": "/images/photo-set/thumbs/ps_cat_balcony.webp",
+          "thumbKey": "ps_cat_balcony_thumb"
+        },
+        "secondaryPhoto": {
+          "src": "/images/dog_home.webp",
+          "altKey": "media.strip.home_alt",
+          "captionKey": "media.strip.home_caption"
+        },
+        "showPhotos": true
+      }
+    ]
+  },
+  "Skills": {
+    "kind": "skills",
+    "label": "Skills",
+    "copyKeys": [
+      "skills.title",
+      "skills.intro",
+      "ui.skills.commands_title",
+      "skills.explanation"
+    ],
+    "photos": {
+      "ps_paw": {
+        "src": "/images/photo-set/ps_paw.webp",
+        "altKey": "media.photoset.paw_alt",
+        "captionKey": "media.photoset.paw_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_paw.webp",
+        "thumbKey": "ps_paw_thumb"
+      }
+    }
+  },
+  "Health": {
+    "kind": "health",
+    "label": "Health",
+    "copyKeys": [
+      "health.title",
+      "health.intro",
+      "ui.health_card.prefix"
+    ],
+    "photos": {
+      "dog_apartment": {
+        "src": "/images/dog_apartment.webp",
+        "altKey": "media.conditions_alt",
+        "captionKey": "media.conditions_caption"
+      },
+      "health1": {
+        "src": "/images/health1.webp",
+        "altKey": "media.health1_alt",
+        "captionKey": "media.health1_caption"
+      },
+      "health2": {
+        "src": "/images/health2.webp",
+        "altKey": "media.health2_alt",
+        "captionKey": "media.health2_caption"
+      },
+      "cardiology": {
+        "src": "/images/cardiology.webp",
+        "altKey": "ui.cardiology.alt",
+        "captionKey": "ui.cardiology.caption"
+      }
+    }
+  },
+  "Conditions": {
+    "kind": "conditions",
+    "label": "Conditions",
+    "copyKeys": [
+      "conditions.title",
+      "ui.conditions.adoption_title",
+      "conditions.adoption",
+      "ui.conditions.support_title",
+      "conditions.communication",
+      "conditions.support",
+      "ui.conditions.bonus_title",
+      "conditions.perk"
+    ],
+    "photos": {
+      "ps_family": {
+        "src": "/images/photo-set/ps_family.webp",
+        "altKey": "media.photoset.family_alt",
+        "captionKey": "media.photoset.family_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_family.webp",
+        "thumbKey": "ps_family_thumb"
+      }
+    }
+  },
+  "Questions": {
+    "kind": "faq",
+    "label": "Questions & answers",
+    "copyKeys": [
+      "faq.title",
+      "faq.subtitle",
+      "faq.banner_title",
+      "faq.banner_subtitle"
+    ],
+    "photos": {}
+  },
+  "Game": {
+    "kind": "game",
+    "label": "Game",
+    "copyKeys": [
+      "ui.game.title",
+      "ui.game.subtitle"
+    ],
+    "photos": {}
+  },
+  "Contact": {
+    "kind": "contact",
+    "label": "Contact",
+    "copyKeys": [
+      "contact.title",
+      "contact.location",
+      "ui.contact.location_address1",
+      "ui.contact.location_address2",
+      "contact_section.open_map",
+      "ui.contact.location_title",
+      "ui.contact.location_city",
+      "ui.contact.contacts_title",
+      "contact_links.telegram_url",
+      "contact_links.telegram",
+      "contact_links.whatsapp_url",
+      "contact_links.whatsapp",
+      "contact_links.instagram_url",
+      "contact_links.instagram",
+      "contact_links.phone_url",
+      "contact_links.phone"
+    ],
+    "photos": {
+      "ps_hug": {
+        "src": "/images/photo-set/ps_hug.webp",
+        "altKey": "media.photoset.hug_alt",
+        "captionKey": "media.photoset.hug_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_hug.webp",
+        "thumbKey": "ps_hug_thumb"
+      }
+    }
+  },
+  "PhotoGallery": {
+    "kind": "gallery",
+    "label": "Photo gallery",
+    "copyKeys": [
+      "ui.strip.aria",
+      "ui.strip.title",
+      "ui.strip.subtitle"
+    ],
+    "photos": {},
+    "photoDefaults": [
+      {
+        "src": "/images/photo-set/ps_portrait.webp",
+        "altKey": "media.photoset.portrait_alt",
+        "captionKey": "media.photoset.portrait_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_portrait.webp",
+        "thumbKey": "ps_portrait_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_walk.webp",
+        "altKey": "media.photoset.walk_alt",
+        "captionKey": "media.photoset.walk_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_walk.webp",
+        "thumbKey": "ps_walk_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_scratch.webp",
+        "altKey": "media.photoset.scratch_alt",
+        "captionKey": "media.photoset.scratch_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_scratch.webp",
+        "thumbKey": "ps_scratch_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_ball.webp",
+        "altKey": "media.photoset.ball_alt",
+        "captionKey": "media.photoset.ball_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_ball.webp",
+        "thumbKey": "ps_ball_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_hug.webp",
+        "altKey": "media.photoset.hug_alt",
+        "captionKey": "media.photoset.hug_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_hug.webp",
+        "thumbKey": "ps_hug_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_rug.webp",
+        "altKey": "media.photoset.rug_alt",
+        "captionKey": "media.photoset.rug_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_rug.webp",
+        "thumbKey": "ps_rug_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_paw.webp",
+        "altKey": "media.photoset.paw_alt",
+        "captionKey": "media.photoset.paw_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_paw.webp",
+        "thumbKey": "ps_paw_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_balcony_sun.webp",
+        "altKey": "media.photoset.balcony_sun_alt",
+        "captionKey": "media.photoset.balcony_sun_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_balcony_sun.webp",
+        "thumbKey": "ps_balcony_sun_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_lick.webp",
+        "altKey": "media.photoset.lick_alt",
+        "captionKey": "media.photoset.lick_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_lick.webp",
+        "thumbKey": "ps_lick_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_belly.webp",
+        "altKey": "media.photoset.belly_alt",
+        "captionKey": "media.photoset.belly_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_belly.webp",
+        "thumbKey": "ps_belly_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_cat_balcony.webp",
+        "altKey": "media.photoset.cat_balcony_alt",
+        "captionKey": "media.photoset.cat_balcony_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_cat_balcony.webp",
+        "thumbKey": "ps_cat_balcony_thumb"
+      },
+      {
+        "src": "/images/photo-set/ps_family.webp",
+        "altKey": "media.photoset.family_alt",
+        "captionKey": "media.photoset.family_caption",
+        "thumbSrc": "/images/photo-set/thumbs/ps_family.webp",
+        "thumbKey": "ps_family_thumb"
+      },
+      {
+        "src": "/images/dog_home.webp",
+        "altKey": "media.strip.home_alt",
+        "captionKey": "media.strip.home_caption"
+      },
+      {
+        "src": "/images/dog_vet.webp",
+        "altKey": "media.strip.vet_alt",
+        "captionKey": "media.strip.vet_caption"
+      },
+      {
+        "src": "/images/dogs_public.webp",
+        "altKey": "media.strip.park_alt",
+        "captionKey": "media.strip.park_caption"
+      },
+      {
+        "src": "/images/bulka_car_walk.webp",
+        "altKey": "media.strip.car_walk_alt",
+        "captionKey": "media.strip.car_walk_caption",
+        "thumbSrc": "/images/bulka_car_walk_thumb.webp",
+        "thumbKey": "bulka_car_walk_thumb"
+      },
+      {
+        "src": "/images/lena_dogs.webp",
+        "altKey": "media.strip.car_alt",
+        "captionKey": "media.strip.car_caption"
+      },
+      {
+        "src": "/images/dog_car.webp",
+        "altKey": "media.habits_alt",
+        "captionKey": "media.habits_caption"
+      },
+      {
+        "src": "/images/bulka_tv.webp",
+        "altKey": "media.skills_alt",
+        "captionKey": "media.skills_caption"
+      },
+      {
+        "src": "/images/bulka_friends.webp",
+        "altKey": "media.story_alt",
+        "captionKey": "media.story_caption"
+      },
+      {
+        "src": "/images/person_dog.webp",
+        "altKey": "media.contact_alt",
+        "captionKey": "media.contact_caption"
+      }
+    ]
+  },
+  "root": {
+    "copyKeys": [
+      "brand.name",
+      "cta.adopt_aria",
+      "cta.sticky",
+      "footer.tagline",
+      "ui.footer_made.template",
+      "contact_links.instagram_url",
+      "ui.footer_made.lena",
+      "ui.footer_made.alex",
+      "nav.appearance",
+      "nav.habits",
+      "nav.skills",
+      "nav.health",
+      "nav.conditions",
+      "nav.faq",
+      "nav.contact",
+      "nav.gallery"
+    ]
+  }
+}

@@ -1,0 +1,580 @@
+{
+  "id": "bulka-home",
+  "created": "2026-10-22T00:00:00.000Z",
+  "modified": "2026-10-22T00:00:00.000Z",
+  "type": "puck",
+  "meta": {
+    "title": "Я Булка. Ищу дом в Белграде.",
+    "description": "Мне где-то 1–2 года, но это не точно. Ветеринар уверен, что я больше не буду расти — вот она я: финальная версия, 22 кг красоты."
+  },
+  "content": {
+    "puckData": {
+      "root": {
+        "props": {
+          "locale": "ru",
+          "title": "Я Булка. Ищу дом в Белграде.",
+          "description": "Мне где-то 1–2 года, но это не точно. Ветеринар уверен, что я больше не буду расти — вот она я: финальная версия, 22 кг красоты.",
+          "socialImage": "/og-image.jpg",
+          "copy": {
+            "brand__name": "Булка",
+            "cta__adopt_aria": "Перейти к разделу с контактами Лены",
+            "cta__sticky": "Хочу забрать",
+            "footer__tagline": "Булка ищет своих людей",
+            "ui__footer_made__template": "Сделано {LENA} и {ALEX} с любовью к Булке",
+            "contact_links__instagram_url": "https://www.instagram.com/lari4kina_babich?igsh=bTVhMjZrMWR2aXhm",
+            "ui__footer_made__lena": "Леной",
+            "ui__footer_made__alex": "Алексом",
+            "nav__appearance": "Внешность",
+            "nav__habits": "Привычки",
+            "nav__skills": "Навыки",
+            "nav__health": "Здоровье",
+            "nav__conditions": "Условия",
+            "nav__faq": "Вопросы",
+            "nav__contact": "Контакты",
+            "nav__gallery": "Фото"
+          }
+        }
+      },
+      "content": [
+        {
+          "type": "Hero",
+          "props": {
+            "id": "bulka-hero",
+            "copy": {
+              "hero__title": "Привет! Я собака Булка",
+              "hero__intro": "Мне где-то 1–2 года, но это не точно. Ветеринар уверен, что я больше не буду расти — вот она я: финальная версия, 22 кг красоты.",
+              "hero__story": "Меня нашла девочка **Лена** из России, когда я попрошайничала в ресторане Александр Ски Стажа в Бановом брдо. Я чувствовала себя очень плохо из-за того, что на мне сидело больше **70 клещей**, поэтому Лена решила забрать меня и помочь мне.",
+              "hero__current": "Сейчас Лена меня починила, отмыла, научила **всяким премудростям** и ищет мне своих людей. Лена плакала, когда делала этот сайт, потому что хочет меня оставить, но вынуждена каждый год уезжать из Белграда на всю зиму из-за проблем с воздухом. А ей хочется, чтобы **у меня каждый день были свои люди рядом ❤️**",
+              "hero__question": "Почитайте про меня. Вдруг вы и есть мои люди?",
+              "cta__adopt_aria": "Перейти к разделу с контактами Лены",
+              "cta__adopt": "Хочу познакомиться",
+              "cta__learn_more": "Узнать обо мне больше"
+            },
+            "photos": {
+              "ps_portrait": {
+                "src": "/images/photo-set/ps_portrait.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_portrait.webp",
+                "alt": "Я смотрю в камеру",
+                "caption": "Да, я красивая. Спасибо, что заметили"
+              }
+            }
+          }
+        },
+        {
+          "type": "Appearance",
+          "props": {
+            "id": "bulka-appearance",
+            "copy": {
+              "appearance__title": "Внешность",
+              "ui__appearance__kg_value": "22",
+              "ui__appearance__kg_unit": "кг",
+              "ui__appearance__kg_label": "вес",
+              "ui__appearance__cm_value": "50",
+              "ui__appearance__cm_unit": "см",
+              "ui__appearance__cm_label": "в холке",
+              "ui__appearance__sex_value": "Девочка",
+              "ui__appearance__sex_label": "пол",
+              "ui__appearance__ears": "Уши как у корги",
+              "ui__appearance__tail": "Хвостик крючком как у лайки",
+              "ui__appearance__face": "Морда как у акиту-ину",
+              "ui__appearance__face_sub": "бабушка явно тусовалась с благородными собаками"
+            },
+            "photos": {
+              "ps_rug": {
+                "src": "/images/photo-set/ps_rug.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_rug.webp",
+                "alt": "Я лежу на ковре в квартире",
+                "caption": "Это мой ковёр. Прописано в конституции"
+              }
+            }
+          }
+        },
+        {
+          "type": "Habits",
+          "props": {
+            "id": "bulka-habits",
+            "copy": {
+              "habits__title": "Бытовые привычки"
+            },
+            "items": [
+              {
+                "id": "bathroom",
+                "emoji": "🚽",
+                "title": "Туалет",
+                "body": "Я поняла, что нужно ходить в туалет на улицу на второй день проживания дома, и с тех пор никогда не писала дома.",
+                "photo": {
+                  "src": "/images/photo-set/ps_portrait.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_portrait.webp",
+                  "alt": "Я смотрю в камеру",
+                  "caption": "Да, я красивая. Спасибо, что заметили"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/dog_apartment.webp",
+                  "alt": "Я у ветеринара, Лена меня обнимает",
+                  "caption": "У ветеринара. Лена в роли скорой помощи"
+                },
+                "showPhotos": false
+              },
+              {
+                "id": "walks",
+                "emoji": "🚶",
+                "title": "Прогулки",
+                "body": "Со мной гуляют два раза в день: в 10 утра и в 10 вечера. Я больше люблю сидеть дома, поэтому рада сделать свои дела и пойти домой, но могу и составить компанию для вас на целый день и сходить с вами в банк, в салон красоты, в ресторан и в гости. Там я спокойно лягу возле вас и буду валяться.",
+                "photo": {
+                  "src": "/images/photo-set/ps_walk.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_walk.webp",
+                  "alt": "Лена ведёт меня по аллее парка",
+                  "caption": "Утренний парк — мой. Лена просто держит поводок"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/dogs_public.webp",
+                  "alt": "Я в парке с другой собакой и двумя людьми",
+                  "caption": "В парке с друзьями"
+                },
+                "showPhotos": true
+              },
+              {
+                "id": "behavior",
+                "emoji": "🐕",
+                "title": "Поведение",
+                "body": "Я не буду прыгать на других собак или драться с ними — не на помойке же я себя нашла. Могу гулять спокойно и на поводке, и без него: буду ходить вокруг вас и нюхать цветочки.",
+                "photo": {
+                  "src": "/images/dogs_public.webp",
+                  "alt": "Я в парке с другой собакой и двумя людьми",
+                  "caption": "В парке с друзьями"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/photo-set/ps_family.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_family.webp",
+                  "alt": "Семейное фото: Лена, парень, два кота и я",
+                  "caption": "Все держат котов. Я лежу и наблюдаю этот театр"
+                },
+                "showPhotos": true
+              },
+              {
+                "id": "car",
+                "emoji": "🚗",
+                "title": "В машине",
+                "body": "Я умею сама запрыгивать в машину и спокойно ехать на заднем сиденье. У меня суперспособность — меня никогда не укачивает!",
+                "photo": {
+                  "src": "/images/bulka_car_walk.webp",
+                  "thumbSrc": "/images/bulka_car_walk_thumb.webp",
+                  "alt": "Я с Леной у машины, уже тяну поводок в сторону дел",
+                  "caption": "Машины меня не пугают. Я деловая, иду по маршруту"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/lena_dogs.webp",
+                  "alt": "Я с Леной в машине, Лена улыбается на селфи",
+                  "caption": "Едем в машине. Меня не укачивает — суперспособность"
+                },
+                "showPhotos": true
+              },
+              {
+                "id": "home",
+                "emoji": "🏠",
+                "title": "Дома",
+                "body": "Дома я в основном сплю. Лена не разрешает мне залезать на диван, что я, конечно, считаю дискриминацией. Если вдруг меня оставят одну на целый день, я продолжу спать. Не понимаю собак, которые боятся оставаться дома одни — наоборот же, круто, можно побыть в тишине.",
+                "photo": {
+                  "src": "/images/bulka_tv.webp",
+                  "alt": "Я сижу на ковре перед телевизором",
+                  "caption": "Сижу. Жду команду «дай лапу»"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/photo-set/ps_balcony_sun.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_balcony_sun.webp",
+                  "alt": "Я лежу на балконе на солнышке",
+                  "caption": "Балкон, солнце, я. Классика"
+                },
+                "showPhotos": true
+              },
+              {
+                "id": "food",
+                "emoji": "🍖",
+                "title": "Еда",
+                "body": "Я ем сухой корм два раза в день. И вкусняшки. Я люблю собачий паштет и сыр.",
+                "photo": {
+                  "src": "/images/photo-set/ps_rug.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_rug.webp",
+                  "alt": "Я лежу на ковре в квартире",
+                  "caption": "Это мой ковёр. Прописано в конституции"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/photo-set/ps_ball.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_ball.webp",
+                  "alt": "Я с теннисным мячиком",
+                  "caption": "Мячик. На случай, если вдруг захочется поиграть"
+                },
+                "showPhotos": false
+              },
+              {
+                "id": "cats",
+                "emoji": "🐱",
+                "title": "Жизнь с котами",
+                "body": "Сейчас я живу с двумя котами. Если честно, я их не замечаю: ну ходят и ходят мимо, мне-то что.",
+                "photo": {
+                  "src": "/images/photo-set/ps_cat_balcony.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_cat_balcony.webp",
+                  "alt": "Я нюхаю кота под столиком на балконе",
+                  "caption": "Живём вместе. Договорились"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/dog_home.webp",
+                  "alt": "Я лежу дома, кошки сидят у окна на подоконнике",
+                  "caption": "Кошки по своим делам, я — по своим"
+                },
+                "showPhotos": true
+              }
+            ]
+          }
+        },
+        {
+          "type": "Skills",
+          "props": {
+            "id": "bulka-skills",
+            "copy": {
+              "skills__title": "Навыки",
+              "skills__intro": "За две недели дома я выучила много команд.",
+              "ui__skills__commands_title": "Команды, которые я знаю",
+              "skills__explanation": "Не понимаю, чего тут сложного: просто делаешь, что тебя просят, а тебе потом дают вкусняшку."
+            },
+            "photos": {
+              "ps_paw": {
+                "src": "/images/photo-set/ps_paw.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_paw.webp",
+                "alt": "Я даю лапу",
+                "caption": "«Дай лапу» — единственная команда, с которой я полностью согласна"
+              }
+            },
+            "commands": [
+              {
+                "label": "Сидеть"
+              },
+              {
+                "label": "Лежать"
+              },
+              {
+                "label": "Место"
+              },
+              {
+                "label": "Ко мне"
+              },
+              {
+                "label": "Дай лапу"
+              },
+              {
+                "label": "Мячик"
+              },
+              {
+                "label": "Нельзя"
+              }
+            ]
+          }
+        },
+        {
+          "type": "Health",
+          "props": {
+            "id": "bulka-health",
+            "copy": {
+              "health__title": "Здоровье",
+              "health__intro": "На улице мне досталось.",
+              "ui__health_card__prefix": "№"
+            },
+            "photos": {
+              "dog_apartment": {
+                "src": "/images/dog_apartment.webp",
+                "alt": "Я у ветеринара, Лена меня обнимает",
+                "caption": "У ветеринара. Лена в роли скорой помощи"
+              },
+              "health1": {
+                "src": "/images/health1.webp",
+                "alt": "Мой рентген: позвоночник и пуля у него",
+                "caption": "Рентген живота. Пуля у позвоночника — она же не мешает"
+              },
+              "health2": {
+                "src": "/images/health2.webp",
+                "alt": "Мой рентген: задняя лапа",
+                "caption": "Рентген лапы. Старая травма видна"
+              },
+              "cardiology": {
+                "src": "/images/cardiology.webp",
+                "alt": "Кардиологический отчёт от Dr. Filip Božinovski",
+                "caption": "Кардиология: dirofilaria immitis Stg II, лечится"
+              }
+            },
+            "healthItems": [
+              {
+                "icon": "Crosshair",
+                "body": "Во-первых, в меня когда-то выстрелил из пневматического пистолета плохой человек. У меня возле позвоночника застряла пуля. Она не вредит моему здоровью, и ее не нужно удалять, если она не начнет болеть."
+              },
+              {
+                "icon": "Bone",
+                "body": "Во-вторых, очень давно я сломала заднюю лапку. Никто меня не лечил, поэтому она срослась неправильно, и иногда после часовой ходьбы я начинаю хромать. Доктор говорит, ничего страшного, это придает мне шарма!"
+              },
+              {
+                "icon": "Worm",
+                "body": "В-третьих, у меня в сердце живёт сердечный червь. Сейчас он на второй стадии — это самое начало, червяк меньше сантиметра, сердце по УЗИ и кардиограмме в полном порядке (см. отчёт ниже). Лена уже начала его выгонять: следующие полгода мы заходим к ветеринару раз в две недели, отдаём ему 4000 динаров и получаем укол с каплями. Так червь умрёт. Пока лечимся — мне нельзя бегать больше 5 минут, иначе кашляю."
+              },
+              {
+                "icon": "Ban",
+                "body": "В-четвёртых, меня нельзя стерилизовать, пока мы не прогоним червя. Но если честно, мячик мне нравится больше, чем настырные кобели."
+              }
+            ]
+          }
+        },
+        {
+          "type": "Conditions",
+          "props": {
+            "id": "bulka-conditions",
+            "copy": {
+              "conditions__title": "Условия",
+              "ui__conditions__adoption_title": "Куда меня отдадут",
+              "conditions__adoption": "Лена говорит, отдаст меня и в квартиру, и в дом, но не разрешит никому держать меня на цепи.",
+              "ui__conditions__support_title": "Поддержка и связь",
+              "conditions__communication": "Ещё она говорит, что хотела бы общаться или вообще дружить с моими новыми людьми. И она заберёт меня обратно, если не срастётся.",
+              "conditions__support": "Она будет помогать с оплатой моего лечения и стерилизации. А ещё она или наша подруга Ира будут забирать меня на передержку, когда вы решите поехать в путешествие. И ещё она может возить меня на своей машине к ветеринару, чтобы вы не платили за такси.",
+              "ui__conditions__bonus_title": "Бонус",
+              "conditions__perk": "Прикиньте, я сразу пристраиваюсь с двумя нянями и личным водителем. Нормально устроилась, да?"
+            },
+            "photos": {
+              "ps_family": {
+                "src": "/images/photo-set/ps_family.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_family.webp",
+                "alt": "Семейное фото: Лена, парень, два кота и я",
+                "caption": "Все держат котов. Я лежу и наблюдаю этот театр"
+              }
+            }
+          }
+        },
+        {
+          "type": "Questions",
+          "props": {
+            "id": "bulka-faq",
+            "copy": {
+              "faq__title": "Что меня обычно спрашивают",
+              "faq__subtitle": "Не нашли свой вопрос? Спросите Лену напрямую — она быстрее меня печатает.",
+              "faq__banner_title": "Если не сложится, Лена заберёт меня обратно.",
+              "faq__banner_subtitle": "Без обид, без условий, без «попробуйте ещё месяц»."
+            },
+            "items": [
+              {
+                "id": "kids",
+                "question": "А ты с детьми норм?",
+                "answer": "Лена с детьми меня не проверяла, врать не буду. Но я не прыгаю, не кусаюсь, других собак на улице обхожу стороной — базовый набор есть. Хотите подстраховаться — приходите с ребёнком в гости, посмотрим вживую."
+              },
+              {
+                "id": "rental",
+                "question": "Я снимаю квартиру, можно меня?",
+                "answer": "Можно. Я тихая, вещи не порчу — Лена подтвердит. Если хозяин квартиры просит депозит за собаку — Лена готова поговорить с ним и помочь объяснить, что я не та собака, ради которой переклеивают обои."
+              },
+              {
+                "id": "monthly_cost",
+                "question": "Сколько я буду тратить в месяц?",
+                "answer": "Корм и плановый визит к ветеринару — после того как добьём червя. Червя я долечиваю на Лене, вас это не касается. Короче, по деньгам я как любая средняя собака — никаких сюрпризов «вот вам ещё одна болячка»."
+              },
+              {
+                "id": "guarantee",
+                "question": "А что если не сложится?",
+                "answer": "Лена забирает меня обратно. Бесплатно, без обид, без условий."
+              },
+              {
+                "id": "other_pets",
+                "question": "С другими собаками / котами?",
+                "answer": "С двумя котами живу прямо сейчас и почти не замечаю: ходят и ходят мимо, мне-то что. С другими собаками не лезу и не дерусь — если идёт навстречу настырный кобель, я просто отворачиваюсь. Не мой жанр."
+              },
+              {
+                "id": "health",
+                "question": "А ты здоровая?",
+                "answer": "Да, но есть нюансы. Сердечный червь — лечится, курс уже идёт. Пуля у позвоночника лежит и никому не мешает. Лапа кривая — добавляет шарма, по словам доктора. Подробности — в разделе «Здоровье», там всё честно: и про пулю, и про лапу, и про червя."
+              },
+              {
+                "id": "remote",
+                "question": "Я не в Белграде. Можно дистанционно?",
+                "answer": "Зависит, насколько далеко. Белград, Нови Сад и окрестности — нормально: Лена хочет иногда меня навещать, для этого ей надо до меня доезжать. По остальной EU — давайте созвонимся, что-нибудь придумаем. Другой континент, виза, перелёт через полмира — честно: вряд ли."
+              },
+              {
+                "id": "deadline",
+                "question": "Когда нужно решить?",
+                "answer": "Лена уезжает зимой, точная дата пока плавает. Никто не стоит над душой — но чем раньше определимся, тем спокойнее всем, в первую очередь мне."
+              }
+            ]
+          }
+        },
+        {
+          "type": "Game",
+          "props": {
+            "id": "bulka-game",
+            "copy": {
+              "ui__game__title": "День Булки",
+              "ui__game__subtitle": "Маленькая интерактивная история. Каждое утро — новый выбор."
+            }
+          }
+        },
+        {
+          "type": "Contact",
+          "props": {
+            "id": "bulka-contact",
+            "copy": {
+              "contact__title": "Как познакомиться со мной?",
+              "contact__location": "Мы с Леной живём на Вуковом споменике, возле Суперверо Зира. Можете прийти с нами погулять, попить чаю. А если хотите, мы сами приедем к вам познакомиться!",
+              "ui__contact__location_address1": "Vukov Spomenik",
+              "ui__contact__location_address2": "возле Super Vero Zira",
+              "contact_section__open_map": "Открыть на карте",
+              "ui__contact__location_title": "Локация",
+              "ui__contact__location_city": "Belgrade, Serbia",
+              "ui__contact__contacts_title": "Связаться с Леной",
+              "contact_links__telegram_url": "https://t.me/larichkina_b",
+              "contact_links__telegram": "@larichkina_b",
+              "contact_links__whatsapp_url": "https://wa.me/qr/BT5L6JR632BHC1",
+              "contact_links__whatsapp": "WhatsApp",
+              "contact_links__instagram_url": "https://www.instagram.com/lari4kina_babich?igsh=bTVhMjZrMWR2aXhm",
+              "contact_links__instagram": "@lari4kina_babich",
+              "contact_links__phone_url": "tel:+381616333571",
+              "contact_links__phone": "+381 61 633 35 71"
+            },
+            "photos": {
+              "ps_hug": {
+                "src": "/images/photo-set/ps_hug.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_hug.webp",
+                "alt": "Лена обнимает меня в парке и смеётся",
+                "caption": "Лена и я — взаимно"
+              }
+            },
+            "mapUrl": "https://www.google.com/maps/search/?api=1&query=Super+Vero+Zira+Vukov+Spomenik+Belgrade"
+          }
+        },
+        {
+          "type": "PhotoGallery",
+          "props": {
+            "id": "bulka-gallery",
+            "copy": {
+              "ui__strip__aria": "Ещё фотографии Булки",
+              "ui__strip__title": "Ещё кадры",
+              "ui__strip__subtitle": "Подвигайте мышкой влево–вправо или просто смотрите."
+            },
+            "photosList": [
+              {
+                "src": "/images/photo-set/ps_portrait.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_portrait.webp",
+                "alt": "Я смотрю в камеру",
+                "caption": "Да, я красивая. Спасибо, что заметили"
+              },
+              {
+                "src": "/images/photo-set/ps_walk.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_walk.webp",
+                "alt": "Лена ведёт меня по аллее парка",
+                "caption": "Утренний парк — мой. Лена просто держит поводок"
+              },
+              {
+                "src": "/images/photo-set/ps_scratch.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_scratch.webp",
+                "alt": "Меня чешут за ухом, я зажмурилась от удовольствия",
+                "caption": "Лучшее изобретение человечества. Не ракеты"
+              },
+              {
+                "src": "/images/photo-set/ps_ball.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_ball.webp",
+                "alt": "Я с теннисным мячиком",
+                "caption": "Мячик. На случай, если вдруг захочется поиграть"
+              },
+              {
+                "src": "/images/photo-set/ps_hug.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_hug.webp",
+                "alt": "Лена обнимает меня в парке и смеётся",
+                "caption": "Лена и я — взаимно"
+              },
+              {
+                "src": "/images/photo-set/ps_rug.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_rug.webp",
+                "alt": "Я лежу на ковре в квартире",
+                "caption": "Это мой ковёр. Прописано в конституции"
+              },
+              {
+                "src": "/images/photo-set/ps_paw.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_paw.webp",
+                "alt": "Я даю лапу",
+                "caption": "«Дай лапу» — единственная команда, с которой я полностью согласна"
+              },
+              {
+                "src": "/images/photo-set/ps_balcony_sun.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_balcony_sun.webp",
+                "alt": "Я лежу на балконе на солнышке",
+                "caption": "Балкон, солнце, я. Классика"
+              },
+              {
+                "src": "/images/photo-set/ps_lick.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_lick.webp",
+                "alt": "Я сижу и облизываюсь на балконе",
+                "caption": "Только что съела что-то вкусное. Не спрашивайте"
+              },
+              {
+                "src": "/images/photo-set/ps_belly.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_belly.webp",
+                "alt": "Я лежу на спине, мне делают массаж живота",
+                "caption": "Массаж живота по расписанию. Жёвка — бонус"
+              },
+              {
+                "src": "/images/photo-set/ps_cat_balcony.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_cat_balcony.webp",
+                "alt": "Я нюхаю кота под столиком на балконе",
+                "caption": "Живём вместе. Договорились"
+              },
+              {
+                "src": "/images/photo-set/ps_family.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_family.webp",
+                "alt": "Семейное фото: Лена, парень, два кота и я",
+                "caption": "Все держат котов. Я лежу и наблюдаю этот театр"
+              },
+              {
+                "src": "/images/dog_home.webp",
+                "alt": "Я лежу дома, кошки сидят у окна на подоконнике",
+                "caption": "Кошки по своим делам, я — по своим"
+              },
+              {
+                "src": "/images/dog_vet.webp",
+                "alt": "Я лежу на ковре в гостях, на заднем плане телевизор",
+                "caption": "Команды я учу. Иногда даже выполняю"
+              },
+              {
+                "src": "/images/dogs_public.webp",
+                "alt": "Я в парке с другой собакой и двумя людьми",
+                "caption": "В парке с друзьями"
+              },
+              {
+                "src": "/images/bulka_car_walk.webp",
+                "thumbSrc": "/images/bulka_car_walk_thumb.webp",
+                "alt": "Я с Леной у машины, уже тяну поводок в сторону дел",
+                "caption": "Машины меня не пугают. Я деловая, иду по маршруту"
+              },
+              {
+                "src": "/images/lena_dogs.webp",
+                "alt": "Я с Леной в машине, Лена улыбается на селфи",
+                "caption": "Едем в машине. Меня не укачивает — суперспособность"
+              },
+              {
+                "src": "/images/dog_car.webp",
+                "alt": "Я лежу на ковре с косточкой возле постели",
+                "caption": "Будни: косточка, ковёр, тёплый пол"
+              },
+              {
+                "src": "/images/bulka_tv.webp",
+                "alt": "Я сижу на ковре перед телевизором",
+                "caption": "Сижу. Жду команду «дай лапу»"
+              },
+              {
+                "src": "/images/bulka_friends.webp",
+                "alt": "Я на лавочке с двумя людьми и маленькой лохматой собакой",
+                "caption": "С чужими собаками без драм — даже с этим лохматым"
+              },
+              {
+                "src": "/images/person_dog.webp",
+                "alt": "Я с Леной во дворе под деревьями",
+                "caption": "Двор у Вукова споменика. Можем встретиться здесь"
+              }
+            ]
+          }
+        }
+      ],
+      "zones": {}
+    }
+  }
+}

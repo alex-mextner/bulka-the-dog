@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { cn } from "@/lib/utils";
 
 // TODO: i18n. All copy is Russian-only on purpose. If/when this gets wired

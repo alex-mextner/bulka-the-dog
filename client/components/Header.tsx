@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useLanguage } from "@/hooks/useLanguage";
-import { Language } from "@/lib/translations";
+import type { Language } from "@/lib/translations";
 import { Menu, X, Globe, Heart, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSiteRuntime } from "@/cms/SiteRuntimeContext";
 
-const navItems = [
+const defaultNavItems = [
   { id: "appearance", key: "nav.appearance" },
   { id: "habits", key: "nav.habits" },
   { id: "skills", key: "nav.skills" },
@@ -15,14 +16,18 @@ const navItems = [
   { id: "gallery", key: "nav.gallery" },
 ];
 
-const languages: { code: Language; short: string }[] = [
+const allLanguages: { code: Language; short: string }[] = [
   { code: "ru", short: "RU" },
   { code: "rs", short: "SR" },
   { code: "en", short: "EN" },
 ];
 
-export function Header() {
-  const { language, setLanguage, t } = useLanguage();
+export function Header({ navigation }: { navigation?: { id: string; key: string }[] } = {}) {
+  const navItems = navigation || defaultNavItems;
+  const contactTarget = navItems.find(item => item.key === 'nav.contact')?.id;
+  const interactive = useSiteRuntime();
+  const { language, setLanguage, availableLanguages, t } = useLanguage();
+  const languages = allLanguages.filter(item => availableLanguages.includes(item.code));
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("");
   // Past ~80px we collapse the lang switcher into a dropdown (both mobile
@@ -42,6 +47,7 @@ export function Header() {
   const [showStickyCta, setShowStickyCta] = useState(false);
 
   useEffect(() => {
+    if (!interactive) return;
     const handleScroll = () => {
       const sections = navItems.map((item) => item.id);
       let current = "";
@@ -59,10 +65,11 @@ export function Header() {
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [navItems, interactive]);
 
   // Close the collapsed lang dropdown on outside click + Escape.
   useEffect(() => {
+    if (!interactive) return;
     if (!isLangOpen) return;
     const onDocClick = (e: MouseEvent) => {
       if (
@@ -86,12 +93,14 @@ export function Header() {
   // Auto-close the lang dropdown when we scroll back to the top — the
   // collapsed trigger is unmounted and the flat 3-button group reappears.
   useEffect(() => {
+    if (!interactive) return;
     if (!isScrolled) setIsLangOpen(false);
   }, [isScrolled]);
 
   // Track visibility of the hero CTA to drive the sticky-in-header CTA.
   useEffect(() => {
-    const el = document.getElementById("hero-cta");
+    if (!interactive) return;
+    const el = document.querySelector('[data-section-kind="hero"] [data-hero-cta]');
     if (!el || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
       ([entry]) => setShowStickyCta(!entry.isIntersecting),
@@ -99,14 +108,16 @@ export function Header() {
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [interactive, navItems]);
 
   const scrollToTop = () => {
+    if (!interactive) return;
     setIsMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleNavClick = (id: string) => {
+    if (!interactive) return;
     const element = document.getElementById(id);
     if (!element) return;
     setIsMenuOpen(false);
@@ -197,7 +208,7 @@ export function Header() {
   const stickyCtaClasses = cn(
     "hidden sm:inline-flex items-center bg-primary text-primary-foreground rounded-full font-semibold text-sm shadow-lg shadow-primary/30 hover:bg-primary/90 hover:shadow-primary/40 overflow-hidden whitespace-nowrap",
     "transition-[max-width,padding,opacity,transform] duration-300 ease-out will-change-[max-width,padding,opacity,transform] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30",
-    showStickyCta
+    showStickyCta && contactTarget
       ? "opacity-100 translate-x-0 pointer-events-auto max-w-[14rem] px-3.5 py-2 gap-1.5"
       : "opacity-0 translate-x-3 pointer-events-none max-w-0 px-0 py-0 gap-0",
   );
@@ -241,10 +252,10 @@ export function Header() {
       style={{ paddingTop: "var(--safe-area-header-top)" }}
     >
       <a
-        href="#main"
+        href={interactive ? "#main" : undefined}
         className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:bg-primary focus:text-primary-foreground focus:px-3 focus:py-2 focus:rounded-md focus:z-50"
       >
-        Перейти к содержимому
+        {t("accessibility.skip_content")}
       </a>
       {/* h-[60px]/h-[64px] is the nav bar height only. On Apple touch devices
           the header element grows by --safe-area-header-top to cover the notch
@@ -255,7 +266,7 @@ export function Header() {
           <button
             onClick={scrollToTop}
             className="shrink-0 whitespace-nowrap text-xl font-bold leading-none text-primary transition-colors hover:text-primary/80 min-[360px]:text-2xl"
-            aria-label={`${t("brand.name")} — top`}
+            aria-label={`${t("brand.name")} — ${t("accessibility.back_to_top")}`}
           >
             🐾 {t("brand.name")}
           </button>
@@ -272,12 +283,12 @@ export function Header() {
               aria-controls="mobile-nav"
               className="nav:hidden min-w-0 max-w-[8rem] truncate whitespace-nowrap rounded-full bg-secondary/60 px-2.5 py-1.5 text-sm font-medium text-foreground/85 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 min-[360px]:max-w-[10rem] min-[360px]:px-3"
             >
-              {t("nav." + activeSection)}
+              {t(navItems.find(item => item.id === activeSection)?.key || "nav." + activeSection)}
             </button>
           )}
 
           <nav
-            aria-label="Разделы страницы"
+            aria-label={t("accessibility.sections")}
             className="hidden nav:flex items-center gap-0.5 ml-2 min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {navItems.map((item) => {
@@ -302,10 +313,11 @@ export function Header() {
           <div className="ml-auto flex shrink-0 items-center gap-1.5 min-[360px]:gap-2">
             <button
               type="button"
-              onClick={() => handleNavClick("contact")}
+              onClick={() => { if (contactTarget) handleNavClick(contactTarget); }}
+              disabled={!interactive || !contactTarget}
               aria-label={t("cta.adopt_aria")}
-              aria-hidden={!showStickyCta}
-              tabIndex={showStickyCta ? 0 : -1}
+              aria-hidden={!showStickyCta || !contactTarget}
+              tabIndex={showStickyCta && contactTarget ? 0 : -1}
               className={stickyCtaClasses}
             >
               <Heart size={16} aria-hidden="true" />
@@ -317,7 +329,7 @@ export function Header() {
                 collapses into the dropdown below once scrolled. */}
             <div
               role="group"
-              aria-label="Сменить язык"
+              aria-label={t("accessibility.change_language")}
               className={cn(
                 "items-center gap-0.5 rounded-full border border-primary/20 bg-primary/5 px-1 py-1 min-[360px]:gap-1 min-[360px]:px-1.5",
                 isScrolled ? "hidden" : "flex",
@@ -361,7 +373,7 @@ export function Header() {
                   onClick={() => setIsLangOpen((v) => !v)}
                   aria-haspopup="menu"
                   aria-expanded={isLangOpen}
-                  aria-label="Сменить язык"
+                  aria-label={t("accessibility.change_language")}
                   className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-primary/20 bg-primary/5 px-2 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 min-[360px]:px-2.5"
                 >
                   <Globe size={14} aria-hidden="true" />
@@ -378,7 +390,7 @@ export function Header() {
                 {isLangOpen && (
                   <div
                     role="menu"
-                    aria-label="Сменить язык"
+                    aria-label={t("accessibility.change_language")}
                     className="absolute right-0 top-full mt-1 z-20 min-w-[5rem] rounded-xl border border-border bg-background shadow-lg overflow-hidden"
                   >
                     {languages.map((lang) => {
@@ -414,7 +426,7 @@ export function Header() {
         {/* Morphed layer: horizontal-scroll nav (mobile/tablet, when burger is open) */}
         <nav
           id="mobile-nav"
-          aria-label="Разделы страницы"
+          aria-label={t("accessibility.sections")}
           className={morphedNavCls}
         >
           {/* pr-14 reserves the burger zone within the scroll container's
@@ -486,7 +498,7 @@ export function Header() {
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-lg p-2 transition-colors hover:bg-secondary min-[360px]:right-3 nav:hidden"
-          aria-label={isMenuOpen ? "Закрыть меню" : "Открыть меню"}
+          aria-label={t(isMenuOpen ? "accessibility.close_menu" : "accessibility.open_menu")}
           aria-expanded={isMenuOpen}
           aria-controls="mobile-nav"
         >

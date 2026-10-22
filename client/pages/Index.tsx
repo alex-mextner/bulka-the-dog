@@ -1,6 +1,7 @@
+import { useSiteRuntime } from "@/cms/SiteRuntimeContext";
+import { publicEnvironment } from '../../src/generated/public-environment';
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Header } from "@/components/Header";
 import { GalleryImage, useGallery, usePinchToOpen } from "@/components/Gallery";
 import { ImageFocusDebugOverlay } from "@/components/ImageFocusDebugOverlay";
 import BulkaDay from "@/components/BulkaDay";
@@ -42,21 +43,19 @@ function richText(input: string): React.ReactNode[] {
   });
 }
 
-const SHOW_GAME =
-  import.meta.env.VITE_ENABLE_GAME === "1" ||
-  import.meta.env.VITE_ENABLE_GAME === "true";
+const SHOW_GAME = publicEnvironment.enableGame;
+const PUBLIC_SITE_ORIGIN = publicEnvironment.publicBaseUrl;
 
 // Search by the actual destination — Super Vero Zira at Vukov Spomenik —
 // rather than just the metro stop, so the pin lands on the meeting place.
 const MAPS_URL =
   "https://www.google.com/maps/search/?api=1&query=Super+Vero+Zira+Vukov+Spomenik+Belgrade";
 
-// Vite injects BASE_URL ('/' in dev, '/bulka-the-dog/' on GH Pages).
-// Public-folder assets must be prefixed with it so they resolve under both.
+// Both Astro and the hosted editor import explicit public build constants.
 const asset = (p: string) =>
-  `${import.meta.env.BASE_URL}${p.replace(/^\//, "")}`;
+  `${publicEnvironment.baseUrl}${p.replace(/^\//, "")}`;
 
-const images = {
+const defaultImages = {
   health1: asset("images/health1.webp"),
   health2: asset("images/health2.webp"),
   cardiology: asset("images/cardiology.webp"),
@@ -101,29 +100,6 @@ const images = {
   ps_cat_balcony_thumb: asset("images/photo-set/thumbs/ps_cat_balcony.webp"),
 };
 
-// Photos for the Habits scrollytelling section — one per habit item, in order.
-const HABITS_PHOTOS = [
-  images.ps_portrait,    // bathroom
-  images.ps_walk,        // walks
-  images.dogs_public,    // behavior
-  images.bulka_car_walk, // car — Lena and Bulka next to the car
-  images.bulka_tv,       // home
-  images.ps_rug,         // food
-  images.ps_cat_balcony, // cats
-];
-
-const HABITS_SECONDARY_PHOTOS = [
-  images.dog_apartment, // bathroom — apartment life
-  images.dogs_public,   // walks — out with other dogs
-  images.ps_family,     // behavior — calm around people and dogs
-  images.lena_dogs,     // car — inside the car
-  images.ps_balcony_sun, // home — quiet balcony/home life
-  images.ps_ball,       // food — treat/play energy
-  images.dog_home,      // cats — home with cats at the window
-];
-
-const HABITS_PHOTOLESS_INDICES = new Set([0, 5]);
-
 // Crossfading photo container: all photos are in the DOM with opacity 0/1.
 // CSS transition handles the fade — no JS animation needed.
 // On click OR pinch-to-open, opens the active photo in the gallery lightbox
@@ -134,33 +110,57 @@ const HABITS_PHOTOLESS_INDICES = new Set([0, 5]);
 // Pinch-to-open is enabled via `usePinchToOpen` — the same hook used by
 // GalleryImage. The active img carries `data-pinch-thumb` so
 // GalleryProvider.open() grabs the right thumbnail src for the hold-overlay.
-function PhotoFader({
-  activeIdx,
-  className,
-  photos = HABITS_PHOTOS,
-}: {
+type PhotoFaderProps = {
   activeIdx: number;
   className?: string;
-  photos?: string[];
-}) {
-  const { entries, open, setTrigger } = useGallery();
-  const normalizedIdx = activeIdx % photos.length;
-  const activeSrc = photos[normalizedIdx];
+  photos?: Array<PhotoContent | undefined>;
+};
+
+function PhotoFader(props: PhotoFaderProps) {
+  const photos = props.photos ?? [];
+  const activePhoto = photos[photos.length ? props.activeIdx % photos.length : 0];
+  // Keep item indices intact. A missing active photo unmounts its registry
+  // ownership and native gesture listeners, which are renewed on restore.
+  return hasPhotoSource(activePhoto?.src) ? <PhotoFaderWithSource {...props} /> : null;
+}
+
+function PhotoFaderWithSource({ activeIdx, className, photos = [] }: PhotoFaderProps) {
+  const { language, t } = useLanguage();
+  const interactive = useSiteRuntime();
+  const { entries, open, setTrigger, register, unregister } = useGallery();
+  const addedEntries = React.useRef<number[]>([]);
+  // Arrays are recreated while scrolling and when the registry updates. Only
+  // actual photo metadata or locale changes invalidate this fader's ownership.
+  const photoIdentity = JSON.stringify(photos.map(photo => photo ? [photo.src, photo.alt, photo.caption] : null));
+  React.useEffect(() => () => {
+    const owned = addedEntries.current;
+    addedEntries.current = [];
+    owned.forEach(unregister);
+  }, [unregister, language, photoIdentity]);
+  const normalizedIdx = photos.length ? activeIdx % photos.length : 0;
+  const activePhoto = photos[normalizedIdx];
+  const activeSrc = activePhoto?.src || "";
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
 
   const handleClick = React.useCallback(() => {
-    const entry = entries.find((e) => e.src === activeSrc);
-    if (entry) {
-      setTrigger(buttonRef.current);
-      open(entry.id);
+    if (!activePhoto || !safePublicUrl(activePhoto.src)) return;
+    const entry = entries.find((e) => e.src === activeSrc && e.alt === (activePhoto.alt ?? "") && e.caption === activePhoto.caption);
+    let id = entry?.id;
+    // Default photos already exist elsewhere in the shared gallery. A CMS
+    // author may also choose a new habit photo or caption, which must open too.
+    if (id == null) {
+      id = register({ ...activePhoto, alt: activePhoto.alt ?? "" });
+      addedEntries.current.push(id);
     }
-  }, [entries, open, activeSrc, setTrigger]);
+    setTrigger(buttonRef.current);
+    open(id);
+  }, [entries, open, activeSrc, activePhoto, setTrigger, register]);
 
   // Pinch-to-open: attach non-passive touchstart to detect 2-finger gesture
   // and drive the same overlay+seed-zoom path as GalleryImage. Meta is read
   // from a ref inside usePinchToOpen, so it updates with activeIdx without
   // re-attaching the listener (important: sticky photo changes every scroll).
-  usePinchToOpen(buttonRef, { src: activeSrc, alt: "" }, handleClick);
+  usePinchToOpen(buttonRef, { src: activeSrc, alt: activePhoto?.alt || "" }, handleClick);
 
   return (
     <button
@@ -168,17 +168,18 @@ function PhotoFader({
       type="button"
       data-pinch-open-root=""
       onClick={handleClick}
-      aria-label="Открыть фото"
+      disabled={!interactive || !activePhoto}
+      aria-label={`${t("accessibility.open_photo")}: ${activePhoto?.caption || activePhoto?.alt || ""}`}
       className={cn(
         "relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg bg-neutral-200",
         "appearance-none p-0 m-0 border-0 block w-full cursor-zoom-in",
         className,
       )}
     >
-      {photos.map((src, i) => (
+      {photos.map((photo, i) => photo && hasPhotoSource(photo.src) && (
         <img
-          key={`${src}-${i}`}
-          src={src}
+          key={`${photo.src}-${i}`}
+          src={photo.src}
           alt=""
           loading="lazy"
           // data-pinch-thumb marks the currently visible image so
@@ -187,7 +188,7 @@ function PhotoFader({
           {...(i === normalizedIdx ? { "data-pinch-thumb": "" } : {})}
           className="absolute inset-0 w-full h-full object-cover brightness-105 contrast-[1.03] saturate-[1.05] transition-opacity duration-500 ease-in-out"
           style={{
-            ...getImageFocusStyle(src),
+            ...getImageFocusStyle(photo.src),
             opacity: i === normalizedIdx ? 1 : 0,
           }}
         />
@@ -198,8 +199,10 @@ function PhotoFader({
 }
 
 function scrollToId(id: string) {
-  const el = document.getElementById(id);
+  const el = document.getElementById(id) || document.querySelector(`[data-section-kind="${id}"]`);
   if (el) el.scrollIntoView({ behavior: "smooth" });
+  // CMS authors may remove either target section. Keep the visitor on this
+  // page when it is absent; the hero does not own cross-page navigation.
 }
 
 // Common image classes — bounded by viewport on desktop so a tall portrait
@@ -210,8 +213,31 @@ const SECTION_IMG_CLS =
 const SECTION_IMG_INNER_CLS =
   "rounded-2xl object-cover w-full h-full max-h-[80vh] md:max-h-[560px] brightness-105 contrast-[1.03] saturate-[1.05]";
 
-export default function Index() {
+
+import { CmsCopyProvider } from "@/cms/CopyContext";
+import { hasPhotoSource, safePublicUrl, sectionAnchor, resolveCmsAssetUrl, resolveSectionAssets } from "@/cms/content-model";
+import schema from "@/cms/section-schema.json";
+import type { SectionContentData, PhotoContent } from "@/cms/types";
+
+function SectionContent({ section, content }: { section: string; content: SectionContentData }) {
+  const sectionId = sectionAnchor(section, content.id);
   const { t } = useLanguage();
+  const interactive = useSiteRuntime();
+  const images = { ...defaultImages };
+  for (const key of Object.keys(images)) images[key] = resolveCmsAssetUrl(images[key], PUBLIC_SITE_ORIGIN, interactive);
+  for (const [key, photo] of Object.entries(content.photos || {})) {
+    if (!hasPhotoSource(photo.src) || safePublicUrl(photo.src)) images[key] = photo.src;
+    const thumbKey = `${key}_thumb`;
+    if (thumbKey in images) images[thumbKey] = hasPhotoSource(photo.src) && safePublicUrl(photo.thumbSrc) ? photo.thumbSrc : photo.src;
+  }
+  const habitItems = content.items || [];
+  const HABITS_PHOTOS = habitItems.map(item => item.photo);
+  const HABITS_SECONDARY_PHOTOS = habitItems.map(item => item.secondaryPhoto);
+  const HABITS_PHOTOLESS_INDICES = new Set(habitItems.flatMap((item, i) =>
+    item.showPhotos === false || (!hasPhotoSource(item.photo?.src) && !hasPhotoSource(item.secondaryPhoto?.src)) ? [i] : []));
+  const commands = (content.commands || []).map(item => item.label);
+  const healthIcons = { Crosshair, Bone, Worm, Ban };
+  const healthItems = (content.healthItems || []).map((item, i) => ({ idx: i + 1, Icon: healthIcons[item.icon] || Heart, body: item.body }));
 
   // Habits scrollytelling: track which habit item is in the reading position.
   const [habitsActiveIdx, setHabitsActiveIdx] = React.useState(0);
@@ -235,6 +261,7 @@ export default function Index() {
   const habitsViewportRef = React.useRef({ width: 0, height: 0 });
 
   React.useEffect(() => {
+    if (!interactive) return;
     const section = habitsSectionRef.current;
     if (!section) return;
     let followupTimer: number | null = null;
@@ -401,7 +428,7 @@ export default function Index() {
       window.removeEventListener("resize", handleScroll);
       if (followupTimer != null) window.clearTimeout(followupTimer);
     };
-  }, []);
+  }, [habitItems]);
 
   type SectionProps = {
     id: string;
@@ -425,7 +452,8 @@ export default function Index() {
     stickyImage = false,
   }: SectionProps) => {
     const stickyCls = stickyImage ? " md:sticky md:top-24 md:self-start" : "";
-    const imgEl = image ? (
+    const hasImage = hasPhotoSource(image?.src);
+    const imgEl = image && hasImage ? (
       <GalleryImage
         src={image.src}
         thumbSrc={image.thumbSrc}
@@ -438,6 +466,7 @@ export default function Index() {
 
     return (
       <section
+          data-section-kind={section}
         id={id}
         aria-labelledby={`${id}-title`}
         className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30"
@@ -450,7 +479,7 @@ export default function Index() {
             {title}
           </h2>
 
-          {image ? (
+          {hasImage ? (
             <div className="grid md:grid-cols-2 gap-8 items-start">
               {imagePosition === "left" && imgEl}
               <div className="space-y-4">{children}</div>
@@ -503,35 +532,30 @@ export default function Index() {
   ];
 
   return (
-    <div
-      className="bg-background"
-      style={{
-        minHeight: "max(100dvh, 100lvh, var(--bulka-viewport-height))",
-      }}
-    >
-      <Header />
-
-      <main id="main">
+    <>
+      {section === "hero" && (<>
         {/* Hero Section */}
         <section
-          aria-labelledby="hero-title"
+          data-section-kind={section}
+          id={sectionId}
+          aria-labelledby={`${sectionId}-title`}
           className="scroll-mt-24 pt-12 pb-16 md:pt-20 md:pb-24 px-4 bg-gradient-to-b from-primary/10 to-background"
         >
           <div className="max-w-6xl mx-auto">
             <h1
-              id="hero-title"
+              id={`${sectionId}-title`}
               className="text-4xl md:text-6xl font-bold mb-6 text-primary text-center text-balance"
             >
               {t("hero.title")}
             </h1>
 
-            <div className="mt-8 md:mt-12 grid md:grid-cols-[1fr_360px] gap-6 md:gap-12 items-stretch">
+            <div className={cn("mt-8 md:mt-12 grid gap-6 md:gap-12 items-stretch", hasPhotoSource(images.ps_portrait) && "md:grid-cols-[1fr_360px]")}>
               {/* Image. On mobile: rendered FIRST (right after H1) and capped
                   to a portrait card via aspect ratio. On desktop: lives in
                   the right column. The button is absolutely positioned so
                   the image's natural aspect doesn't drag the grid row taller
                   than the text column — height is purely text-driven. */}
-              <div className="order-1 md:order-2 mx-auto md:mx-0 w-full max-w-[280px] md:max-w-none aspect-[4/5] md:aspect-auto md:h-full md:relative">
+              {hasPhotoSource(images.ps_portrait) && <div className="order-1 md:order-2 mx-auto md:mx-0 w-full max-w-[280px] md:max-w-none aspect-[4/5] md:aspect-auto md:h-full md:relative">
                 <GalleryImage
                   src={images.ps_portrait}
                   thumbSrc={images.ps_portrait_thumb}
@@ -541,7 +565,7 @@ export default function Index() {
                   imgClassName="rounded-2xl object-cover h-full w-full brightness-105 contrast-[1.03] saturate-[1.05]"
                   loading="eager"
                 />
-              </div>
+              </div>}
 
               <div className="order-2 md:order-1 space-y-5">
                 <p className="text-lg leading-relaxed text-foreground/80">
@@ -558,9 +582,11 @@ export default function Index() {
                 </p>
                 <div className="flex flex-wrap gap-3 pt-2">
                   <button
-                    id="hero-cta"
+                    id={`${sectionId}-cta`}
+                    data-hero-cta
                     type="button"
-                    onClick={() => scrollToId("contact")}
+                    disabled={!interactive}
+                    onClick={() => { if (interactive) scrollToId("contact"); }}
                     aria-label={t("cta.adopt_aria")}
                     className="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95 px-6 py-3 rounded-full text-base md:text-lg font-semibold shadow-lg shadow-primary/30 transition-all hover:shadow-xl hover:shadow-primary/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
                   >
@@ -569,7 +595,8 @@ export default function Index() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => scrollToId("appearance")}
+                    disabled={!interactive}
+                    onClick={() => { if (interactive) scrollToId("appearance"); }}
                     className="inline-flex items-center gap-2 bg-secondary/60 hover:bg-secondary text-foreground px-6 py-3 rounded-full text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-secondary/40"
                   >
                     {t("cta.learn_more")}
@@ -581,9 +608,11 @@ export default function Index() {
           </div>
         </section>
 
+      </>)}
+      {section === "appearance" && (<>
         {/* Appearance — pure infographic, no description duplication */}
         <Section
-          id="appearance"
+          id={sectionId}
           title={t("appearance.title")}
           image={{
             src: images.ps_rug,
@@ -665,18 +694,21 @@ export default function Index() {
           </div>
         </Section>
 
+      </>)}
+      {section === "habits" && (<>
         {/* Habits Section — scrollytelling with crossfading photos.
             Mobile: two fixed bottom photos change as user scrolls through items.
             Desktop: two stacked sticky photos on the left, text column on the right. */}
         <section
-          id="habits"
+          data-section-kind={section}
+          id={sectionId}
           ref={habitsSectionRef}
-          aria-labelledby="habits-title"
+          aria-labelledby={`${sectionId}-title`}
           className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30"
         >
           <div className="max-w-6xl mx-auto">
             <h2
-              id="habits-title"
+              id={`${sectionId}-title`}
               className="text-4xl md:text-5xl font-bold mb-8 text-foreground"
             >
               {t("habits.title")}
@@ -690,7 +722,7 @@ export default function Index() {
                 data-desktop-photo-stick=""
                 className="hidden md:flex md:sticky md:top-24 md:self-start flex-col gap-4"
               >
-                <PhotoFader activeIdx={habitsActiveIdx} className="max-h-[260px]" />
+                <PhotoFader activeIdx={habitsActiveIdx} photos={HABITS_PHOTOS} className="max-h-[260px]" />
                 <PhotoFader
                   activeIdx={habitsActiveIdx}
                   photos={HABITS_SECONDARY_PHOTOS}
@@ -700,48 +732,14 @@ export default function Index() {
 
               {/* Habit items — single source for both mobile and desktop */}
               <div className="space-y-2 pb-2 md:pb-0">
-                <div data-habit-item="" className="py-6">
-                  <h3 className="font-bold text-lg mb-2">
-                    <span aria-hidden="true">🚽</span> {t("ui.habits.bathroom_title")}
-                  </h3>
-                  <p className="text-foreground/80">{t("habits.bathroom")}</p>
-                </div>
-                <div data-habit-item="" className="py-6">
-                  <h3 className="font-bold text-lg mb-2">
-                    <span aria-hidden="true">🚶</span> {t("ui.habits.walks_title")}
-                  </h3>
-                  <p className="text-foreground/80">{t("habits.walks")}</p>
-                </div>
-                <div data-habit-item="" className="py-6">
-                  <h3 className="font-bold text-lg mb-2">
-                    <span aria-hidden="true">🐕</span> {t("ui.habits.behavior_title")}
-                  </h3>
-                  <p className="text-foreground/80">{t("habits.behavior")}</p>
-                </div>
-                <div data-habit-item="" className="py-6">
-                  <h3 className="font-bold text-lg mb-2">
-                    <span aria-hidden="true">🚗</span> {t("ui.habits.car_title")}
-                  </h3>
-                  <p className="text-foreground/80">{t("habits.car")}</p>
-                </div>
-                <div data-habit-item="" className="py-6">
-                  <h3 className="font-bold text-lg mb-2">
-                    <span aria-hidden="true">🏠</span> {t("ui.habits.home_title")}
-                  </h3>
-                  <p className="text-foreground/80">{t("habits.home")}</p>
-                </div>
-                <div data-habit-item="" className="py-6">
-                  <h3 className="font-bold text-lg mb-2">
-                    <span aria-hidden="true">🍖</span> {t("ui.habits.food_title")}
-                  </h3>
-                  <p className="text-foreground/80">{t("habits.food")}</p>
-                </div>
-                <div data-habit-item="" className="py-6">
-                  <h3 className="font-bold text-lg mb-2">
-                    <span aria-hidden="true">🐱</span> {t("ui.habits.cats_title")}
-                  </h3>
-                  <p className="text-foreground/80">{t("habits.cats")}</p>
-                </div>
+                {habitItems.map((item, index) => (
+                  <div key={`${item.id || "habit"}-${index}`} data-habit-item="" className="py-6">
+                    <h3 className="font-bold text-lg mb-2">
+                      <span aria-hidden="true">{item.emoji}</span> {item.title}
+                    </h3>
+                    <p className="text-foreground/80">{item.body}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -776,6 +774,7 @@ export default function Index() {
             <div className="grid grid-cols-2 gap-3">
               <PhotoFader
                 activeIdx={habitsActiveIdx}
+                photos={HABITS_PHOTOS}
                 className="aspect-[16/9] max-h-[120px] rounded-xl shadow-md"
               />
               <PhotoFader
@@ -787,9 +786,11 @@ export default function Index() {
           </div>
         </section>
 
+      </>)}
+      {section === "skills" && (<>
         {/* Skills Section */}
         <Section
-          id="skills"
+          id={sectionId}
           title={t("skills.title")}
           image={{
             src: images.ps_paw,
@@ -808,17 +809,9 @@ export default function Index() {
                 {t("ui.skills.commands_title")}
               </h3>
               <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {[
-                  t("ui.skills.cmd_sit"),
-                  t("ui.skills.cmd_lie"),
-                  t("ui.skills.cmd_place"),
-                  t("ui.skills.cmd_come"),
-                  t("ui.skills.cmd_paw"),
-                  t("ui.skills.cmd_ball"),
-                  t("ui.skills.cmd_no"),
-                ].map((cmd) => (
+                {commands.map((cmd, index) => (
                   <li
-                    key={cmd}
+                    key={`${index}-${cmd}`}
                     className="flex items-center gap-2 bg-background/60 rounded-lg px-3 py-2"
                   >
                     <span className="text-accent" aria-hidden="true">
@@ -836,15 +829,18 @@ export default function Index() {
           </div>
         </Section>
 
+      </>)}
+      {section === "health" && (<>
         {/* Health Section — x-rays + the vet-visit photo (moved from Conditions) */}
         <section
-          id="health"
-          aria-labelledby="health-title"
+          data-section-kind={section}
+          id={sectionId}
+          aria-labelledby={`${sectionId}-title`}
           className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30"
         >
           <div className="max-w-6xl mx-auto">
             <h2
-              id="health-title"
+              id={`${sectionId}-title`}
               className="text-4xl md:text-5xl font-bold mb-8 text-foreground"
             >
               {t("health.title")}
@@ -856,12 +852,7 @@ export default function Index() {
               </p>
 
               <ul className="space-y-4">
-                {[
-                  { idx: 1, Icon: Crosshair, key: "health.bullet1" },
-                  { idx: 2, Icon: Bone, key: "health.bullet2" },
-                  { idx: 3, Icon: Worm, key: "health.bullet3" },
-                  { idx: 4, Icon: Ban, key: "health.bullet4" },
-                ].map(({ idx, Icon, key }) => (
+                {healthItems.map(({ idx, Icon, body }) => (
                   <li
                     key={idx}
                     className="relative overflow-hidden flex gap-4 p-5 pl-7 rounded-2xl border bg-primary/[0.07] border-primary/30"
@@ -879,7 +870,7 @@ export default function Index() {
                         {idx}
                       </div>
                       <p className="text-foreground leading-relaxed">
-                        {t(key)}
+                        {body}
                       </p>
                     </div>
                   </li>
@@ -898,7 +889,7 @@ export default function Index() {
                   "-mx-4 px-4 md:mx-0 md:px-0",
                 )}
               >
-                <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
+                {hasPhotoSource(images.dog_apartment) && <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
                   <GalleryImage
                     src={images.dog_apartment}
                     alt={t("media.conditions_alt")}
@@ -906,10 +897,10 @@ export default function Index() {
                     className="rounded-xl overflow-hidden shadow-lg h-full"
                     imgClassName="rounded-xl object-cover w-full h-full aspect-[3/4]"
                   />
-                </div>
+                </div>}
                 {/* Bullet circle is BURNED INTO health1.webp via scripts/burn-xray-markers.py
                     so it shows in messenger previews / search crawls / lightbox without JS. */}
-                <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
+                {hasPhotoSource(images.health1) && <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
                   <GalleryImage
                     src={images.health1}
                     alt={t("media.health1_alt")}
@@ -917,9 +908,9 @@ export default function Index() {
                     className="rounded-xl overflow-hidden shadow-lg h-full bg-black/5"
                     imgClassName="rounded-xl object-cover w-full h-full aspect-[3/4]"
                   />
-                </div>
+                </div>}
                 {/* Fracture marker hidden — we don't have a reliable location to point at. */}
-                <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
+                {hasPhotoSource(images.health2) && <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
                   <GalleryImage
                     src={images.health2}
                     alt={t("media.health2_alt")}
@@ -927,8 +918,8 @@ export default function Index() {
                     className="rounded-xl overflow-hidden shadow-lg h-full bg-black/5"
                     imgClassName="rounded-xl object-cover w-full h-full aspect-[3/4]"
                   />
-                </div>
-                <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
+                </div>}
+                {hasPhotoSource(images.cardiology) && <div className="snap-center md:snap-align-none shrink-0 md:shrink basis-[78%] md:basis-auto md:max-w-[260px]">
                   <GalleryImage
                     src={images.cardiology}
                     alt={t("ui.cardiology.alt")}
@@ -936,15 +927,17 @@ export default function Index() {
                     className="rounded-xl overflow-hidden shadow-lg bg-white h-full"
                     imgClassName="rounded-xl object-contain w-full h-full aspect-[3/4] bg-white"
                   />
-                </div>
+                </div>}
               </figure>
             </div>
           </div>
         </section>
 
+      </>)}
+      {section === "conditions" && (<>
         {/* Conditions Section — uses the bench-with-friends photo (Bulka in social context) */}
         <Section
-          id="conditions"
+          id={sectionId}
           title={t("conditions.title")}
           image={{
             src: images.ps_family,
@@ -984,27 +977,34 @@ export default function Index() {
           </div>
         </Section>
 
+      </>)}
+      {section === "faq" && (<>
         {/* FAQ section — preempts common objections + carries the "Лена заберёт обратно" guarantee.
             The component owns its own h2 + intro to keep tone of voice in one place. */}
         <section
-          id="faq"
-          aria-labelledby="faq-title"
+          data-section-kind={section}
+          id={sectionId}
+          aria-labelledby={`${sectionId}-title`}
           className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30"
         >
           <div className="max-w-6xl mx-auto">
-            <FAQ />
+            <FAQ items={content.items} idPrefix={sectionId} />
           </div>
         </section>
 
+      </>)}
+      {section === "game" && (<>
         {/* Mini-game — env-gated. VITE_ENABLE_GAME=1 turns it on. */}
-        {SHOW_GAME && (
+        {interactive && SHOW_GAME && (
           <section
-            aria-labelledby="day-title"
+          data-section-kind={section}
+            id={sectionId}
+            aria-labelledby={`${sectionId}-title`}
             className="scroll-mt-24 py-16 md:py-24 px-4 border-b border-border/30 bg-gradient-to-b from-background to-primary/5"
           >
             <div className="max-w-6xl mx-auto">
               <h2
-                id="day-title"
+                id={`${sectionId}-title`}
                 className="text-3xl md:text-4xl font-bold mb-3 text-foreground"
               >
                 {t("ui.game.title")}
@@ -1017,15 +1017,18 @@ export default function Index() {
           </section>
         )}
 
+      </>)}
+      {section === "contact" && (<>
         {/* Contact Section */}
         <section
-          id="contact"
-          aria-labelledby="contact-title"
+          data-section-kind={section}
+          id={sectionId}
+          aria-labelledby={`${sectionId}-title`}
           className="scroll-mt-24 py-16 md:py-24 px-4"
         >
           <div className="max-w-6xl mx-auto">
             <h2
-              id="contact-title"
+              id={`${sectionId}-title`}
               className="text-4xl md:text-5xl font-bold mb-8 text-foreground"
             >
               {t("contact.title")}
@@ -1038,7 +1041,7 @@ export default function Index() {
                 </p>
 
                 <a
-                  href={MAPS_URL}
+                  href={interactive ? (safePublicUrl(content.mapUrl) ? content.mapUrl : MAPS_URL) : undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`${t("ui.contact.location_address1")}, ${t("ui.contact.location_address2")} — ${t("contact_section.open_map")}`}
@@ -1055,7 +1058,7 @@ export default function Index() {
                     style={{
                       backgroundImage: [
                         "linear-gradient(to right, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.85) 35%, hsl(var(--primary) / 0.35) 65%, transparent 90%)",
-                        `url(${asset("images/map.webp")})`,
+                        `url(${resolveCmsAssetUrl(asset("images/map.webp"), PUBLIC_SITE_ORIGIN, interactive)})`,
                       ].join(", "),
                       backgroundSize: "cover, cover",
                       backgroundPosition: "center, center",
@@ -1092,7 +1095,7 @@ export default function Index() {
                     {contactLinks.map(({ href, label, kind, Icon, newTab }) => (
                       <li key={kind}>
                         <a
-                          href={href}
+                          href={interactive && safePublicUrl(href, { allowContact: true }) ? href : undefined}
                           rel="noopener"
                           {...(newTab ? { target: "_blank" } : {})}
                           className="group flex items-center gap-3 px-4 py-3 rounded-xl bg-background/60 hover:bg-background border border-border/50 hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
@@ -1137,9 +1140,12 @@ export default function Index() {
           </div>
         </section>
 
+      </>)}
+      {section === "gallery" && (<>
         {/* Photo strip — leftover-but-loved photos, lazy-drift gallery. */}
         <section
-          id="gallery"
+          data-section-kind={section}
+          id={sectionId}
           aria-label={t("ui.strip.aria")}
           className="scroll-mt-24 py-16 md:py-20 border-t border-border/30 bg-gradient-to-b from-background to-primary/5"
         >
@@ -1152,130 +1158,11 @@ export default function Index() {
             </p>
           </div>
           <PhotoStrip
-            images={[
-              {
-                src: images.ps_portrait,
-                thumbSrc: images.ps_portrait_thumb,
-                alt: t("media.photoset.portrait_alt"),
-                caption: t("media.photoset.portrait_caption"),
-              },
-              {
-                src: images.ps_walk,
-                thumbSrc: images.ps_walk_thumb,
-                alt: t("media.photoset.walk_alt"),
-                caption: t("media.photoset.walk_caption"),
-              },
-              {
-                src: images.ps_scratch,
-                thumbSrc: images.ps_scratch_thumb,
-                alt: t("media.photoset.scratch_alt"),
-                caption: t("media.photoset.scratch_caption"),
-              },
-              {
-                src: images.ps_ball,
-                thumbSrc: images.ps_ball_thumb,
-                alt: t("media.photoset.ball_alt"),
-                caption: t("media.photoset.ball_caption"),
-              },
-              {
-                src: images.ps_hug,
-                thumbSrc: images.ps_hug_thumb,
-                alt: t("media.photoset.hug_alt"),
-                caption: t("media.photoset.hug_caption"),
-              },
-              {
-                src: images.ps_rug,
-                thumbSrc: images.ps_rug_thumb,
-                alt: t("media.photoset.rug_alt"),
-                caption: t("media.photoset.rug_caption"),
-              },
-              {
-                src: images.ps_paw,
-                thumbSrc: images.ps_paw_thumb,
-                alt: t("media.photoset.paw_alt"),
-                caption: t("media.photoset.paw_caption"),
-              },
-              {
-                src: images.ps_balcony_sun,
-                thumbSrc: images.ps_balcony_sun_thumb,
-                alt: t("media.photoset.balcony_sun_alt"),
-                caption: t("media.photoset.balcony_sun_caption"),
-              },
-              {
-                src: images.ps_lick,
-                thumbSrc: images.ps_lick_thumb,
-                alt: t("media.photoset.lick_alt"),
-                caption: t("media.photoset.lick_caption"),
-              },
-              {
-                src: images.ps_belly,
-                thumbSrc: images.ps_belly_thumb,
-                alt: t("media.photoset.belly_alt"),
-                caption: t("media.photoset.belly_caption"),
-              },
-              {
-                src: images.ps_cat_balcony,
-                thumbSrc: images.ps_cat_balcony_thumb,
-                alt: t("media.photoset.cat_balcony_alt"),
-                caption: t("media.photoset.cat_balcony_caption"),
-              },
-              {
-                src: images.ps_family,
-                thumbSrc: images.ps_family_thumb,
-                alt: t("media.photoset.family_alt"),
-                caption: t("media.photoset.family_caption"),
-              },
-              {
-                src: images.dog_home,
-                alt: t("media.strip.home_alt"),
-                caption: t("media.strip.home_caption"),
-              },
-              {
-                src: images.dog_vet,
-                alt: t("media.strip.vet_alt"),
-                caption: t("media.strip.vet_caption"),
-              },
-              {
-                src: images.dogs_public,
-                alt: t("media.strip.park_alt"),
-                caption: t("media.strip.park_caption"),
-              },
-              {
-                src: images.bulka_car_walk,
-                thumbSrc: images.bulka_car_walk_thumb,
-                alt: t("media.strip.car_walk_alt"),
-                caption: t("media.strip.car_walk_caption"),
-              },
-              {
-                src: images.lena_dogs,
-                alt: t("media.strip.car_alt"),
-                caption: t("media.strip.car_caption"),
-              },
-              {
-                src: images.dog_car,
-                alt: t("media.habits_alt"),
-                caption: t("media.habits_caption"),
-              },
-              {
-                src: images.bulka_tv,
-                alt: t("media.skills_alt"),
-                caption: t("media.skills_caption"),
-              },
-              {
-                src: images.bulka_friends,
-                alt: t("media.story_alt"),
-                caption: t("media.story_caption"),
-              },
-              {
-                src: images.person_dog,
-                alt: t("media.contact_alt"),
-                caption: t("media.contact_caption"),
-              },
-            ]}
+            images={content.photosList || []}
           />
         </section>
-      </main>
-
+      </>)}
+      {section === "footer" && (<>
       {/* Footer */}
       <footer
         className="bg-primary/10 border-t border-border py-12 px-4 mt-0"
@@ -1297,7 +1184,7 @@ export default function Index() {
               const lena = (
                 <a
                   key="lena"
-                  href={t("contact_links.instagram_url")}
+                  href={interactive && safePublicUrl(t("contact_links.instagram_url")) ? t("contact_links.instagram_url") : undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={linkCls}
@@ -1308,7 +1195,7 @@ export default function Index() {
               const alex = (
                 <a
                   key="alex"
-                  href="https://mextner.com"
+                  href={interactive ? "https://mextner.com" : undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={linkCls}
@@ -1326,6 +1213,20 @@ export default function Index() {
           </p>
         </div>
       </footer>
-    </div>
+      </>)}
+    </>
   );
+}
+
+export default function BulkaSection({ section = "hero", content = {} }: { section?: string; content?: SectionContentData }) {
+  const interactive = useSiteRuntime();
+  const renderContent = React.useMemo(() => resolveSectionAssets(content, PUBLIC_SITE_ORIGIN, interactive), [content, interactive]);
+  const definition = Object.values(schema).find((item: any) => item.kind === section) as any;
+  const copy = { ...(content.copy || {}) };
+  for (const [key, photo] of Object.entries(content.photos || {})) {
+    const fields = definition?.photos?.[key];
+    if (fields) copy[fields.altKey.replaceAll(".", "__")] = photo.alt ?? "";
+    if (fields && typeof photo.caption === "string") copy[fields.captionKey.replaceAll(".", "__")] = photo.caption;
+  }
+  return <CmsCopyProvider value={copy}><SectionContent section={section} content={renderContent} /></CmsCopyProvider>;
 }

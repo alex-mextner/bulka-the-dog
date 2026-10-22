@@ -1,10 +1,11 @@
 import React, { createContext, useState, useEffect } from "react";
-import { Language } from "@/lib/translations";
+import type { Language } from "@/lib/translations";
 import { trackLanguageChange } from "@/lib/analytics";
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
+  availableLanguages: Language[];
 }
 
 export const LanguageContext = createContext<LanguageContextType | undefined>(
@@ -16,6 +17,7 @@ export const LanguageContext = createContext<LanguageContextType | undefined>(
 // Russian. Browser auto-detect + localStorage override happen on mount,
 // AFTER hydration, to avoid SSR-vs-client mismatch warnings.
 const DEFAULT_LANGUAGE: Language = "ru";
+const ALL_LANGUAGES: Language[] = ["ru", "rs", "en"];
 
 function detectClientLanguage(): Language {
   // Defensive: only call from inside useEffect, but double-check anyway.
@@ -41,20 +43,21 @@ function detectClientLanguage(): Language {
   return "rs";
 }
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(DEFAULT_LANGUAGE);
+export function LanguageProvider({ children, initialLanguage = DEFAULT_LANGUAGE, autoDetect = true, availableLanguages = ALL_LANGUAGES }: { children: React.ReactNode; initialLanguage?: Language; autoDetect?: boolean; availableLanguages?: Language[] }) {
+  const fallback = availableLanguages.includes(initialLanguage) ? initialLanguage : availableLanguages[0] || DEFAULT_LANGUAGE;
+  const [language, setLanguageState] = useState<Language>(fallback);
 
   // Resolve the *actual* preferred language only on the client, after mount.
   // If it differs from the default we baked into the SSG snapshot, swap it
   // here — React 18 reconciles this without remounting children.
   useEffect(() => {
+    if (!autoDetect) { setLanguageState(fallback); return; }
     const detected = detectClientLanguage();
-    if (detected !== DEFAULT_LANGUAGE) {
-      setLanguageState(detected);
-    }
-  }, []);
+    setLanguageState(availableLanguages.includes(detected) ? detected : fallback);
+  }, [fallback, autoDetect, availableLanguages]);
 
   const setLanguage = (lang: Language) => {
+    if (!availableLanguages.includes(lang)) return;
     setLanguageState(lang);
     try {
       window.localStorage.setItem("bulka-language", lang);
@@ -92,7 +95,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage, availableLanguages }}>
       {children}
     </LanguageContext.Provider>
   );

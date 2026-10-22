@@ -1,0 +1,580 @@
+{
+  "id": "bulka-home",
+  "created": "2026-10-22T00:00:00.000Z",
+  "modified": "2026-10-22T00:00:00.000Z",
+  "type": "puck",
+  "meta": {
+    "title": "Ja sam Bulka. Tražim dom u Beogradu.",
+    "description": "Imam negde 1–2 godine, ali to nije sigurno. Veterinar je siguran da više neću rasti — evo me: finalna verzija, 22 kg lepote."
+  },
+  "content": {
+    "puckData": {
+      "root": {
+        "props": {
+          "locale": "rs",
+          "title": "Ja sam Bulka. Tražim dom u Beogradu.",
+          "description": "Imam negde 1–2 godine, ali to nije sigurno. Veterinar je siguran da više neću rasti — evo me: finalna verzija, 22 kg lepote.",
+          "socialImage": "/og-image.jpg",
+          "copy": {
+            "brand__name": "Bulka",
+            "cta__adopt_aria": "Pređi na sekciju s Leninim kontaktima",
+            "cta__sticky": "Hoću da je uzmem",
+            "footer__tagline": "Bulka traži svoje ljude",
+            "ui__footer_made__template": "Napravili {LENA} i {ALEX} s ljubavlju prema Bulki",
+            "contact_links__instagram_url": "https://www.instagram.com/lari4kina_babich?igsh=bTVhMjZrMWR2aXhm",
+            "ui__footer_made__lena": "Lena",
+            "ui__footer_made__alex": "Aleks",
+            "nav__appearance": "Izgled",
+            "nav__habits": "Navike",
+            "nav__skills": "Veštine",
+            "nav__health": "Zdravlje",
+            "nav__conditions": "Uslovi",
+            "nav__faq": "Pitanja",
+            "nav__contact": "Kontakt",
+            "nav__gallery": "Slike"
+          }
+        }
+      },
+      "content": [
+        {
+          "type": "Hero",
+          "props": {
+            "id": "bulka-hero",
+            "copy": {
+              "hero__title": "Zdravo! Ja sam Bulka, kuca.",
+              "hero__intro": "Imam negde 1–2 godine, ali to nije sigurno. Veterinar je siguran da više neću rasti — evo me: finalna verzija, 22 kg lepote.",
+              "hero__story": "Našla me je devojka **Lena** iz Rusije, kada sam prosila u restoranu Aleksandar Ski Staza na Banovom brdu. Osećala sam se jako loše jer je na meni bilo više od **70 krpelja**, pa je Lena odlučila da me uzme i pomogne mi.",
+              "hero__current": "Sada me je Lena izlečila, naučila **svakojakim mudrostima** i traži mi moje ljude. Lena je plakala dok je pravila ovaj sajt, jer želi da me zadrži, ali mora svake godine da napušta Beograd na celu zimu zbog problema sa vazduhom. A želi da **uz mene svaki dan budu moji ljudi ❤️**",
+              "hero__question": "Pročitajte o meni. Možda ste baš vi moji ljudi?",
+              "cta__adopt_aria": "Pređi na sekciju s Leninim kontaktima",
+              "cta__adopt": "Hoću da se upoznamo",
+              "cta__learn_more": "Saznaj više o meni"
+            },
+            "photos": {
+              "ps_portrait": {
+                "src": "/images/photo-set/ps_portrait.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_portrait.webp",
+                "alt": "Gledam u kameru",
+                "caption": "Da, lepa sam. Hvala što ste primetili"
+              }
+            }
+          }
+        },
+        {
+          "type": "Appearance",
+          "props": {
+            "id": "bulka-appearance",
+            "copy": {
+              "appearance__title": "Izgled",
+              "ui__appearance__kg_value": "22",
+              "ui__appearance__kg_unit": "kg",
+              "ui__appearance__kg_label": "težina",
+              "ui__appearance__cm_value": "50",
+              "ui__appearance__cm_unit": "cm",
+              "ui__appearance__cm_label": "u grebenu",
+              "ui__appearance__sex_value": "Devojčica",
+              "ui__appearance__sex_label": "pol",
+              "ui__appearance__ears": "Uši kao kod korgija",
+              "ui__appearance__tail": "Repić kuka kao kod lajke",
+              "ui__appearance__face": "Njuška kao akita inu",
+              "ui__appearance__face_sub": "baka se očito družila sa nekim plemenitim psima"
+            },
+            "photos": {
+              "ps_rug": {
+                "src": "/images/photo-set/ps_rug.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_rug.webp",
+                "alt": "Ležim na tepihu u stanu",
+                "caption": "Ovo je moj tepih. Piše u ustavu"
+              }
+            }
+          }
+        },
+        {
+          "type": "Habits",
+          "props": {
+            "id": "bulka-habits",
+            "copy": {
+              "habits__title": "Kućne navike"
+            },
+            "items": [
+              {
+                "id": "bathroom",
+                "emoji": "🚽",
+                "title": "Toalet",
+                "body": "Shvatila sam da se u toalet ide napolje već drugog dana boravka u kući i od tada nikada nisam piškila kod kuće.",
+                "photo": {
+                  "src": "/images/photo-set/ps_portrait.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_portrait.webp",
+                  "alt": "Gledam u kameru",
+                  "caption": "Da, lepa sam. Hvala što ste primetili"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/dog_apartment.webp",
+                  "alt": "Kod veterinara, Lena me grli",
+                  "caption": "Kod veterinara. Lena u ulozi hitne pomoći"
+                },
+                "showPhotos": false
+              },
+              {
+                "id": "walks",
+                "emoji": "🚶",
+                "title": "Šetnje",
+                "body": "Šetaju me dva puta dnevno: u 10 ujutru i u 10 uveče. Više volim da budem kod kuće, pa mi je drago da obavim svoje i vratim se, ali mogu i da vam pravim društvo ceo dan i da idem s vama u banku, kozmetički salon, restoran i u goste. Tamo ću mirno leći pored vas i izvaljati se.",
+                "photo": {
+                  "src": "/images/photo-set/ps_walk.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_walk.webp",
+                  "alt": "Lena me vodi alejom parka",
+                  "caption": "Jutarnji park — moj. Lena samo drži povodac"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/dogs_public.webp",
+                  "alt": "Ja u parku sa još jednim psom i dvoje ljudi",
+                  "caption": "U parku sa drugarima"
+                },
+                "showPhotos": true
+              },
+              {
+                "id": "behavior",
+                "emoji": "🐕",
+                "title": "Ponašanje",
+                "body": "Neću skakati na druge pse niti se tući s njima — nisam se valjda na đubrištu našla. Mogu mirno da šetam i na povocu i bez njega: hodaću oko vas i njuškati cvetiće.",
+                "photo": {
+                  "src": "/images/dogs_public.webp",
+                  "alt": "Ja u parku sa još jednim psom i dvoje ljudi",
+                  "caption": "U parku sa drugarima"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/photo-set/ps_family.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_family.webp",
+                  "alt": "Porodična fotka: Lena, momak, dve mačke i ja",
+                  "caption": "Svi drže mačke. Ja ležim i posmatram ovaj teatar"
+                },
+                "showPhotos": true
+              },
+              {
+                "id": "car",
+                "emoji": "🚗",
+                "title": "U autu",
+                "body": "Umem sama da uskočim u auto i mirno se vozim na zadnjem sedištu. Imam supermoć — nikada mi ne pozli u vožnji!",
+                "photo": {
+                  "src": "/images/bulka_car_walk.webp",
+                  "thumbSrc": "/images/bulka_car_walk_thumb.webp",
+                  "alt": "Ja sa Lenom pored auta, već vučem povodac ka obavezama",
+                  "caption": "Auti me ne plaše. Poslovna sam, idem svojom rutom"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/lena_dogs.webp",
+                  "alt": "Ja sa Lenom u autu, Lena se smeje na selfiju",
+                  "caption": "Vozimo se u autu. Mene ne hvata mučnina — supermoć"
+                },
+                "showPhotos": true
+              },
+              {
+                "id": "home",
+                "emoji": "🏠",
+                "title": "Kod kuće",
+                "body": "Kod kuće uglavnom spavam. Lena mi ne dozvoljava da se penjem na kauč, što ja, naravno, smatram diskriminacijom. Ako me slučajno ostave samu ceo dan, nastaviću da spavam. Ne razumem pse koji se plaše da ostanu sami kod kuće — naprotiv, super je, može da se uživa u tišini.",
+                "photo": {
+                  "src": "/images/bulka_tv.webp",
+                  "alt": "Sedim na tepihu ispred televizora",
+                  "caption": "Sedim. Čekam komandu „daj šapu“"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/photo-set/ps_balcony_sun.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_balcony_sun.webp",
+                  "alt": "Ležim na balkonu na suncu",
+                  "caption": "Balkon, sunce, ja. Klasika"
+                },
+                "showPhotos": true
+              },
+              {
+                "id": "food",
+                "emoji": "🍖",
+                "title": "Hrana",
+                "body": "Jedem suvu hranu dva puta dnevno. I poslastice. Volim pseći paštet i sir.",
+                "photo": {
+                  "src": "/images/photo-set/ps_rug.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_rug.webp",
+                  "alt": "Ležim na tepihu u stanu",
+                  "caption": "Ovo je moj tepih. Piše u ustavu"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/photo-set/ps_ball.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_ball.webp",
+                  "alt": "Ja s teniskom lopticom",
+                  "caption": "Loptica tu stoji, za svaki slučaj"
+                },
+                "showPhotos": false
+              },
+              {
+                "id": "cats",
+                "emoji": "🐱",
+                "title": "Život sa mačkama",
+                "body": "Trenutno živim s dva mačka. Iskreno, ne primećujem ih: pa hodaju tuda, šta me briga.",
+                "photo": {
+                  "src": "/images/photo-set/ps_cat_balcony.webp",
+                  "thumbSrc": "/images/photo-set/thumbs/ps_cat_balcony.webp",
+                  "alt": "Njušim mačku ispod stola na balkonu",
+                  "caption": "Živimo zajedno. Dogovorili smo se"
+                },
+                "secondaryPhoto": {
+                  "src": "/images/dog_home.webp",
+                  "alt": "Ležim kod kuće, mačke sede na prozorskoj dasci",
+                  "caption": "Mačke za svojim poslom, ja — za svojim"
+                },
+                "showPhotos": true
+              }
+            ]
+          }
+        },
+        {
+          "type": "Skills",
+          "props": {
+            "id": "bulka-skills",
+            "copy": {
+              "skills__title": "Veštine",
+              "skills__intro": "Za dve nedelje kod kuće naučila sam mnogo komandi.",
+              "ui__skills__commands_title": "Komande koje znam",
+              "skills__explanation": "Ne razumem šta je tu teško: jednostavno radiš ono što te traže, a onda ti daju poslasticu."
+            },
+            "photos": {
+              "ps_paw": {
+                "src": "/images/photo-set/ps_paw.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_paw.webp",
+                "alt": "Dajem šapu",
+                "caption": "«Daj šapu» — jedina komanda s kojom se u potpunosti slažem"
+              }
+            },
+            "commands": [
+              {
+                "label": "Sedi"
+              },
+              {
+                "label": "Lezi"
+              },
+              {
+                "label": "Mesto"
+              },
+              {
+                "label": "Kod mene"
+              },
+              {
+                "label": "Daj šapu"
+              },
+              {
+                "label": "Lopta"
+              },
+              {
+                "label": "Ne sme"
+              }
+            ]
+          }
+        },
+        {
+          "type": "Health",
+          "props": {
+            "id": "bulka-health",
+            "copy": {
+              "health__title": "Zdravlje",
+              "health__intro": "Na ulici mi je palo.",
+              "ui__health_card__prefix": "Br."
+            },
+            "photos": {
+              "dog_apartment": {
+                "src": "/images/dog_apartment.webp",
+                "alt": "Kod veterinara, Lena me grli",
+                "caption": "Kod veterinara. Lena u ulozi hitne pomoći"
+              },
+              "health1": {
+                "src": "/images/health1.webp",
+                "alt": "Moj rendgen: kičma i metak pored nje",
+                "caption": "Rendgen stomaka. Metak kod kičme — ne smeta"
+              },
+              "health2": {
+                "src": "/images/health2.webp",
+                "alt": "Moj rendgen: zadnja šapica",
+                "caption": "Rendgen šape. Stara povreda se vidi"
+              },
+              "cardiology": {
+                "src": "/images/cardiology.webp",
+                "alt": "Kardiološki izveštaj Dr. Filipa Božinovskog",
+                "caption": "Kardiologija: dirofilaria immitis Stg II, leči se"
+              }
+            },
+            "healthItems": [
+              {
+                "icon": "Crosshair",
+                "body": "Prvo, nekada je u mene pucao loš čovek iz vazdušnog pištolja. Pored kičme mi je zaglavljen metak. On mi ne šteti zdravlju i ne treba ga vaditi, osim ako ne počne da boli."
+              },
+              {
+                "icon": "Bone",
+                "body": "Drugo, jako davno sam slomila zadnju šapicu. Niko me nije lečio, pa je srasla krivo, i ponekad posle sat vremena hodanja počnem da hramljem. Doktor kaže da nije strašno, to mi daje šarm!"
+              },
+              {
+                "icon": "Worm",
+                "body": "Treće, u srcu mi živi srčani crv. Trenutno je u drugoj fazi — to je tek početak, crvić je manji od centimetra, srce na UZ-u i EKG-u potpuno čisto (vidi izveštaj dole). Lena je već počela da ga tera napolje: narednih pola godine idemo kod veterinara jednom u dve nedelje, dajemo mu 4000 dinara i dobijam injekciju s kapima. Tako će crv umreti. Dok se lečim — ne smem da trčim duže od 5 minuta, inače kašljem."
+              },
+              {
+                "icon": "Ban",
+                "body": "Četvrto, ne smem da se sterilišem dok ne isteramo crva. Ali iskreno, loptica mi se sviđa više nego nametljivi mužjaci."
+              }
+            ]
+          }
+        },
+        {
+          "type": "Conditions",
+          "props": {
+            "id": "bulka-conditions",
+            "copy": {
+              "conditions__title": "Uslovi",
+              "ui__conditions__adoption_title": "Kome me daju",
+              "conditions__adoption": "Lena kaže da će me dati i u stan i u kuću, ali neće dozvoliti da me iko drži na lancu.",
+              "ui__conditions__support_title": "Podrška i kontakt",
+              "conditions__communication": "Takođe kaže da bi volela da bude u kontaktu, pa i da se druži s mojim novim ljudima. I vratiće me, ako ne ispadne.",
+              "conditions__support": "Pomagaće oko plaćanja mog lečenja i sterilizacije. A pored toga, ona ili naša drugarica Ira uzimaće me na čuvanje kada odlučite da putujete. I još može da me vozi svojim autom kod veterinara, da ne biste plaćali taksi.",
+              "ui__conditions__bonus_title": "Bonus",
+              "conditions__perk": "Zamislite, odmah se smeštam s dve dadilje i ličnim vozačem. Snašla se, a?"
+            },
+            "photos": {
+              "ps_family": {
+                "src": "/images/photo-set/ps_family.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_family.webp",
+                "alt": "Porodična fotka: Lena, momak, dve mačke i ja",
+                "caption": "Svi drže mačke. Ja ležim i posmatram ovaj teatar"
+              }
+            }
+          }
+        },
+        {
+          "type": "Questions",
+          "props": {
+            "id": "bulka-faq",
+            "copy": {
+              "faq__title": "Šta me obično pitaju",
+              "faq__subtitle": "Niste našli svoje pitanje? Pišite Leni direktno — ona kuca brže od mene.",
+              "faq__banner_title": "Ako ne ispadne kako treba, Lena me uzima nazad.",
+              "faq__banner_subtitle": "Bez ljutnje, bez uslova, bez «probajte još mesec dana»."
+            },
+            "items": [
+              {
+                "id": "kids",
+                "question": "Jesi okej s decom?",
+                "answer": "Lena me sa decom nije testirala, neću da lažem. Ali ne skačem, ne ujedam, druge pse na ulici zaobilazim — osnovni paket postoji. Hoćete da budete sigurni — dođite s detetom u goste, vidimo uživo."
+              },
+              {
+                "id": "rental",
+                "question": "Ja sam u iznajmljenom stanu, sme li to?",
+                "answer": "Sme. Tiha sam, stvari ne kvarim — Lena će potvrditi. Ako gazda traži depozit za psa — Lena je spremna da popriča s njim i pomogne da objasni da nisam pas zbog kog se prelepljuju tapete."
+              },
+              {
+                "id": "monthly_cost",
+                "question": "Koliko ću trošiti mesečno?",
+                "answer": "Hrana i redovan odlazak kod veterinara — pošto dovršimo crva. Crva dolečujem na Leninu, vas se to ne tiče. Ukratko, po novcu sam kao bilo koji prosečan pas — nikakvih iznenađenja tipa «evo vam još jedna bolest»."
+              },
+              {
+                "id": "guarantee",
+                "question": "Šta ako ne ispadne?",
+                "answer": "Lena me uzima nazad. Besplatno, bez ljutnje, bez uslova."
+              },
+              {
+                "id": "other_pets",
+                "question": "Šta s drugim psima i mačkama?",
+                "answer": "S dve mačke živim baš sad i skoro ih i ne primećujem: hodaju tuda i hodaju, meni šta. S drugim psima se ne kačim i ne tučem — ako naiđe nametljivi mužjak, jednostavno se okrenem. Nije moj žanr."
+              },
+              {
+                "id": "health",
+                "question": "Jesi zdrava?",
+                "answer": "Da, ali ima detalja. Srčani crv — leči se, terapija već ide. Metak kod kičme leži i nikome ne smeta. Šapa kriva — dodaje šarma, kaže doktor. Detalji su u sekciji «Zdravlje», tamo sve piše: i metak, i šapa, i crv."
+              },
+              {
+                "id": "remote",
+                "question": "Nisam u Beogradu. Može na daljinu?",
+                "answer": "Zavisi koliko daleko. Beograd, Novi Sad i okolina — okej: Lena želi povremeno da me obilazi, pa mora da me dohvati. Ostatak EU — da se čujemo, smislićemo nešto. Drugi kontinent, viza, let preko pola sveta — iskreno: teško."
+              },
+              {
+                "id": "deadline",
+                "question": "Kad treba da se odlučim?",
+                "answer": "Lena odlazi zimi, tačan datum još pluta. Niko vam ne stoji nad dušom — ali što se pre odlučimo, svima je mirnije, pre svega meni."
+              }
+            ]
+          }
+        },
+        {
+          "type": "Game",
+          "props": {
+            "id": "bulka-game",
+            "copy": {
+              "ui__game__title": "Bulkin dan",
+              "ui__game__subtitle": "Mala interaktivna priča. Svako jutro — novi izbor."
+            }
+          }
+        },
+        {
+          "type": "Contact",
+          "props": {
+            "id": "bulka-contact",
+            "copy": {
+              "contact__title": "Kako da me upoznate?",
+              "contact__location": "Lena i ja živimo na Vukovom spomeniku, pored Super Vera Zirа. Možete doći da se prošetate s nama, popijete kafu. A ako želite, mi ćemo doći kod vas da se upoznamo!",
+              "ui__contact__location_address1": "Vukov Spomenik",
+              "ui__contact__location_address2": "pored Super Vera Zira",
+              "contact_section__open_map": "Otvori na mapi",
+              "ui__contact__location_title": "Lokacija",
+              "ui__contact__location_city": "Beograd, Srbija",
+              "ui__contact__contacts_title": "Piši Leni",
+              "contact_links__telegram_url": "https://t.me/larichkina_b",
+              "contact_links__telegram": "@larichkina_b",
+              "contact_links__whatsapp_url": "https://wa.me/qr/BT5L6JR632BHC1",
+              "contact_links__whatsapp": "WhatsApp",
+              "contact_links__instagram_url": "https://www.instagram.com/lari4kina_babich?igsh=bTVhMjZrMWR2aXhm",
+              "contact_links__instagram": "@lari4kina_babich",
+              "contact_links__phone_url": "tel:+381616333571",
+              "contact_links__phone": "+381 61 633 35 71"
+            },
+            "photos": {
+              "ps_hug": {
+                "src": "/images/photo-set/ps_hug.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_hug.webp",
+                "alt": "Lena me grli u parku i smeje se",
+                "caption": "Lena i ja — uzajamno"
+              }
+            },
+            "mapUrl": "https://www.google.com/maps/search/?api=1&query=Super+Vero+Zira+Vukov+Spomenik+Belgrade"
+          }
+        },
+        {
+          "type": "PhotoGallery",
+          "props": {
+            "id": "bulka-gallery",
+            "copy": {
+              "ui__strip__aria": "Još fotografija Bulke",
+              "ui__strip__title": "Još kadrova",
+              "ui__strip__subtitle": "Pomerajte mišem levo–desno ili samo gledajte."
+            },
+            "photosList": [
+              {
+                "src": "/images/photo-set/ps_portrait.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_portrait.webp",
+                "alt": "Gledam u kameru",
+                "caption": "Da, lepa sam. Hvala što ste primetili"
+              },
+              {
+                "src": "/images/photo-set/ps_walk.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_walk.webp",
+                "alt": "Lena me vodi alejom parka",
+                "caption": "Jutarnji park — moj. Lena samo drži povodac"
+              },
+              {
+                "src": "/images/photo-set/ps_scratch.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_scratch.webp",
+                "alt": "Češu me za uhom, zažmurila sam od zadovoljstva",
+                "caption": "Najveći izum čovečanstva. Ne rakete"
+              },
+              {
+                "src": "/images/photo-set/ps_ball.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_ball.webp",
+                "alt": "Ja s teniskom lopticom",
+                "caption": "Loptica tu stoji, za svaki slučaj"
+              },
+              {
+                "src": "/images/photo-set/ps_hug.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_hug.webp",
+                "alt": "Lena me grli u parku i smeje se",
+                "caption": "Lena i ja — uzajamno"
+              },
+              {
+                "src": "/images/photo-set/ps_rug.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_rug.webp",
+                "alt": "Ležim na tepihu u stanu",
+                "caption": "Ovo je moj tepih. Piše u ustavu"
+              },
+              {
+                "src": "/images/photo-set/ps_paw.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_paw.webp",
+                "alt": "Dajem šapu",
+                "caption": "«Daj šapu» — jedina komanda s kojom se u potpunosti slažem"
+              },
+              {
+                "src": "/images/photo-set/ps_balcony_sun.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_balcony_sun.webp",
+                "alt": "Ležim na balkonu na suncu",
+                "caption": "Balkon, sunce, ja. Klasika"
+              },
+              {
+                "src": "/images/photo-set/ps_lick.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_lick.webp",
+                "alt": "Sedim i ližem se na balkonu",
+                "caption": "Upravo sam pojela nešto ukusno. Nemojte pitati"
+              },
+              {
+                "src": "/images/photo-set/ps_belly.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_belly.webp",
+                "alt": "Ležim na leđima, masiraju mi stomak",
+                "caption": "Masaža stomaka po rasporedu. Žvakalica — bonus"
+              },
+              {
+                "src": "/images/photo-set/ps_cat_balcony.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_cat_balcony.webp",
+                "alt": "Njušim mačku ispod stola na balkonu",
+                "caption": "Živimo zajedno. Dogovorili smo se"
+              },
+              {
+                "src": "/images/photo-set/ps_family.webp",
+                "thumbSrc": "/images/photo-set/thumbs/ps_family.webp",
+                "alt": "Porodična fotka: Lena, momak, dve mačke i ja",
+                "caption": "Svi drže mačke. Ja ležim i posmatram ovaj teatar"
+              },
+              {
+                "src": "/images/dog_home.webp",
+                "alt": "Ležim kod kuće, mačke sede na prozorskoj dasci",
+                "caption": "Mačke za svojim poslom, ja — za svojim"
+              },
+              {
+                "src": "/images/dog_vet.webp",
+                "alt": "Ležim na tepihu u gostima, u pozadini televizor",
+                "caption": "Komande učim. Ponekad ih i izvršim"
+              },
+              {
+                "src": "/images/dogs_public.webp",
+                "alt": "Ja u parku sa još jednim psom i dvoje ljudi",
+                "caption": "U parku sa drugarima"
+              },
+              {
+                "src": "/images/bulka_car_walk.webp",
+                "thumbSrc": "/images/bulka_car_walk_thumb.webp",
+                "alt": "Ja sa Lenom pored auta, već vučem povodac ka obavezama",
+                "caption": "Auti me ne plaše. Poslovna sam, idem svojom rutom"
+              },
+              {
+                "src": "/images/lena_dogs.webp",
+                "alt": "Ja sa Lenom u autu, Lena se smeje na selfiju",
+                "caption": "Vozimo se u autu. Mene ne hvata mučnina — supermoć"
+              },
+              {
+                "src": "/images/dog_car.webp",
+                "alt": "Ležim na tepihu sa kosti pored kreveta",
+                "caption": "Svakodnevica: kost, tepih, topao pod"
+              },
+              {
+                "src": "/images/bulka_tv.webp",
+                "alt": "Sedim na tepihu ispred televizora",
+                "caption": "Sedim. Čekam komandu „daj šapu“"
+              },
+              {
+                "src": "/images/bulka_friends.webp",
+                "alt": "Ja na klupi sa dvoje ljudi i malim čupavim psom",
+                "caption": "Sa drugim psima bez drame — čak i sa ovim čupavkom"
+              },
+              {
+                "src": "/images/person_dog.webp",
+                "alt": "Ja s Lenom u dvorištu pod drvećem",
+                "caption": "Dvorište kod Vukovog spomenika. Možemo se sresti tu"
+              }
+            ]
+          }
+        }
+      ],
+      "zones": {}
+    }
+  }
+}
