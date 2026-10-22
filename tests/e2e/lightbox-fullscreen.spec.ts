@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { translations } from "../../client/lib/translations";
 
 // Regression guard: the yarl lightbox portal fills the entire physical screen
 // including iOS safe-area zones (notch / Dynamic Island top, home indicator
@@ -56,8 +57,10 @@ async function tapFirstPhoto(page: Page) {
 
 test.describe("Lightbox fullscreen coverage", () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("bulka-language", "ru"));
     await page.goto("/?touch=1", { waitUntil: "load" });
     await waitForGalleryReady(page);
+    await expect(page.locator("html")).toHaveAttribute("lang", "ru");
   });
 
   // ── Portal fills the entire visual viewport ──────────────────────────────────
@@ -310,15 +313,14 @@ test.describe("Lightbox fullscreen coverage", () => {
       .waitFor({ state: "attached", timeout: 5_000 });
     await page.waitForTimeout(200);
 
-    const result = await page.evaluate(() => {
-      const toolbar = document.querySelector(
-        ".bulka-lightbox .yarl__toolbar",
-      ) as HTMLElement | null;
-      const close = document.querySelector(
-        '.bulka-lightbox button[title="Close"]',
-      ) as HTMLElement | null;
-      if (!toolbar || !close) return null;
-      const rect = close.getBoundingClientRect();
+    const close = page.locator(".bulka-lightbox").getByRole("button", {
+      name: translations.ru.accessibility.close,
+      exact: true,
+    });
+    const result = await close.evaluate((button) => {
+      const toolbar = button.closest(".yarl__toolbar");
+      if (!toolbar) return null;
+      const rect = button.getBoundingClientRect();
       return {
         toolbarPaddingTop: window.getComputedStyle(toolbar).paddingTop,
         closeTop: rect.top,
