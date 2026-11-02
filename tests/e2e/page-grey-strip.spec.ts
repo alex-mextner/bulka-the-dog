@@ -24,6 +24,7 @@ import type { Page } from "@playwright/test";
 test.describe("Page canvas background chain (grey strip prevention)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/", { waitUntil: "load" });
+    await expect(page.locator("footer")).toBeAttached();
   });
 
   test("body has non-transparent background colour", async ({ page }) => {
@@ -119,7 +120,10 @@ test.describe("Scroll stress: no state leakage after scroll and menu nav", () =>
     // Scroll to the bottom and back three times to stress the layout.
     for (let i = 0; i < 3; i++) {
       await page.evaluate(() =>
-        window.scrollTo({ top: document.body.scrollHeight, behavior: "instant" }),
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: "instant",
+        }),
       );
       await page.waitForTimeout(80);
       await page.evaluate(() =>
@@ -164,8 +168,9 @@ test.describe("Scroll stress: no state leakage after scroll and menu nav", () =>
       const htmlOverscroll = window.getComputedStyle(
         document.documentElement,
       ).overscrollBehavior;
-      const bodyOverscroll =
-        window.getComputedStyle(document.body).overscrollBehavior;
+      const bodyOverscroll = window.getComputedStyle(
+        document.body,
+      ).overscrollBehavior;
       const bodyBg = window.getComputedStyle(document.body).backgroundColor;
       const rootBg = (() => {
         const root = document.getElementById("root");
