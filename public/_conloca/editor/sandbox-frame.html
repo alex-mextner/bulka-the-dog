@@ -1,0 +1,223 @@
+<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: https: blob:; font-src data: https:"><style>html,body{margin:0;padding:0}#__sandbox_root{box-sizing:border-box;display:flow-root}</style></head><body><div id="__sandbox_root" class="conloca-prose"></div><script>var __name=function(fn){return fn};(function sandboxFrameMain(deps) {
+    // MDX runs only where it has no origin of its own: an opaque origin inside a parent frame.
+    if (self.origin !== 'null' || window.parent === window)
+        return;
+    const root = document.getElementById('__sandbox_root');
+    if (!root)
+        return;
+    // Per-instance key from ?k= so the host can accept messages without relying
+    // on event.source === iframe.contentWindow (broken for opaque sandboxes in Chromium).
+    let frameKey = '';
+    try {
+        frameKey = new URL(location.href).searchParams.get('k') || '';
+    }
+    catch {
+        frameKey = '';
+    }
+    const post = (message) => {
+        parent.postMessage({ ...message, k: frameKey, __conlocaSandbox: true }, '*');
+    };
+    let lastHeight = -1;
+    const postHeight = () => {
+        // Child margins (prose p/h1) collapse out of a normal block root, so
+        // getBoundingClientRect(root) under-reports. flow-root on the root
+        // contains them; also take scrollHeight so a short iframe cannot
+        // circularly clamp the measure.
+        const px = Math.ceil(Math.max(root.getBoundingClientRect().height, root.scrollHeight, document.body.scrollHeight, document.documentElement.scrollHeight));
+        if (px !== lastHeight) {
+            lastHeight = px;
+            post({ __conlocaSandbox: true, kind: 'height', px });
+        }
+    };
+    document.addEventListener('click', (event) => {
+        const target = event.target;
+        const anchor = target && 'closest' in target ? target.closest('a') : null;
+        if (anchor) {
+            event.preventDefault();
+            post({ __conlocaSandbox: true, kind: 'link', href: anchor.getAttribute('href') || '' });
+        }
+    }, true);
+    document.addEventListener('pointerdown', () => post({ __conlocaSandbox: true, kind: 'interact' }), true);
+    const applyStyles = (css) => {
+        let style = document.getElementById('__sandbox_styles');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = '__sandbox_styles';
+            document.head.appendChild(style);
+        }
+        style.textContent = css;
+    };
+    const renderMdx = (code, images) => {
+        const runtime = deps.createSandboxRuntime(images);
+        deps
+            .runCompiledMdx(code, runtime)
+            .then((module) => {
+            const Component = module?.default;
+            root.textContent = '';
+            if (typeof Component === 'function') {
+                const output = Component({});
+                if (output)
+                    root.appendChild(output);
+            }
+            post({ __conlocaSandbox: true, kind: 'rendered' });
+            postHeight();
+        })
+            .catch((error) => {
+            post({
+                __conlocaSandbox: true,
+                kind: 'error',
+                message: error instanceof Error ? error.message : String(error),
+            });
+        });
+    };
+    const renderHtml = (html, images) => {
+        // Already allowlist-sanitized by the host; the sandbox contains anything
+        // that slips through (opaque origin, no privileged globals, strict CSP).
+        // Parsed inert first, so nothing loads before a sent src replaces the stored one.
+        const parsed = new DOMParser().parseFromString(html, 'text/html');
+        if (images) {
+            parsed.querySelectorAll('[src]').forEach((el) => {
+                // Inherited keys are never strings, so only a src the host sent is swapped.
+                const sent = images[el.getAttribute('src') ?? ''];
+                if (typeof sent === 'string')
+                    el.setAttribute('src', sent);
+            });
+        }
+        // A leading <style> or <link> lands in the parsed head; keep it with the body, as innerHTML did.
+        root.replaceChildren(...Array.from(parsed.head.childNodes), ...Array.from(parsed.body.childNodes));
+        post({ __conlocaSandbox: true, kind: 'rendered' });
+        postHeight();
+    };
+    window.addEventListener('message', (event) => {
+        // Brand + kind only. Requiring event.source === parent drops legitimate
+        // host posts under some nested/opaque-origin Chromium cases.
+        const data = event.data;
+        if (data?.__conlocaSandbox !== true || data.kind !== 'render')
+            return;
+        if (typeof data.styles === 'string')
+            applyStyles(data.styles);
+        try {
+            if (data.mode === 'mdx')
+                renderMdx(data.payload, data.images);
+            else
+                renderHtml(data.payload, data.images);
+        }
+        catch (error) {
+            post({ __conlocaSandbox: true, kind: 'error', message: error instanceof Error ? error.message : String(error) });
+        }
+    });
+    const ResizeObs = window.ResizeObserver;
+    if (ResizeObs)
+        new ResizeObs(postHeight).observe(root);
+    post({ __conlocaSandbox: true, kind: 'ready' });
+})({createSandboxRuntime:function createSandboxRuntime(images) {
+    // Everything below stays inside this function: the frame receives it as source text.
+    const Fragment = Symbol('sandbox.fragment');
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    // A child is built before its parent, so an element written inside <svg>
+    // starts out as HTML, which a browser does not draw there. The <svg> builds
+    // it again as SVG from what each HTML element was made of, kept here, which
+    // is the namespace React would have given it.
+    const madeOf = new WeakMap();
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- the frame receives this function as source text, so its helpers stay inside it.
+    const toNodes = (value) => {
+        if (value == null || value === true || value === false)
+            return [];
+        if (Array.isArray(value))
+            return value.flatMap(toNodes);
+        if (typeof value === 'string' || typeof value === 'number')
+            return [document.createTextNode(String(value))];
+        if (value instanceof Node)
+            return [value];
+        return [document.createTextNode(String(value))];
+    };
+    const element = (type, p, inSvg) => {
+        const svg = inSvg || type === 'svg';
+        const el = svg ? document.createElementNS(SVG_NS, type) : document.createElement(type);
+        if (!svg)
+            madeOf.set(el, { type, props: p });
+        for (const key in p) {
+            if (key === 'children' || key === 'key')
+                continue;
+            const value = p[key];
+            // Inherited keys are never strings, so only a src the host sent is swapped.
+            const sent = type === 'img' && key === 'src' && typeof value === 'string' ? images?.[value] : undefined;
+            if (/^on/i.test(key))
+                continue; // never wire an event handler
+            if (key === 'className') {
+                el.setAttribute('class', String(value));
+            }
+            else if (key === 'htmlFor') {
+                el.setAttribute('for', String(value));
+            }
+            else if (key === 'style' && value && typeof value === 'object') {
+                Object.assign(el.style, value);
+            }
+            else if (value === true) {
+                el.setAttribute(key, '');
+            }
+            else if (typeof sent === 'string') {
+                el.setAttribute('src', sent);
+            }
+            else if (value != null && value !== false) {
+                el.setAttribute(key, String(value));
+            }
+        }
+        // What a <foreignObject> holds is HTML again, as in a browser.
+        const svgChildren = svg && type !== 'foreignObject';
+        for (const child of toNodes(p.children)) {
+            const source = svgChildren ? madeOf.get(child) : undefined;
+            el.appendChild(source ? element(source.type, source.props, true) : child);
+        }
+        return el;
+    };
+    // A component takes images as props of any name, so every string prop at any depth the host sent bytes for is
+    // swapped; `children` is content, not a link, and stays as written.
+    // oxlint-disable-next-line unicorn/consistent-function-scoping, anti-slop/no-unknown-returns, anti-slop/no-known-value-widening -- the frame receives this function as source text, so its helpers stay inside it; props are whatever the component takes, so every value passes through as it came.
+    const withSentImages = (value, sent) => {
+        if (typeof value === 'string') {
+            // Inherited keys are never strings, so only a value the host sent is swapped.
+            const data = sent[value];
+            return typeof data === 'string' ? data : value;
+        }
+        if (Array.isArray(value))
+            return value.map((item) => withSentImages(item, sent));
+        if (value === null || typeof value !== 'object')
+            return value;
+        const prototype = Object.getPrototypeOf(value);
+        if (prototype !== Object.prototype && prototype !== null)
+            return value;
+        // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a copy of the component's own props, values as they came.
+        const out = {};
+        for (const [key, item] of Object.entries(value))
+            out[key] = key === 'children' ? item : withSentImages(item, sent);
+        // oxlint-disable-next-line anti-slop/no-known-value-widening -- the copy is as open as the props it came from.
+        return out;
+    };
+    const jsx = (type, props) => {
+        const p = props || {};
+        if (type === Fragment) {
+            const frag = document.createDocumentFragment();
+            for (const child of toNodes(p.children))
+                frag.appendChild(child);
+            return frag;
+        }
+        if (typeof type === 'function') {
+            // SAFETY: `p` is a plain props object, and withSentImages copies a plain object into a plain object.
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion, anti-slop/no-unsafe-dictionary-type -- same reason as the SAFETY note.
+            const componentProps = images ? withSentImages(p, images) : p;
+            // SAFETY: compiled MDX passes only components, which take one props object and return this runtime's DOM nodes.
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion, anti-slop/no-unsafe-dictionary-type -- same reason as the SAFETY note.
+            return type(componentProps);
+        }
+        if (typeof type === 'string')
+            return element(type, p, false);
+        const missing = document.createElement('span');
+        missing.setAttribute('data-sandbox-unknown', '');
+        return missing;
+    };
+    return { Fragment, jsx, jsxs: jsx, jsxDEV: jsx };
+},runCompiledMdx:function runCompiledMdx(code, runtime) {
+    const AsyncFunction = Object.getPrototypeOf(async () => { }).constructor;
+    return new AsyncFunction(String(code))(runtime);
+}})</script></body></html>

@@ -1,0 +1,12 @@
+{
+  "sites": {
+    "default": {
+      "locales": ["ru", "rs", "en"],
+      "defaultLocale": "ru",
+      "domains": {
+        "ru": "www.bulka.rs"
+      }
+    }
+  },
+  "globalLocales": ["ru", "rs", "en"]
+}

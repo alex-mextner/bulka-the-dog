@@ -1,0 +1,25 @@
+{
+  "protocol": 1,
+  "repo": "alex-mextner/bulka-the-dog",
+  "siteId": "default",
+  "commit": null,
+  "branch": "main",
+  "builtWith": "@conloca/cloud-astro@0.2.6",
+  "componentManifest": {
+    "path": "component-manifest.01574c0c10f095bd.json",
+    "sha256": "01574c0c10f095bd5a3e09ac5eeb0fb74d8c49db3b6824621f7e073cd4218f04"
+  },
+  "preview": {
+    "mode": "off",
+    "protocol": 2
+  },
+  "contentPaths": [
+    "content",
+    "public/assets"
+  ],
+  "media": {
+    "path": "public/assets",
+    "refBase": "/assets"
+  },
+  "routes": []
+}

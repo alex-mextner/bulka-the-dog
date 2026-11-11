@@ -9,6 +9,12 @@
   ],
   "headers": [
     {
+      "source": "/_conloca/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    },
+    {
       "source": "/(.*)\\.(webp|jpg|jpeg|png|svg|ico|woff2)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
