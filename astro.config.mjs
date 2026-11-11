@@ -5,11 +5,9 @@ import { conlocaCloud } from '@conloca/cloud-astro';
 import { defineConfig } from 'astro/config';
 import { preparePublicEnvironment } from './scripts/public-environment.mjs';
 
-import { schemaTypia } from './typia-vite.mjs';
-
 // Preview deployments register their own origin. Never register a branch build
 // against the production site or put a build token in source control.
-const { publicBaseUrl, siteUrl } = preparePublicEnvironment();
+const { siteUrl } = preparePublicEnvironment();
 const endpoint = process.env.CONLOCA_ENDPOINT || 'https://alex-mextner.conloca.com';
 const puckConfigPath = './src/puck.config.tsx';
 
@@ -31,8 +29,6 @@ export default defineConfig({
       // src/pages/[...slug].astro owns locale prefixes and hydrates the full
       // Puck tree once, preserving shared gallery and language contexts.
       siteStyles: './client/global.css',
-
-      schemasPath: './src/schemas/data.ts',
     }),
     conlocaCloud({
       endpoint,
@@ -47,7 +43,5 @@ export default defineConfig({
         '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
       },
     },
-
-    plugins: [...schemaTypia()],
   },
 });
