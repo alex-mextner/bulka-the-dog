@@ -5,6 +5,9 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": "vite",
   "rewrites": [
+    { "source": "/_conloca/editor", "destination": "/api/conloca-editor" },
+    { "source": "/_conloca/editor/", "destination": "/api/conloca-editor" },
+    { "source": "/_conloca/editor/index.html", "destination": "/api/conloca-editor" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
