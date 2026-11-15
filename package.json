@@ -16,10 +16,12 @@
     "focus:generate": "docker run --rm -v \"$PWD:/work\" -v bulka-hf-cache:/cache/huggingface bulka-image-focus:latest --public-dir /work/public --output /work/client/lib/image-focus.json",
     "preview": "astro preview --host 0.0.0.0 --port 8080",
     "check": "astro check",
-    "test:content": "node --test tests/cms-content.test.mjs tests/cms-seed.test.mjs tests/public-environment.test.mjs tests/build-settings.test.mjs",
+    "test:content": "node --test tests/cms-content.test.mjs tests/cms-seed.test.mjs tests/public-environment.test.mjs tests/build-settings.test.mjs && pnpm test:editor-assets",
     "content:seed": "node scripts/seed-cms-content.mjs",
     "test:artifacts": "node scripts/check-conloca-artifacts.mjs && node scripts/check-site-metadata.mjs",
-    "content:definitions": "node scripts/generate-puck-definitions.mjs"
+    "content:definitions": "node scripts/generate-puck-definitions.mjs",
+    "test:editor-assets": "node --experimental-vm-modules --test tests/editor-asset-origin.test.mjs",
+    "test:editor-assets:browser": "node --test tests/browser/editor-image-origin.test.mjs"
   },
   "dependencies": {
     "@conloca/astro-cms": "0.2.6",

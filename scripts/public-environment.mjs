@@ -31,7 +31,14 @@ export function preparePublicEnvironment(environment = process.env) {
   const value = publicEnvironmentFrom(environment);
   const path = fileURLToPath(new URL('../src/generated/public-environment.ts', import.meta.url));
   const source = '// Generated from an explicit public allowlist by Astro/Vitest config.\n' +
-    `export const publicEnvironment = ${JSON.stringify(value, null, 2)} as const;\n`;
+    '// Public images belong to the delivered module, not the machine that built it.\n' +
+    `const buildEnvironment = ${JSON.stringify(value, null, 2)} as const;\n` +
+    'const moduleUrl = new URL(import.meta.url);\n' +
+    'export const publicEnvironment = {\n' +
+    '  ...buildEnvironment,\n' +
+    "  publicBaseUrl: moduleUrl.protocol === 'https:' || moduleUrl.protocol === 'http:'\n" +
+    '    ? moduleUrl.origin : buildEnvironment.publicBaseUrl,\n' +
+    '} as const;\n';
   let previous;
   try { previous = readFileSync(path, 'utf8'); } catch { /* First run in a fresh checkout. */ }
   if (previous !== source) {

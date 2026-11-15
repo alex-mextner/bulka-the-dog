@@ -88,6 +88,19 @@ draft-media adapter owns their preview URLs. The site renders relative paths
 normally. Inside the hosted editor, existing public photos resolve against the
 public origin of that exact build, without rewriting saved content.
 
+The browser derives that origin from the delivered module's `import.meta.url`,
+not from a hostname recorded on the build machine. The same component build can
+therefore move between production and preview hosts without turning public image
+paths into requests to a developer's localhost. Absolute external URLs and managed
+`/assets/` references keep their existing behavior. File-based server rendering
+still uses the configured build fallback; SEO and feature flags remain build settings.
+
+`pnpm test:editor-assets` exercises the actual generated module under neutral
+production, preview, development and server URLs. `pnpm test:editor-assets:browser`
+compiles the real resolver and checks loaded image pixels in a cross-origin iframe
+on two independently served origins, including a deployment subpath and external
+and managed-media controls. Run browser tests and full builds in CI or on RunPod.
+
 Migration thumbnails remain paired with their original full-size photos. When
 only a migrated photo's source URL changes, rendering ignores its leftover
 migration thumbnail and displays the new source. Explicit custom thumbnails
@@ -106,7 +119,7 @@ continue to describe the requested Astro route.
 ## Development
 
 Use Node 24 and pnpm 10.14.0. The lockfile pins the resolved dependencies.
-Published Conloca packages are pinned to 0.2.1, with React 19 and Puck 0.23.0.
+Published Conloca packages are pinned to 0.2.6, with React 19 and Puck 0.23.0.
 
 ```sh
 pnpm install --frozen-lockfile

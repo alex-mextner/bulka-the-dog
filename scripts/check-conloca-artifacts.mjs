@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 
-const directory = new URL('../dist/_conloca/', import.meta.url);
+const directory = new URL('../dist/_conloca/editor/', import.meta.url);
 const files = await readdir(directory);
 const manifests = files.filter(file => /^component-manifest\.[a-f0-9]+\.json$/.test(file));
 assert.equal(manifests.length, 1, 'Expected one component manifest from a clean Astro build.');
-const manifest = JSON.parse(await readFile(new URL(manifests[0], directory), 'utf8'));
+const manifestBytes = await readFile(new URL(manifests[0], directory));
+const manifest = JSON.parse(manifestBytes.toString('utf8'));
+const info = JSON.parse(await readFile(new URL('conloca.json', directory), 'utf8'));
+assert.equal(info.componentManifest.path, manifests[0], 'The editor info must name the emitted manifest.');
+assert.equal(info.componentManifest.sha256, createHash('sha256').update(manifestBytes).digest('hex'),
+  'The emitted manifest must match its declared digest.');
 const expected = ['Hero', 'Appearance', 'Habits', 'Skills', 'Health', 'Conditions', 'Questions', 'Game', 'Contact', 'PhotoGallery'];
 assert.deepEqual(Object.keys(manifest.components).sort(), expected.sort(), 'Every editable section must appear in the manifest.');
 assert.deepEqual(manifest.unresolved, []);
@@ -31,10 +37,11 @@ assert.equal(manifest.components.PhotoGallery.fields.photosList.type, 'array');
 assert.equal(manifest.root.fields.copy.type, 'object');
 assert.equal(manifest.root.fields.locale.type, 'select');
 assert.deepEqual(manifest.root.fields.locale.options.map(option => option.value), ['ru', 'rs', 'en']);
-const bundles = files.filter(file => /^editor-bundle\..*\.js$/.test(file));
-assert.ok(bundles.length > 0, 'Editor bundle must be emitted.');
+const bundles = files.filter(file => /^site\.[a-f0-9]{16}\.js$/.test(file));
+assert.equal(bundles.length, 1, 'A clean build must emit one editor site module.');
 for (const file of bundles) {
   const source = await readFile(new URL(file, directory), 'utf8');
+  assert.equal(file, `site.${createHash('sha256').update(source).digest('hex').slice(0, 16)}.js`, 'The site module name must match its bytes.');
   assert.equal(/import\.meta\.env\b/.test(source), false, 'The hosted native ESM bundle must not depend on Vite env globals.');
 }
 console.log(`Conloca artifacts verified: ${expected.length} readable components, nested photo/repeater fields, native ESM env transform.`);
