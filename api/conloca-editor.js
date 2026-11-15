@@ -19,7 +19,7 @@ const SITE_ASSETS = {
   protocol: 1,
   repo: 'alex-mextner/bulka-the-dog',
   siteId: 'default',
-  site: '/_conloca/editor/site.fab3a854c6975d4f.js',
+  site: '/_conloca/editor/site.a1cd2a2d16d4297d.js',
   css: ['/_conloca/editor/site.ea2637e4acd669b0.css'],
   editorCss: null,
   sandboxFrame: '/_conloca/editor/sandbox-frame.html',

@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/alex-mextner/bulka-the-dog.git",
+  "commit": "0add1301749cdda3046ce09974377a80089dfcbc",
+  "module": "site.a1cd2a2d16d4297d.js",
+  "sha256": "a1cd2a2d16d4297d56615a70ab7017d329b20387e687dc37bcdb9374d0829cc3",
+  "unchanged": [
+    "site.ea2637e4acd669b0.css",
+    "component-manifest.01574c0c10f095bd.json"
+  ]
+}
