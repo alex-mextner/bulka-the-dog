@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build:client && npm run build:server",
-    "build:client": "vite-react-ssg build",
+    "build:client": "pnpm build:editor && vite-react-ssg build",
     "build:server": "vite build --config vite.config.server.ts",
     "start": "node dist/server/node-build.mjs",
     "test": "vitest --run",
@@ -14,7 +14,9 @@
     "format.fix": "prettier --write .",
     "typecheck": "tsc",
     "focus:build": "docker build -f scripts/image-focus/Dockerfile -t bulka-image-focus:latest .",
-    "focus:generate": "docker run --rm -v \"$PWD:/work\" -v bulka-hf-cache:/cache/huggingface bulka-image-focus:latest --public-dir /work/public --output /work/client/lib/image-focus.json"
+    "focus:generate": "docker run --rm -v \"$PWD:/work\" -v bulka-hf-cache:/cache/huggingface bulka-image-focus:latest --public-dir /work/public --output /work/client/lib/image-focus.json",
+    "test:editor-artifacts": "node --test tests/editor-source-build.test.mjs tests/editor-artifacts.test.mjs",
+    "build:editor": "node scripts/build-editor.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
@@ -108,5 +110,8 @@
     "scripts": [
       "dist/server/**/*.js"
     ]
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
