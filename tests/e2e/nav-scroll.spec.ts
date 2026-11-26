@@ -15,6 +15,7 @@ test.describe("Nav chip scroll", () => {
     page,
   }) => {
     await page.goto("/?touch=1", { waitUntil: "load" });
+    await expect(page.locator("footer")).toBeAttached();
     // Reach a state where the burger menu is visible (isScrolled true).
     await page.evaluate(() => window.scrollTo(0, 200));
     await page.waitForTimeout(100);
@@ -38,7 +39,9 @@ test.describe("Nav chip scroll", () => {
 
     // Tap the "Photos" chip (last in the morphed nav list).
     const morphedNav = page.locator("#mobile-nav [data-mobile-nav-row]");
-    const photosChip = morphedNav.locator("button", { hasText: /Фото|Photos|Slike/ }).first();
+    const photosChip = morphedNav
+      .locator("button", { hasText: /Фото|Photos|Slike/ })
+      .first();
     // The chip might be off-screen in the horizontal nav scroller; bring it in.
     await photosChip.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
     await photosChip.tap();
@@ -66,7 +69,9 @@ test.describe("Nav chip scroll", () => {
     await page.locator('[aria-label="Открыть меню"]').tap();
     await page.waitForTimeout(350);
     const morphedNav = page.locator("#mobile-nav [data-mobile-nav-row]");
-    const photosChip = morphedNav.locator("button", { hasText: /Фото|Photos|Slike/ }).first();
+    const photosChip = morphedNav
+      .locator("button", { hasText: /Фото|Photos|Slike/ })
+      .first();
     await photosChip.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
     await photosChip.tap();
 
@@ -139,7 +144,10 @@ test.describe("Nav chip scroll", () => {
         top,
         `section #${id} should be near top, got ${top}`,
       ).toBeGreaterThanOrEqual(-10);
-      expect(top, `section #${id} should be near top, got ${top}`).toBeLessThanOrEqual(120);
+      expect(
+        top,
+        `section #${id} should be near top, got ${top}`,
+      ).toBeLessThanOrEqual(120);
     }
   });
 });

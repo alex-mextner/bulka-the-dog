@@ -33,6 +33,7 @@ test.describe("Page safe-area bottom coverage", () => {
       });
     });
     await page.goto("/", { waitUntil: "load" });
+    await expect(page.locator("footer")).toBeAttached();
   });
 
   // ── html element has a background colour ─────────────────────────────────────
@@ -199,8 +200,8 @@ test.describe("Page safe-area bottom coverage", () => {
     });
 
     expect(hasLargeViewportUnits.cssMentionsLvh).toBe(true);
-    expect(parseFloat(hasLargeViewportUnits.pageShellMinHeight)).toBeGreaterThan(
-      0,
-    );
+    expect(
+      parseFloat(hasLargeViewportUnits.pageShellMinHeight),
+    ).toBeGreaterThan(0);
   });
 });

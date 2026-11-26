@@ -85,6 +85,12 @@ const PinchTransitionOverlay = React.forwardRef<
         setOpts(o);
         optsRef.current = o;
         activeRef.current = true;
+        if (imgRef.current) {
+          imgRef.current.style.transform = "translate3d(0, 0, 0) scale(1)";
+        }
+        if (dimRef.current) {
+          dimRef.current.style.backgroundColor = "rgba(0,0,0,0)";
+        }
         window.requestAnimationFrame(() => {
           if (rootRef.current) {
             rootRef.current.style.opacity = "1";
@@ -116,13 +122,16 @@ const PinchTransitionOverlay = React.forwardRef<
         }
       },
       dismiss: () => {
-        if (!optsRef.current) return;
+        const dismissedOpts = optsRef.current;
+        if (!dismissedOpts) return;
         setTransitioning(true);
         if (rootRef.current) {
           rootRef.current.style.transition = `opacity ${PINCH_DISMISS_MS}ms ease-out`;
           rootRef.current.style.opacity = "0";
         }
         window.setTimeout(() => {
+          // A later gesture owns its own clone, even during this fade-out.
+          if (optsRef.current !== dismissedOpts) return;
           setOpts(null);
           setTransitioning(false);
           optsRef.current = null;
@@ -140,6 +149,7 @@ const PinchTransitionOverlay = React.forwardRef<
         } else {
           // Animate back to identity (= thumbnail rect) over PINCH_CANCEL_MS,
           // then unmount.
+          const cancelledOpts = optsRef.current;
           setTransitioning(true);
           if (imgRef.current) {
             imgRef.current.style.transform = "translate3d(0, 0, 0) scale(1)";
@@ -148,6 +158,7 @@ const PinchTransitionOverlay = React.forwardRef<
             dimRef.current.style.backgroundColor = "rgba(0,0,0,0)";
           }
           window.setTimeout(() => {
+            if (optsRef.current !== cancelledOpts) return;
             setOpts(null);
             setTransitioning(false);
             optsRef.current = null;
@@ -273,6 +284,8 @@ type GalleryContextValue = {
   // wind down (gesture ended → 500ms grace then exit so we stop fighting
   // yarl's own pinch-zoom inside the lightbox).
   pinchActiveRef: React.MutableRefObject<boolean>;
+  // Shared across thumbnail hooks so an older grace timer cannot release a new gesture.
+  pinchGestureIdRef: React.MutableRefObject<number>;
   // Test-only: when true, the pinch-hold overlay poll refuses to dismiss
   // the overlay even if the image has already loaded. Set via
   // __bulkaTest.setHoldPinchOverlay(true) before opening the lightbox so
@@ -318,6 +331,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     dy: 0,
   });
   const pinchActiveRef = React.useRef<boolean>(false);
+  const pinchGestureIdRef = React.useRef(0);
   const holdPinchOverlayRef = React.useRef<boolean>(false);
   const isOpenRef = React.useRef(false);
   const lightboxHistoryKeyRef = React.useRef(0);
@@ -529,9 +543,14 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
   );
 
   const close = React.useCallback(() => {
+    if (!isOpenRef.current) return;
     isOpenRef.current = false;
     setIsOpen(false);
     setPinchThumbSrc(null);
+    // The provider's clone outlives the lightbox, whose load poll stops on close.
+    pinchOverlayRef.current?.dismiss();
+    pinchActiveRef.current = false;
+    pinchGestureIdRef.current++;
     // Mirror the eager add in open(): remove the class immediately so that if
     // close() is called before YARL's NoScroll effect has mounted (e.g. a
     // popstate arriving before React commits the isOpen=true render), the
@@ -615,6 +634,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
       pendingThumbWidthRef,
       pendingPanRef,
       pinchActiveRef,
+      pinchGestureIdRef,
       holdPinchOverlayRef,
       pinchThumbSrc,
     }),
@@ -679,6 +699,7 @@ export function usePinchToOpen(
     pendingThumbWidthRef,
     pendingPanRef,
     pinchActiveRef,
+    pinchGestureIdRef,
   } = useGallery();
 
   // Store latest meta and callback in refs so the touchstart listener
@@ -755,7 +776,7 @@ export function usePinchToOpen(
         pinchOverlayRef.current?.update(scale, lastDx, lastDy);
       };
 
-      const finishGesture = () => {
+      const finishGesture = (allowCommit = true) => {
         if (!active) return;
         active = false;
         // KEEP pinchActiveRef true a little longer than the gesture itself.
@@ -766,7 +787,7 @@ export function usePinchToOpen(
         // and release zoom-ownership before our mount-effect has time to
         // read pendingZoomRef and apply the seed scale to yarl. The 600ms
         // grace covers React mount + yarl ZoomRef attach + first paint.
-        const commit = lastScale >= PINCH_COMMIT_SCALE;
+        const commit = allowCommit && lastScale >= PINCH_COMMIT_SCALE;
         if (commit) {
           // Stash the target width (thumb × scale, CSS pixels) so the lightbox's
           // rAF poll can compute the correct yarl zoom by dividing by fit_width.
@@ -798,8 +819,11 @@ export function usePinchToOpen(
           pinchOverlayRef.current?.commit();
           // Release pinchActive only AFTER the mount-effect has had time to
           // run. See note above finishGesture.
+          const gestureId = pinchGestureIdRef.current;
           window.setTimeout(() => {
-            pinchActiveRef.current = false;
+            if (pinchGestureIdRef.current === gestureId) {
+              pinchActiveRef.current = false;
+            }
           }, 600);
         } else {
           pendingZoomRef.current = 1;
@@ -822,7 +846,7 @@ export function usePinchToOpen(
 
       const onWindowTouchCancel = () => {
         if (!active) return;
-        finishGesture();
+        finishGesture(false);
       };
 
       const onNativeTouchStart = (e: TouchEvent) => {
@@ -840,6 +864,7 @@ export function usePinchToOpen(
         lastDy = 0;
         active = true;
         pinchActiveRef.current = true;
+        pinchGestureIdRef.current++;
 
         const { src, thumbSrc, alt } = metaRef.current;
 
@@ -956,7 +981,8 @@ export function GalleryImage({
   const idRef = React.useRef<number | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
   const { style: imgStyle, ...restImgProps } = imgProps;
-  const focusStyle = getImageFocusStyle(thumbSrc ?? src) ?? getImageFocusStyle(src);
+  const focusStyle =
+    getImageFocusStyle(thumbSrc ?? src) ?? getImageFocusStyle(src);
 
   // Register exactly once per mount; unregister on unmount.
   React.useEffect(() => {
@@ -1211,6 +1237,35 @@ export function GalleryLightbox() {
     animation.oncancel = finish;
   }, [pendingThumbWidthRef]);
 
+  const applySeedZoom = React.useCallback(
+    (z: ZoomRef, target: number) => {
+      const pan =
+        pendingThumbWidthRef.current > 0
+          ? getEffectiveSeedPan()
+          : pendingPanRef.current;
+      // Convert thumb-centre coords to yarl focal-point offset.
+      // When pendingThumbWidthRef > 0 (pixel-based path), pan.dx/dy is the
+      // thumbnail centre relative to viewport centre (not the pinch midpoint).
+      // yarl's changeZoom(Z, rapid, dx, dy) applies:
+      //   newOffset = currentOffset - dx * (1/currentZoom - 1/Z)
+      // Starting from zoom=1, offsetX=0 we need newOffset * Z = pan.dx, so:
+      //   dx_focal = -pan.dx / (Z - 1)
+      // For the legacy path (pendingThumbWidthRef=0) pan.dx is already the
+      // raw focal point as before.
+      let focalDx: number;
+      let focalDy: number;
+      if (pendingThumbWidthRef.current > 0 && target > 1) {
+        focalDx = -pan.dx / (target - 1);
+        focalDy = -pan.dy / (target - 1);
+      } else {
+        focalDx = pan.dx;
+        focalDy = pan.dy;
+      }
+      z.changeZoom(target, true, focalDx, focalDy);
+    },
+    [getEffectiveSeedPan, pendingPanRef, pendingThumbWidthRef],
+  );
+
   // After the lightbox opens, if there's a pending zoom from a pinch gesture
   // (set by GalleryImage's commit path), feed it to yarl. We can't do this
   // in the same tick that isOpen flips — yarl's zoom plugin attaches its ref
@@ -1242,10 +1297,22 @@ export function GalleryLightbox() {
     ownsZoomRef.current = true;
     fitWidthCacheRef.current = 0; // reset cache on each open
     let rafId = 0;
-    const tick = () => {
-      if (!ownsZoomRef.current) return;
-      const z = zoomRef.current;
-
+    const cacheUnzoomedFitWidth = (z: ZoomRef | null) => {
+      // Lazily read fit_width from DOM. Only sample when yarl zoom is
+      // still 1 (i.e. before we've applied any seed zoom). After the
+      // first changeZoom the image will be scaled, so we must not
+      // re-read — just use the cached value.
+      if (fitWidthCacheRef.current <= 0 && z && z.zoom <= 1.01) {
+        const img = document.querySelector(
+          ".yarl__slide_current .yarl__fullsize img",
+        ) as HTMLImageElement | null;
+        if (img) {
+          const w = img.getBoundingClientRect().width;
+          if (w > 0) fitWidthCacheRef.current = w;
+        }
+      }
+    };
+    const resolveSeedZoomTarget = (z: ZoomRef | null) => {
       // Resolve the target yarl zoom from pendingZoomRef.
       // Two paths depending on whether thumbWidth was provided:
       //
@@ -1261,58 +1328,35 @@ export function GalleryLightbox() {
       let target: number;
       if (pendingThumbWidthRef.current > 0) {
         const targetPx = pendingZoomRef.current;
-        // Lazily read fit_width from DOM. Only sample when yarl zoom is
-        // still 1 (i.e. before we've applied any seed zoom). After the
-        // first changeZoom the image will be scaled, so we must not
-        // re-read — just use the cached value.
-        if (fitWidthCacheRef.current <= 0 && z && z.zoom <= 1.01) {
-          const img = document.querySelector(
-            ".yarl__slide_current .yarl__fullsize img",
-          ) as HTMLImageElement | null;
-          if (img) {
-            const w = img.getBoundingClientRect().width;
-            if (w > 0) fitWidthCacheRef.current = w;
-          }
-        }
+        cacheUnzoomedFitWidth(z);
         const fitWidth = fitWidthCacheRef.current;
         if (fitWidth > 0) {
           const maxZoom = z ? z.maxZoom : 3;
           target = Math.min(maxZoom, Math.max(1, targetPx / fitWidth));
         } else {
           // fit_width not yet readable (image not in DOM yet) — skip this tick.
-          rafId = requestAnimationFrame(tick);
-          return;
+          return null;
         }
       } else {
         // Legacy path: pendingZoomRef is a direct yarl zoom value.
         target = Math.max(1, pendingZoomRef.current);
       }
 
+      return target;
+    };
+    const tick = () => {
+      if (!ownsZoomRef.current) return;
+      const z = zoomRef.current;
+
+      const target = resolveSeedZoomTarget(z);
+      if (target === null) {
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
       if (target > 1) {
         if (z && !z.disabled && Math.abs(z.zoom - target) > 0.01) {
-          const pan =
-            pendingThumbWidthRef.current > 0
-              ? getEffectiveSeedPan()
-              : pendingPanRef.current;
-          // Convert thumb-centre coords to yarl focal-point offset.
-          // When pendingThumbWidthRef > 0 (pixel-based path), pan.dx/dy is the
-          // thumbnail centre relative to viewport centre (not the pinch midpoint).
-          // yarl's changeZoom(Z, rapid, dx, dy) applies:
-          //   newOffset = currentOffset - dx * (1/currentZoom - 1/Z)
-          // Starting from zoom=1, offsetX=0 we need newOffset * Z = pan.dx, so:
-          //   dx_focal = -pan.dx / (Z - 1)
-          // For the legacy path (pendingThumbWidthRef=0) pan.dx is already the
-          // raw focal point as before.
-          let focalDx: number;
-          let focalDy: number;
-          if (pendingThumbWidthRef.current > 0 && target > 1) {
-            focalDx = -pan.dx / (target - 1);
-            focalDy = -pan.dy / (target - 1);
-          } else {
-            focalDx = pan.dx;
-            focalDy = pan.dy;
-          }
-          z.changeZoom(target, true, focalDx, focalDy);
+          applySeedZoom(z, target);
         }
         scheduleUnboundedSeedTransform(target);
       }
@@ -1326,7 +1370,7 @@ export function GalleryLightbox() {
     pendingThumbWidthRef,
     pendingPanRef,
     scheduleUnboundedSeedTransform,
-    getEffectiveSeedPan,
+    applySeedZoom,
   ]);
   // True while we should skip the next on.view event. Initialised to true so
   // the first on.view (which yarl fires synchronously on mount for the initial
@@ -1499,6 +1543,58 @@ export function GalleryLightbox() {
         pinchOverlayRef.current?.dismiss();
       });
     };
+    const updateImageLoadState = () => {
+      // Check image load state.
+      if (!imageLoadedRef.current) {
+        const img = document.querySelector(
+          ".yarl__slide_current .yarl__fullsize img",
+        ) as HTMLImageElement | null;
+        if (img && img.complete && img.naturalWidth > 0) {
+          imageLoadedRef.current = true;
+        }
+      }
+    };
+    const cacheRenderedFitWidth = () => {
+      // fitWidth not cached yet. Fallback: derive from img's rendered width
+      // divided by the current zoom, which works whether zoom=1 (direct
+      // measurement) or zoom>1 (seed-zoom already applied before we cached).
+      const currentZoom = zoomRef.current?.zoom ?? 1;
+      const img = document.querySelector(
+        ".yarl__slide_current .yarl__fullsize img",
+      ) as HTMLImageElement | null;
+      if (img) {
+        const w = img.getBoundingClientRect().width;
+        if (w > 0) {
+          fitWidthCacheRef.current = w / Math.max(1, currentZoom);
+        }
+      }
+    };
+    const resolveHoldZoomTarget = () => {
+      // Resolve the target yarl zoom. Two paths (mirrors the seed-zoom rAF tick):
+      //   thumbW > 0 → pixel-based: pendingZoomRef holds CSS px, divide by fitWidth.
+      //   thumbW = 0 → legacy: pendingZoomRef is a direct yarl zoom factor.
+      const thumbW = pendingThumbWidthRef.current;
+      let fitW = fitWidthCacheRef.current;
+      let targetYarlZoom: number;
+      if (thumbW > 0) {
+        if (fitW <= 0) {
+          cacheRenderedFitWidth();
+          fitW = fitWidthCacheRef.current;
+        }
+        if (fitW <= 0) {
+          // Image not in DOM yet — defer.
+          return null;
+        }
+        const maxZ = zoomRef.current?.maxZoom ?? 3;
+        targetYarlZoom = Math.min(
+          maxZ,
+          Math.max(1, pendingZoomRef.current / fitW),
+        );
+      } else {
+        targetYarlZoom = Math.max(1, pendingZoomRef.current);
+      }
+      return targetYarlZoom;
+    };
     const pollImageLoad = () => {
       frameCount++;
       if (frameCount > MAX_FRAMES) {
@@ -1512,15 +1608,7 @@ export function GalleryLightbox() {
         rafId = requestAnimationFrame(pollImageLoad);
         return;
       }
-      // Check image load state.
-      if (!imageLoadedRef.current) {
-        const img = document.querySelector(
-          ".yarl__slide_current .yarl__fullsize img",
-        ) as HTMLImageElement | null;
-        if (img && img.complete && img.naturalWidth > 0) {
-          imageLoadedRef.current = true;
-        }
-      }
+      updateImageLoadState();
       if (
         !imageLoadedRef.current &&
         frameCount >= 12 &&
@@ -1534,41 +1622,10 @@ export function GalleryLightbox() {
       //   3. yarl has painted the seed zoom (CSS transform scale ≈ pendingZoom)
       //      Read from DOM so we check the *actually painted* state, not just
       //      the internal zoom state which fires one tick before rAF commit.
-      // Resolve the target yarl zoom. Two paths (mirrors the seed-zoom rAF tick):
-      //   thumbW > 0 → pixel-based: pendingZoomRef holds CSS px, divide by fitWidth.
-      //   thumbW = 0 → legacy: pendingZoomRef is a direct yarl zoom factor.
-      const thumbW = pendingThumbWidthRef.current;
-      let fitW = fitWidthCacheRef.current;
-      let targetYarlZoom: number;
-      if (thumbW > 0) {
-        if (fitW <= 0) {
-          // fitWidth not cached yet. Fallback: derive from img's rendered width
-          // divided by the current zoom, which works whether zoom=1 (direct
-          // measurement) or zoom>1 (seed-zoom already applied before we cached).
-          const currentZoom = zoomRef.current?.zoom ?? 1;
-          const img = document.querySelector(
-            ".yarl__slide_current .yarl__fullsize img",
-          ) as HTMLImageElement | null;
-          if (img) {
-            const w = img.getBoundingClientRect().width;
-            if (w > 0) {
-              fitWidthCacheRef.current = w / Math.max(1, currentZoom);
-              fitW = fitWidthCacheRef.current;
-            }
-          }
-        }
-        if (fitW <= 0) {
-          // Image not in DOM yet — defer.
-          rafId = requestAnimationFrame(pollImageLoad);
-          return;
-        }
-        const maxZ = zoomRef.current?.maxZoom ?? 3;
-        targetYarlZoom = Math.min(
-          maxZ,
-          Math.max(1, pendingZoomRef.current / fitW),
-        );
-      } else {
-        targetYarlZoom = Math.max(1, pendingZoomRef.current);
+      const targetYarlZoom = resolveHoldZoomTarget();
+      if (targetYarlZoom === null) {
+        rafId = requestAnimationFrame(pollImageLoad);
+        return;
       }
       // Use actual yarl zoom state (zoomRef.current.zoom), not CSS transform regex.
       // The old CSS regex path compared CSS px scale (~2.5) against pixel-based
@@ -1776,23 +1833,10 @@ export function GalleryLightbox() {
             if (Math.abs(currentZoom - target) < 0.01) return;
             const z = zoomRef.current;
             if (z && !z.disabled) {
-              const pan =
-                pendingThumbWidthRef.current > 0
-                  ? getEffectiveSeedPan()
-                  : pendingPanRef.current;
               // Same focal-point conversion as the rAF tick: pan.dx/dy is the
               // thumbnail centre offset (not a raw focal point) when
               // pendingThumbWidthRef > 0.
-              let focalDx: number;
-              let focalDy: number;
-              if (pendingThumbWidthRef.current > 0 && target > 1) {
-                focalDx = -pan.dx / (target - 1);
-                focalDy = -pan.dy / (target - 1);
-              } else {
-                focalDx = pan.dx;
-                focalDy = pan.dy;
-              }
-              z.changeZoom(target, true, focalDx, focalDy);
+              applySeedZoom(z, target);
             }
           },
         }}
