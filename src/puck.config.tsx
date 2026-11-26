@@ -1,6 +1,7 @@
 import type { Config } from '@puckeditor/core';
 import BulkaSection from '../client/pages/Index';
 import { PageFrame } from '../client/cms/PageFrame';
+import { EditorPhotoFrame } from '../client/cms/SiteRuntimeContext';
 import type { BulkaComponents, BulkaRootFields } from '../client/cms/types';
 import {
   RootDefinition, HeroDefinition, AppearanceDefinition, HabitsDefinition,
@@ -16,7 +17,7 @@ const config: Config<BulkaComponents, BulkaRootFields> = {
   ] }, optional: { title: 'Optional features', components: ['Game'] } },
   root: {
     ...RootDefinition,
-    render: ({ children, ...props }) => <PageFrame {...props}>{children}</PageFrame>,
+    render: ({ children, ...props }) => <EditorPhotoFrame><PageFrame {...props}>{children}</PageFrame></EditorPhotoFrame>,
   },
   components: {
     Hero: { ...HeroDefinition, render: props => <BulkaSection section="hero" content={props} /> },

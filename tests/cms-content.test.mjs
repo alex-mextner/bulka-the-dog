@@ -4,7 +4,7 @@ import * as definitions from '../src/puck.definitions.ts';
 import {
   normalizeLocale, htmlLanguage, localizeLookup, safePublicUrl,
   pageForLocale, validatePuckPage, sectionAnchor, navigationForContent,
-  resolveCmsAssetUrl, resolveSectionAssets,
+  resolveCmsAssetUrl, resolveSectionAssets, canDisplayPhotoUrl,
 } from '../client/cms/content-model.ts';
 
 test('Serbian browser and CMS locale aliases resolve consistently', () => {
@@ -22,6 +22,24 @@ test('content lookup keeps intentional empty values and falls back only for miss
   assert.equal(localizeLookup(selected, 'hero.story', fallback), '');
   assert.equal(localizeLookup(selected, 'hero.intro', fallback), 'Привет');
   assert.equal(localizeLookup(selected, 'unknown', fallback), 'unknown');
+});
+
+test('an editor object URL is a display source only in its own HTTP frame', () => {
+  const origin = 'https://editor.example:8443';
+  const local = `blob:${origin}/cb53e841-6d3c-4068-a127-fbf253c12749`;
+  assert.equal(canDisplayPhotoUrl(local, origin), true);
+  assert.equal(canDisplayPhotoUrl(local, undefined), false);
+  assert.equal(safePublicUrl(local), false);
+  for (const value of [
+    'blob:https://other.example/image', 'blob:https://editor.example/image',
+    'blob:https://editor.example.attacker.test:8443/image', 'blob:null/image',
+    'data:image/png;base64,AA==', '//editor.example:8443/image',
+    local + '\n', local + '\\',
+  ]) {
+    assert.equal(canDisplayPhotoUrl(value, origin), false, value);
+  }
+  assert.equal(canDisplayPhotoUrl('blob:null/image', 'null'), false);
+  assert.equal(canDisplayPhotoUrl('/images/portrait.webp', undefined), true);
 });
 
 test('editable URLs reject executable and cross-origin scheme-relative values', () => {
