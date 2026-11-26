@@ -1,4 +1,4 @@
-import { useSiteRuntime } from "@/cms/SiteRuntimeContext";
+import { useEditorPhotoOrigin, useSiteRuntime } from "@/cms/SiteRuntimeContext";
 import { publicEnvironment } from '../../src/generated/public-environment';
 import * as React from "react";
 import { cn } from "@/lib/utils";
@@ -215,21 +215,31 @@ const SECTION_IMG_INNER_CLS =
 
 
 import { CmsCopyProvider } from "@/cms/CopyContext";
-import { hasPhotoSource, safePublicUrl, sectionAnchor, resolveCmsAssetUrl, resolveSectionAssets } from "@/cms/content-model";
+import { canDisplayPhotoUrl, hasPhotoSource, safePublicUrl, sectionAnchor, resolveCmsAssetUrl, resolveSectionAssets } from "@/cms/content-model";
 import schema from "@/cms/section-schema.json";
 import type { SectionContentData, PhotoContent } from "@/cms/types";
+
+function sectionImages(content: SectionContentData, interactive: boolean, frameOrigin: string | undefined) {
+  const editorOrigin = interactive ? undefined : frameOrigin;
+  const images = { ...defaultImages };
+  for (const key of Object.keys(images)) images[key] = resolveCmsAssetUrl(images[key], PUBLIC_SITE_ORIGIN, interactive);
+  for (const [key, photo] of Object.entries(content.photos || {})) {
+    if (hasPhotoSource(photo.src) && !canDisplayPhotoUrl(photo.src, editorOrigin)) continue;
+    images[key] = photo.src;
+    const thumbKey = `${key}_thumb`;
+    if (thumbKey in images) {
+      images[thumbKey] = hasPhotoSource(photo.src) && canDisplayPhotoUrl(photo.thumbSrc, editorOrigin) ? photo.thumbSrc : photo.src;
+    }
+  }
+  return images;
+}
 
 function SectionContent({ section, content }: { section: string; content: SectionContentData }) {
   const sectionId = sectionAnchor(section, content.id);
   const { t } = useLanguage();
   const interactive = useSiteRuntime();
-  const images = { ...defaultImages };
-  for (const key of Object.keys(images)) images[key] = resolveCmsAssetUrl(images[key], PUBLIC_SITE_ORIGIN, interactive);
-  for (const [key, photo] of Object.entries(content.photos || {})) {
-    if (!hasPhotoSource(photo.src) || safePublicUrl(photo.src)) images[key] = photo.src;
-    const thumbKey = `${key}_thumb`;
-    if (thumbKey in images) images[thumbKey] = hasPhotoSource(photo.src) && safePublicUrl(photo.thumbSrc) ? photo.thumbSrc : photo.src;
-  }
+  const frameOrigin = useEditorPhotoOrigin();
+  const images = sectionImages(content, interactive, frameOrigin);
   const habitItems = content.items || [];
   const HABITS_PHOTOS = habitItems.map(item => item.photo);
   const HABITS_SECONDARY_PHOTOS = habitItems.map(item => item.secondaryPhoto);

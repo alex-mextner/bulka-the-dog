@@ -34,7 +34,7 @@ timeout 90 npx playwright test <file> --reporter=line
 # Bash tool — всегда передавай timeout: 100000
 ```
 
-Vercel читает `vercel.json`: `buildCommand: pnpm build`, `outputDirectory: dist`. Статические Astro-страницы и реальные 404. Не добавляй SPA rewrite: он ломает загрузку `/_conloca/` и маскирует отсутствующие страницы. Для cloud editor assets обязательны публичный доступ и CORS.
+Vercel читает `vercel.json`: `buildCommand: pnpm test:editor-photos && pnpm build`, `outputDirectory: dist`. Статические Astro-страницы и реальные 404. Не добавляй SPA rewrite: он ломает загрузку `/_conloca/` и маскирует отсутствующие страницы. Для cloud editor assets обязательны публичный доступ и CORS.
 
 ## Architecture
 

@@ -48,6 +48,17 @@ export function safePublicUrl(value: unknown, options: { allowContact?: boolean 
   } catch { return false; }
 }
 
+/** A frame-created object URL may paint a photo in that editor document only. */
+export function canDisplayPhotoUrl(value: unknown, editorOrigin?: string): value is string {
+  if (safePublicUrl(value)) return true;
+  if (typeof value !== 'string' || !editorOrigin || !/^https?:\/\//.test(editorOrigin)) return false;
+  const prefix = `blob:${editorOrigin}/`;
+  if (!value.startsWith(prefix) || value.length === prefix.length || /[\\\s\u0000-\u001f\u007f]/.test(value)) return false;
+  try {
+    return new URL(value).origin === editorOrigin;
+  } catch { return false; }
+}
+
 /** An optional photo can be cleared in Puck without deleting its object. */
 export function hasPhotoSource(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;

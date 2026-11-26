@@ -86,7 +86,10 @@ sources and nonempty unsafe URLs still fail publication validation.
 Keep existing photos under `/images/`. Conloca-managed uploads use `/assets/`; the cloud editor's
 draft-media adapter owns their preview URLs. The site renders relative paths
 normally. Inside the hosted editor, existing public photos resolve against the
-public origin of that exact build, without rewriting saved content.
+public origin of that exact build, without rewriting saved content. For a section photo,
+the mounted editor can also display a temporary object URL created by its own frame.
+Keep the portable asset path in saved content. Static HTML and the public page use the
+published source.
 
 Migration thumbnails remain paired with their original full-size photos. When
 only a migrated photo's source URL changes, rendering ignores its leftover

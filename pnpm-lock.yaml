@@ -204,6 +204,9 @@ importers:
       globals:
         specifier: ^16.3.0
         version: 16.3.0
+      happy-dom:
+        specifier: 20.14.6
+        version: 20.14.6
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

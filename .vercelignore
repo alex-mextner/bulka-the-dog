@@ -3,7 +3,8 @@ dist
 dist-ssr
 .vite-react-ssg-temp
 *.local
-tests
+tests/*
+!tests/cms-content.test.mjs
 test-results
 .playwright-mcp
 .serena
